@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zombie Survival Game</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            font-family: Arial, sans-serif;
+        }
+        canvas { 
+            display: block; 
+        }
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-size: 16px;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: white;
+            font-size: 14px;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        #message {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <div id="health">Health: 100</div>
+        <div id="exp">EXP: 0</div>
+        <div id="zombieCount">Zombies: 0</div>
+    </div>
+    <div id="controls">
+        <div>WASD: Move (slower when moving south)</div>
+        <div>Mouse: Aim weapon</div>
+        <div>Hold Left Mouse Button: Continuous fire</div>
+    </div>
+    <script type="module" src="./src/main.js"></script>
+</body>
+</html> 

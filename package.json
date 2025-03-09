@@ -1,0 +1,25 @@
+{
+  "name": "zombie-survival-game",
+  "version": "0.1.0",
+  "description": "A 3D browser-based cooperative multiplayer zombie survival game using Three.js",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node server.js",
+    "serve": "serve .",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "three.js",
+    "game",
+    "zombie",
+    "survival",
+    "multiplayer"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "serve": "^14.2.0"
+  },
+  "devDependencies": {}
+} 
