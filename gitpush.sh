@@ -10,7 +10,7 @@
 #   ./gitpush.sh "Initial commit" --name my-new-repo
 #   ./gitpush.sh "Updated README" --name existing-repo
 #
-# Author: a19grey
+# Author: A19grey
 # Email: A19grey@gmail.com
 
 # Function to display usage information
@@ -51,10 +51,30 @@ check_auth() {
     USER_INFO=$(gh api user)
     CURRENT_USER=$(echo "$USER_INFO" | grep -o '"login": *"[^"]*"' | cut -d'"' -f4)
     
-    if [ "$CURRENT_USER" != "a19grey" ]; then
+    # Case-insensitive comparison for username
+    if [[ "${CURRENT_USER,,}" != "a19grey" && "${CURRENT_USER,,}" != "A19grey" ]]; then
         echo "Error: You are logged in as $CURRENT_USER, not A19grey."
-        echo "Please logout and login as a19grey."
-        exit 1
+        echo "Please logout using 'gh auth logout' and login as A19grey."
+        
+        # Force logout and prompt for new login
+        echo "Logging out current user..."
+        gh auth logout -h github.com
+        
+        echo "Please login as A19grey:"
+        if [ -n "$GIT_REPLIT_PERSONAL_TOKEN" ]; then
+            echo "Authenticating with GitHub token..."
+            echo "$GIT_REPLIT_PERSONAL_TOKEN" | gh auth login --with-token
+        else
+            gh auth login
+        fi
+        
+        # Verify again after re-login
+        USER_INFO=$(gh api user)
+        CURRENT_USER=$(echo "$USER_INFO" | grep -o '"login": *"[^"]*"' | cut -d'"' -f4)
+        if [[ "${CURRENT_USER,,}" != "a19grey" && "${CURRENT_USER,,}" != "A19grey" ]]; then
+            echo "Error: Still not logged in as A19grey. Exiting."
+            exit 1
+        fi
     fi
     
     # Check git config for email
@@ -69,6 +89,14 @@ check_auth() {
     if [ "$GIT_NAME" != "A19grey" ]; then
         echo "Setting git name to A19grey..."
         git config --global user.name "A19grey"
+    fi
+    
+    # Configure GitHub CLI to use the token for authentication
+    if [ -n "$GIT_REPLIT_PERSONAL_TOKEN" ]; then
+        echo "Configuring git to use token authentication..."
+        git config --global credential.helper store
+        echo "https://A19grey:${GIT_REPLIT_PERSONAL_TOKEN}@github.com" > ~/.git-credentials
+        chmod 600 ~/.git-credentials
     fi
     
     echo "Authenticated as A19grey (A19grey@gmail.com)"
@@ -119,8 +147,15 @@ commit_and_push() {
     # Commit with the provided message
     git commit -m "$commit_message"
     
-    # Push to the remote repository
-    git push -u origin main || git push -u origin master
+    # Push to the remote repository using token-based authentication if available
+    if [ -n "$GIT_REPLIT_PERSONAL_TOKEN" ]; then
+        # Use token for authentication
+        git push -u "https://A19grey:${GIT_REPLIT_PERSONAL_TOKEN}@github.com/A19grey/$REPO_NAME.git" main || \
+        git push -u "https://A19grey:${GIT_REPLIT_PERSONAL_TOKEN}@github.com/A19grey/$REPO_NAME.git" master
+    else
+        # Use standard push
+        git push -u origin main || git push -u origin master
+    fi
 }
 
 # Main script execution starts here
