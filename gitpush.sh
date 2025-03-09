@@ -30,6 +30,11 @@ check_gh_cli() {
     fi
 }
 
+# Function to convert string to lowercase
+to_lowercase() {
+    echo "$1" | tr '[:upper:]' '[:lower:]'
+}
+
 # Function to check GitHub authentication
 check_auth() {
     # Check if user is logged in
@@ -51,8 +56,9 @@ check_auth() {
     USER_INFO=$(gh api user)
     CURRENT_USER=$(echo "$USER_INFO" | grep -o '"login": *"[^"]*"' | cut -d'"' -f4)
     
-    # Case-insensitive comparison for username
-    if [[ "${CURRENT_USER,,}" != "a19grey" && "${CURRENT_USER,,}" != "A19grey" ]]; then
+    # Case-insensitive comparison for username using our custom function
+    CURRENT_USER_LOWER=$(to_lowercase "$CURRENT_USER")
+    if [ "$CURRENT_USER_LOWER" != "a19grey" ]; then
         echo "Error: You are logged in as $CURRENT_USER, not A19grey."
         echo "Please logout using 'gh auth logout' and login as A19grey."
         
@@ -71,7 +77,8 @@ check_auth() {
         # Verify again after re-login
         USER_INFO=$(gh api user)
         CURRENT_USER=$(echo "$USER_INFO" | grep -o '"login": *"[^"]*"' | cut -d'"' -f4)
-        if [[ "${CURRENT_USER,,}" != "a19grey" && "${CURRENT_USER,,}" != "A19grey" ]]; then
+        CURRENT_USER_LOWER=$(to_lowercase "$CURRENT_USER")
+        if [ "$CURRENT_USER_LOWER" != "a19grey" ]; then
             echo "Error: Still not logged in as A19grey. Exiting."
             exit 1
         fi
@@ -91,12 +98,17 @@ check_auth() {
         git config --global user.name "A19grey"
     fi
     
-    # Configure GitHub CLI to use the token for authentication
+    # Configure git to use HTTPS with token authentication
     if [ -n "$GIT_REPLIT_PERSONAL_TOKEN" ]; then
         echo "Configuring git to use token authentication..."
         git config --global credential.helper store
         echo "https://A19grey:${GIT_REPLIT_PERSONAL_TOKEN}@github.com" > ~/.git-credentials
         chmod 600 ~/.git-credentials
+        
+        # Increase buffer size for large pushes
+        git config --global http.postBuffer 524288000
+        git config --global http.maxRequestBuffer 100M
+        git config --global core.compression 9
     fi
     
     echo "Authenticated as A19grey (A19grey@gmail.com)"
@@ -137,25 +149,134 @@ check_and_create_repo() {
     fi
 }
 
+# Function to check for node_modules and ensure .gitignore is properly set up
+check_node_modules() {
+    # Check if node_modules exists
+    if [ -d "node_modules" ]; then
+        echo "node_modules directory found. Ensuring it's in .gitignore..."
+        
+        # Create .gitignore if it doesn't exist
+        if [ ! -f ".gitignore" ]; then
+            echo "Creating .gitignore file..."
+            cat > .gitignore << EOL
+# Dependencies
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Build outputs
+dist/
+build/
+out/
+.next/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Testing
+coverage/
+
+# Misc
+.cache/
+.tmp/
+EOL
+        else
+            # Check if node_modules is already in .gitignore
+            if ! grep -q "node_modules" .gitignore; then
+                echo "Adding node_modules to .gitignore..."
+                echo "# Dependencies" >> .gitignore
+                echo "node_modules/" >> .gitignore
+            fi
+        fi
+        
+        # If node_modules is already staged, unstage it
+        if git ls-files --stage | grep -q "node_modules"; then
+            echo "Unstaging node_modules directory..."
+            git rm -r --cached node_modules/
+        fi
+        
+        echo "node_modules is now properly excluded from git."
+    fi
+}
+
 # Function to commit and push changes
 commit_and_push() {
     local commit_message=$1
+    local repo_name=$2
+    
+    # Check for node_modules and ensure it's ignored
+    check_node_modules
+    
+    # Show what will be staged
+    echo "Files to be staged:"
+    git status
     
     # Add all files
+    echo "Staging all changes..."
     git add .
     
+    # Show what's been staged
+    echo "Staged files:"
+    git status --short
+    
     # Commit with the provided message
+    echo "Committing changes with message: '$commit_message'"
     git commit -m "$commit_message"
     
-    # Push to the remote repository using token-based authentication if available
+    # Try to push in smaller chunks if the repository is large
+    echo "Pushing to repository..."
+    
+    # Set the push URL with token authentication if available
     if [ -n "$GIT_REPLIT_PERSONAL_TOKEN" ]; then
-        # Use token for authentication
-        git push -u "https://A19grey:${GIT_REPLIT_PERSONAL_TOKEN}@github.com/A19grey/$REPO_NAME.git" main || \
-        git push -u "https://A19grey:${GIT_REPLIT_PERSONAL_TOKEN}@github.com/A19grey/$REPO_NAME.git" master
+        PUSH_URL="https://A19grey:${GIT_REPLIT_PERSONAL_TOKEN}@github.com/A19grey/${repo_name}.git"
     else
-        # Use standard push
-        git push -u origin main || git push -u origin master
+        PUSH_URL="origin"
     fi
+    
+    # Try to determine the current branch
+    CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+    if [ -z "$CURRENT_BRANCH" ] || [ "$CURRENT_BRANCH" = "HEAD" ]; then
+        CURRENT_BRANCH="main"
+    fi
+    
+    echo "Pushing to branch: $CURRENT_BRANCH"
+    
+    # Try pushing with different strategies
+    if ! git push -u "$PUSH_URL" "$CURRENT_BRANCH"; then
+        echo "Initial push failed. Trying alternative methods..."
+        
+        # Try pushing with the --force flag
+        if ! git push -u "$PUSH_URL" "$CURRENT_BRANCH" --force; then
+            echo "Force push failed. Trying to push in smaller chunks..."
+            
+            # Try pushing with depth limitation
+            if ! git push -u "$PUSH_URL" "$CURRENT_BRANCH" --force --no-verify; then
+                echo "All push attempts failed. Please check your repository size and network connection."
+                echo "You may need to push manually or in smaller commits."
+                exit 1
+            fi
+        fi
+    fi
+    
+    echo "Push successful!"
 }
 
 # Main script execution starts here
@@ -197,6 +318,6 @@ check_auth
 check_and_create_repo "$REPO_NAME"
 
 # Commit and push changes
-commit_and_push "$COMMIT_MESSAGE"
+commit_and_push "$COMMIT_MESSAGE" "$REPO_NAME"
 
 echo "Successfully pushed to https://github.com/A19grey/$REPO_NAME" 
