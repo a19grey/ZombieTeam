@@ -19,6 +19,7 @@ import { logger } from './utils/logger.js';
 import { createTripleShotPowerup, createShotgunBlastPowerup, createExplosionPowerup, animatePowerup } from './gameplay/powerups.js';
 import { createTexturedGround, createBuilding, createRock, createDeadTree } from './rendering/environment.js';
 import { setupDismemberment, updateBloodEffects } from './gameplay/dismemberment.js';
+import { shouldSpawnPowerup, spawnPowerupBehindPlayer, cleanupOldPowerups } from './gameplay/powerupSpawner.js';
 
 // Set log level based on debug flag
 const DEBUG_MODE = true;
@@ -56,7 +57,8 @@ const gameState = {
     lastEnemySpawnTime: 0,
     maxZombies: 100, // Maximum number of zombies allowed at once
     initialSpawnCount: 30, // Number of zombies to spawn at start
-    bloodParticles: [] // Store blood particles for dismemberment effects
+    bloodParticles: [], // Store blood particles for dismemberment effects
+    lastPowerupSpawnTime: 0 // Track when the last powerup was spawned
 };
 
 // Initialize the scene
@@ -88,6 +90,12 @@ initUI(gameState);
 // Setup event listeners
 document.addEventListener('keydown', (event) => {
     gameState.keys[event.key.toLowerCase()] = true;
+    
+    // Debug key to spawn a powerup (P key)
+    if (event.key.toLowerCase() === 'p' && gameState.debug) {
+        logger.debug('Manual powerup spawn triggered');
+        spawnPowerupBehindPlayer(scene, gameState, player);
+    }
 });
 
 document.addEventListener('keyup', (event) => {
@@ -406,6 +414,7 @@ function animate() {
     
     try {
         const delta = clock.getDelta();
+        const currentTime = Date.now();
         
         // Skip updates if game is over
         if (gameState.gameOver) {
@@ -664,7 +673,6 @@ function animate() {
         }
         
         // Spawn new enemies based on time - much more frequently for a horde
-        const currentTime = Date.now();
         if (currentTime - gameState.lastEnemySpawnTime > gameState.enemySpawnRate) {
             // Spawn multiple zombies at once for a horde effect
             const spawnCount = Math.min(5, gameState.maxZombies - gameState.zombies.length);
@@ -676,34 +684,30 @@ function animate() {
             gameState.lastEnemySpawnTime = currentTime;
         }
         
-        // Update powerups
-        for (let i = gameState.powerups.length - 1; i >= 0; i--) {
-            const powerup = gameState.powerups[i];
-            
-            // Animate powerup
-            animatePowerup(powerup, delta);
-            
-            // Check for collision with player
-            if (checkCollision(powerup.position, player.position, 1.5)) {
-                // Apply powerup effect
-                applyPowerupEffect(powerup.type, gameState);
-                
-                // Remove powerup
-                scene.remove(powerup);
-                gameState.powerups.splice(i, 1);
-                
-                // Show message
-                showMessage(`Powerup activated: ${powerup.type}!`, 3000);
+        // Update powerups - animate them
+        for (const powerup of gameState.powerups) {
+            if (powerup.active && powerup.mesh) {
+                animatePowerup(powerup.mesh, clock.elapsedTime);
             }
         }
         
+        // Check if we should spawn a powerup
+        if (shouldSpawnPowerup(gameState, currentTime)) {
+            spawnPowerupBehindPlayer(scene, gameState, player);
+        }
+        
+        // Clean up old powerups
+        cleanupOldPowerups(scene, gameState, 30000); // 30 seconds max age
+        
         // Update powerup duration
-        if (gameState.player.activePowerup) {
+        if (gameState.player.activePowerup && gameState.player.powerupDuration > 0) {
             gameState.player.powerupDuration -= delta;
             
+            // Clear powerup if duration is up
             if (gameState.player.powerupDuration <= 0) {
                 gameState.player.activePowerup = null;
-                showMessage("Powerup expired", 2000);
+                gameState.player.powerupDuration = 0;
+                showMessage("Powerup expired", 1500);
             }
         }
         
@@ -719,6 +723,7 @@ function animate() {
         renderer.render(scene, camera);
     } catch (error) {
         console.error("Error in animation loop:", error);
+        logger.error(`Animation loop error: ${error.message}`);
     }
 }
 

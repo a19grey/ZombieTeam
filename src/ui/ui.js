@@ -76,9 +76,10 @@ export const initUI = (gameState) => {
         // Create powerup display
         const powerupElement = document.createElement('div');
         powerupElement.id = 'powerup';
+        powerupElement.style.marginBottom = '5px';
         uiContainer.appendChild(powerupElement);
         
-        // Create powerup duration bar container
+        // Create powerup bar container
         const powerupBarContainer = document.createElement('div');
         powerupBarContainer.id = 'powerup-bar-container';
         powerupBarContainer.style.width = '200px';
@@ -87,16 +88,15 @@ export const initUI = (gameState) => {
         powerupBarContainer.style.border = '1px solid white';
         powerupBarContainer.style.marginTop = '5px';
         powerupBarContainer.style.marginBottom = '10px';
-        powerupBarContainer.style.display = 'none'; // Hide initially
+        powerupBarContainer.style.display = 'none'; // Hidden by default
         uiContainer.appendChild(powerupBarContainer);
         
-        // Create powerup duration bar
+        // Create powerup bar
         const powerupBar = document.createElement('div');
         powerupBar.id = 'powerup-bar';
         powerupBar.style.width = '100%';
         powerupBar.style.height = '100%';
-        powerupBar.style.backgroundColor = 'cyan';
-        powerupBar.style.transition = 'width 0.3s';
+        powerupBar.style.backgroundColor = 'blue';
         powerupBarContainer.appendChild(powerupBar);
         
         // Create enemy type legend

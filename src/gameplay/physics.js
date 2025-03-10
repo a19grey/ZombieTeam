@@ -220,6 +220,27 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
         
         const ZOMBIE_COLLISION_DISTANCE = 1.0; // Also reduced zombie-zombie collision distance
         
+        // Check player-powerup collisions
+        for (let i = powerups.length - 1; i >= 0; i--) {
+            const powerup = powerups[i];
+            if (!powerup || !powerup.mesh || !powerup.active) continue;
+            
+            if (checkCollision(player.position, powerup.mesh.position, COLLISION_DISTANCE)) {
+                // Activate powerup
+                activatePowerup(gameState, powerup.type);
+                
+                // Remove powerup from scene
+                scene.remove(powerup.mesh);
+                powerup.active = false;
+                
+                // Log powerup activation
+                logger.debug(`Player collected powerup: ${powerup.type}`);
+                
+                // Show message
+                showMessage(`${powerup.type} activated!`, 2000);
+            }
+        }
+        
         // Player-zombie damage visual effects
         // Note: Actual damage is now handled in zombie.js
         for (let i = 0; i < zombies.length; i++) {
