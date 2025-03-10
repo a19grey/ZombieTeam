@@ -14,65 +14,37 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.m
 
 // Track when the last bullet was fired to prevent too rapid firing
 let lastBulletTime = 0;
-const BULLET_COOLDOWN = 250; // milliseconds
+const BULLET_COOLDOWN = 150; // milliseconds - reduced for faster firing
 
 /**
  * Creates a bullet projectile
- * @param {THREE.Vector3} position - Starting position of the player
- * @param {THREE.Euler} rotation - Rotation of the shooter
- * @param {THREE.Object3D} weaponMount - Optional weapon mount point
- * @returns {Object} The bullet object or null if on cooldown
+ * @param {THREE.Vector3} position - Starting position of the bullet
+ * @param {THREE.Vector3} direction - Direction the bullet should travel
+ * @param {number} damage - Amount of damage the bullet does
+ * @param {number} speed - Speed of the bullet (default: 1.0)
+ * @param {number} color - Color of the bullet (default: yellow)
+ * @returns {Object} The bullet object
  */
-export const createBullet = (position, rotation, weaponMount = null) => {
-    const currentTime = Date.now();
-    
-    // Check if enough time has passed since the last bullet (cooldown)
-    if (currentTime - lastBulletTime < BULLET_COOLDOWN) {
-        return null;
-    }
-    
-    lastBulletTime = currentTime;
-    
+export const createBullet = (position, direction, damage = 25, speed = 1.0, color = 0xffff00) => {
     // Create bullet geometry
     const bulletGeometry = new THREE.SphereGeometry(0.2, 8, 8);
-    const bulletMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
-    const bullet = new THREE.Mesh(bulletGeometry, bulletMaterial);
-    
-    // Get direction based on player rotation
-    const direction = new THREE.Vector3(0, 0, 1).applyEuler(rotation);
+    const bulletMaterial = new THREE.MeshBasicMaterial({ color: color });
+    const bulletMesh = new THREE.Mesh(bulletGeometry, bulletMaterial);
     
     // Set initial position
-    if (weaponMount) {
-        // Use the weapon mount position if available
-        const weaponPos = new THREE.Vector3();
-        weaponMount.getWorldPosition(weaponPos);
-        
-        // Offset slightly in the direction the player is facing
-        bullet.position.set(
-            weaponPos.x + direction.x * 0.5,
-            weaponPos.y,
-            weaponPos.z + direction.z * 0.5
-        );
-    } else {
-        // Fallback to player position with offset
-        bullet.position.set(
-            position.x + direction.x * 0.7,
-            position.y + 1.0, // Higher to match weapon height
-            position.z + direction.z * 0.7
-        );
-    }
+    bulletMesh.position.copy(position);
     
-    // Store direction and other properties
-    bullet.userData = {
-        direction: direction,
-        speed: 1.0, // Increased speed
+    // Create bullet object with mesh and properties
+    const bullet = {
+        mesh: bulletMesh,
+        direction: direction.clone().normalize(),
+        speed: speed,
         distance: 0,
         maxDistance: 50,
-        damage: 25
+        damage: damage,
+        position: bulletMesh.position,
+        toRemove: false
     };
-    
-    // Log bullet creation for debugging
-    console.log("Bullet created at", bullet.position);
     
     return bullet;
 };
@@ -80,24 +52,23 @@ export const createBullet = (position, rotation, weaponMount = null) => {
 /**
  * Updates the positions of all bullets and removes those that have traveled too far
  * @param {Array} bullets - Array of bullet objects
- * @param {THREE.Scene} scene - The scene to remove bullets from
+ * @param {number} delta - Time delta for frame-rate independent movement
  */
-export const updateBullets = (bullets, scene) => {
+export const updateBullets = (bullets, delta = 1/60) => {
     for (let i = bullets.length - 1; i >= 0; i--) {
         const bullet = bullets[i];
-        if (!bullet || !bullet.userData) continue;
+        if (!bullet || bullet.toRemove) continue;
         
-        // Move bullet in its direction
-        bullet.position.x += bullet.userData.direction.x * bullet.userData.speed;
-        bullet.position.z += bullet.userData.direction.z * bullet.userData.speed;
+        // Move bullet in its direction (scaled by delta for consistent speed)
+        const moveDistance = bullet.speed * delta * 60;
+        bullet.mesh.position.addScaledVector(bullet.direction, moveDistance);
         
         // Update distance traveled
-        bullet.userData.distance += bullet.userData.speed;
+        bullet.distance += moveDistance;
         
-        // Remove bullet if it has traveled too far
-        if (bullet.userData.distance > bullet.userData.maxDistance) {
-            scene.remove(bullet);
-            bullets.splice(i, 1);
+        // Mark for removal if it has traveled too far
+        if (bullet.distance > bullet.maxDistance) {
+            bullet.toRemove = true;
         }
     }
 }; 

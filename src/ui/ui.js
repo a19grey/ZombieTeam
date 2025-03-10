@@ -13,8 +13,9 @@
 /**
  * Initializes the UI elements
  * Called once at the start of the game
+ * @param {Object} gameState - The initial game state
  */
-export const initUI = () => {
+export const initUI = (gameState) => {
     // Create UI container if it doesn't exist
     let uiContainer = document.getElementById('ui-container');
     if (!uiContainer) {
@@ -54,6 +55,14 @@ export const initUI = () => {
         healthBar.style.transition = 'width 0.3s, background-color 0.3s';
         healthBarContainer.appendChild(healthBar);
         
+        // Create score display
+        const scoreElement = document.createElement('div');
+        scoreElement.id = 'score';
+        scoreElement.style.fontSize = '20px';
+        scoreElement.style.fontWeight = 'bold';
+        scoreElement.style.marginBottom = '10px';
+        uiContainer.appendChild(scoreElement);
+        
         // Create EXP display
         const expElement = document.createElement('div');
         expElement.id = 'exp';
@@ -89,6 +98,58 @@ export const initUI = () => {
         powerupBar.style.backgroundColor = 'cyan';
         powerupBar.style.transition = 'width 0.3s';
         powerupBarContainer.appendChild(powerupBar);
+        
+        // Create enemy type legend
+        const legendContainer = document.createElement('div');
+        legendContainer.id = 'enemy-legend';
+        legendContainer.style.position = 'absolute';
+        legendContainer.style.top = '10px';
+        legendContainer.style.right = '10px';
+        legendContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        legendContainer.style.padding = '10px';
+        legendContainer.style.borderRadius = '5px';
+        legendContainer.style.color = 'white';
+        legendContainer.style.fontFamily = 'Arial, sans-serif';
+        legendContainer.style.fontSize = '14px';
+        document.body.appendChild(legendContainer);
+        
+        // Add legend title
+        const legendTitle = document.createElement('div');
+        legendTitle.textContent = 'Enemy Types:';
+        legendTitle.style.fontWeight = 'bold';
+        legendTitle.style.marginBottom = '5px';
+        legendContainer.appendChild(legendTitle);
+        
+        // Add enemy types to legend
+        const enemyTypes = [
+            { name: 'Zombie', color: '#2e8b57' },
+            { name: 'Skeleton Archer', color: '#dcdcdc' },
+            { name: 'Exploder', color: '#00cc00' },
+            { name: 'Zombie King (Boss)', color: '#ffd700' }
+        ];
+        
+        enemyTypes.forEach(enemy => {
+            const enemyRow = document.createElement('div');
+            enemyRow.style.display = 'flex';
+            enemyRow.style.alignItems = 'center';
+            enemyRow.style.marginBottom = '3px';
+            
+            const colorBox = document.createElement('div');
+            colorBox.style.width = '12px';
+            colorBox.style.height = '12px';
+            colorBox.style.backgroundColor = enemy.color;
+            colorBox.style.marginRight = '5px';
+            
+            const nameText = document.createElement('div');
+            nameText.textContent = enemy.name;
+            
+            enemyRow.appendChild(colorBox);
+            enemyRow.appendChild(nameText);
+            legendContainer.appendChild(enemyRow);
+        });
+        
+        // Show welcome message
+        showMessage("Survive the zombie horde!", 3000);
     }
 };
 
@@ -99,7 +160,7 @@ export const initUI = () => {
 export const updateUI = (gameState) => {
     // Initialize UI if it doesn't exist
     if (!document.getElementById('ui-container')) {
-        initUI();
+        initUI(gameState);
     }
     
     const { player } = gameState;
@@ -135,6 +196,21 @@ export const updateUI = (gameState) => {
         }
     }
     
+    // Update score display
+    const scoreElement = document.getElementById('score');
+    if (scoreElement) {
+        scoreElement.textContent = `Score: ${gameState.score}`;
+        
+        // Pulse animation when score changes
+        if (gameState.score > (gameState.lastDisplayedScore || 0)) {
+            scoreElement.style.color = '#ffff00'; // Yellow flash
+            setTimeout(() => {
+                scoreElement.style.color = 'white';
+            }, 300);
+            gameState.lastDisplayedScore = gameState.score;
+        }
+    }
+    
     // Update EXP display
     const expElement = document.getElementById('exp');
     if (expElement) {
@@ -144,7 +220,25 @@ export const updateUI = (gameState) => {
     // Update zombie count
     const zombieCountElement = document.getElementById('zombieCount');
     if (zombieCountElement && gameState.zombies) {
-        zombieCountElement.textContent = `Zombies: ${gameState.zombies.length}`;
+        zombieCountElement.textContent = `Enemies: ${gameState.zombies.length}`;
+        
+        // Count enemy types
+        const enemyCounts = gameState.zombies.reduce((counts, zombie) => {
+            const type = zombie.type || 'zombie';
+            counts[type] = (counts[type] || 0) + 1;
+            return counts;
+        }, {});
+        
+        // Add enemy type breakdown
+        let enemyBreakdown = '';
+        if (enemyCounts.zombie) enemyBreakdown += ` Zombies: ${enemyCounts.zombie}`;
+        if (enemyCounts.skeletonArcher) enemyBreakdown += ` Archers: ${enemyCounts.skeletonArcher}`;
+        if (enemyCounts.exploder) enemyBreakdown += ` Exploders: ${enemyCounts.exploder}`;
+        if (enemyCounts.zombieKing) enemyBreakdown += ` Kings: ${enemyCounts.zombieKing}`;
+        
+        if (enemyBreakdown) {
+            zombieCountElement.textContent += ` (${enemyBreakdown.trim()})`;
+        }
     }
     
     // Update powerup display

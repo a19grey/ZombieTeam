@@ -1,88 +1,63 @@
-# Zombie Survival Game
+# Zombie WebGL Co-Op Survival Game
 
-A 3D browser-based cooperative multiplayer zombie survival game built with Three.js. This is the MVP (Minimum Viable Product) version focusing on core mechanics in a single-player context, with the groundwork for multiplayer to be added later.
+A cooperative multiplayer browser-based 3D zombie survival game built with Three.js and WebGL.
 
-## Features
+## Game Features
 
-- 3D environment with player character and zombies
-- Player movement using WASD keys
-- Shooting zombies with mouse clicks
-- Zombie AI that chases the player
-- Health and experience point (EXP) system
-- Simple UI showing player stats
+### Enemies
+The game features multiple enemy types with unique behaviors:
 
-## Project Structure
+- **Regular Zombies**: Basic enemies that chase the player.
+- **Skeleton Archers**: Ranged enemies that maintain distance and shoot arrows.
+- **Exploders**: Fast enemies that explode when close to the player, damaging everything nearby.
+- **Zombie King (Boss)**: Powerful boss that appears every 5 waves, can summon minions, and has much more health.
 
-The project follows a modular architecture with functional programming principles:
+### Environment
+The game world includes various environmental elements:
 
-```
-/zombie-game
-├── /src
-│   ├── /rendering    # Three.js scene, camera, models
-│   ├── /gameplay     # Player controls, zombie AI, physics
-│   ├── /ui           # Health, ammo, EXP display
-│   └── main.js       # Entry point
-├── index.html        # Main HTML file
-├── server.js         # Express server for serving the game
-└── package.json      # Dependencies
-```
+- **Textured Ground**: A procedurally generated ground texture.
+- **Buildings**: Various sized buildings with windows scattered around the map.
+- **Rocks**: Natural-looking rock formations of different sizes.
+- **Dead Trees**: Eerie dead trees adding to the post-apocalyptic atmosphere.
 
-## How to Run
+### Game Mechanics
 
-### Method 1: Using Express Server (Recommended)
+- **Wave-Based Progression**: Enemies come in waves, with difficulty increasing over time.
+- **Boss Waves**: Every 5th wave features a Zombie King boss.
+- **Scoring System**: Different points awarded for different enemy types.
+- **Health System**: Player must manage health to survive.
+- **Powerups**: Various powerups can be collected to enhance combat abilities.
 
-1. Clone this repository
-2. Install dependencies:
-   ```
-   npm install
-   ```
-3. Start the Express server:
-   ```
-   npm start
-   ```
-4. Open your browser and navigate to `http://localhost:3000`
+### Controls
 
-### Method 2: Using Serve Package
-
-If you encounter issues with the Express server, you can try using the serve package:
-
-1. Install dependencies:
-   ```
-   npm install
-   ```
-2. Start the serve package:
-   ```
-   npm run serve
-   ```
-3. Open your browser and navigate to the URL shown in the terminal
-
-### Troubleshooting
-
-If you see a black screen or encounter errors:
-1. Check your browser console (F12) for any JavaScript errors
-2. Make sure all files are in the correct directory structure
-3. Try a different browser (Chrome or Firefox recommended)
-4. Clear your browser cache
-
-## Controls
-
-- **W, A, S, D**: Move the player
+- **WASD/Arrow Keys**: Move the player character
 - **Mouse**: Aim
 - **Left Mouse Button**: Shoot
-- **ESC**: Pause game (to be implemented)
-
-## Future Enhancements
-
-- Multiplayer functionality with Socket.IO
-- More detailed 3D models and animations
-- Different types of zombies and weapons
-- Power-ups and special abilities
-- Level progression system
-- Sound effects and music
+- **R**: Restart game after game over
 
 ## Technical Details
 
-- Built with Three.js for 3D rendering
-- Uses functional programming principles for maintainable code
-- Designed with multiplayer in mind from the start
-- Modular architecture for easy extension 
+This game is built using:
+
+- **Three.js**: For 3D rendering
+- **JavaScript**: Core game logic
+- **HTML/CSS**: UI elements
+
+The game features a modular architecture with separate components for:
+- Rendering
+- Gameplay mechanics
+- UI
+- Physics
+- Enemy AI
+
+## Future Enhancements
+
+- Full multiplayer functionality with WebSockets
+- More enemy types
+- Additional weapons and powerups
+- Larger, more varied environments
+- Character progression system
+
+## Credits
+
+Created as a WebGL experiment for learning Three.js and game development concepts. 

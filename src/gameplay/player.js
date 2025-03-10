@@ -199,6 +199,6 @@ export const aimPlayerWithMouse = (player, mouse, camera) => {
     direction.y = 0;
     
     if (direction.length() > 0.1) {
-        player.rotation.y = Math.atan2(direction.x, direction.z);
+        player.rotation.y = Math.atan2(direction.x, direction.z) + Math.PI;
     }
 };
