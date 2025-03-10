@@ -7,6 +7,7 @@
 
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
 import { checkCollision, pushAway } from './physics.js'; // Import physics helpers
+import { setupDismemberment, processDismemberment } from './dismemberment.js'; // Import dismemberment system
 
 /**
  * Creates a Minecraft-style low-poly zombie character
@@ -313,7 +314,7 @@ export const createZombieKing = (position) => {
 };
 
 /**
- * Updates the positions of all zombies to chase the player (unchanged from original)
+ * Updates the positions of all zombies to chase the player
  * @param {Array} zombies - Array of zombie objects
  * @param {THREE.Vector3} playerPosition - The player's current position
  * @param {number} delta - Time delta between frames
@@ -329,12 +330,100 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60) => {
     const DAMAGE_PER_SECOND = 20;
     const ZOMBIE_COLLISION_DISTANCE = 0.8; // Distance to maintain between zombies
     
+    // Calculate player velocity for leading behavior
+    // This would normally come from the player object, but we'll estimate it
+    // based on the difference between current and previous position
+    const playerVelocity = new THREE.Vector3();
+    if (window.previousPlayerPosition) {
+        playerVelocity.subVectors(playerPosition, window.previousPlayerPosition);
+        playerVelocity.multiplyScalar(1 / delta); // Scale to units per second
+    }
+    window.previousPlayerPosition = playerPosition.clone();
+    
+    // First, update zombie king speeds
+    zombies.forEach(zombie => {
+        if (zombie.type === 'zombieKing') {
+            // Gradually increase zombie king speed over time
+            // Start at baseSpeed and increase up to regular zombie speed
+            const maxSpeed = 0.03; // Regular zombie speed
+            const speedIncreaseFactor = 0.0001; // How quickly speed increases
+            
+            zombie.speed = Math.min(maxSpeed, zombie.speed + speedIncreaseFactor * delta * 60);
+        }
+    });
+    
+    // Calculate zombie sizes for pushing mechanics
+    const zombieSizes = {};
     zombies.forEach((zombie, index) => {
+        if (zombie.type === 'zombieKing') {
+            zombieSizes[index] = 2.0; // King is largest
+        } else if (zombie.type === 'exploder') {
+            zombieSizes[index] = 1.2; // Exploders are medium-large
+        } else if (zombie.type === 'skeletonArcher') {
+            zombieSizes[index] = 0.8; // Archers are smaller
+        } else {
+            zombieSizes[index] = 1.0; // Regular zombies are medium
+        }
+    });
+    
+    // Create spatial partitioning for zombies to reduce O(n²) collision checks
+    const gridSize = 5; // Size of each grid cell
+    const grid = {};
+    
+    // Place zombies in grid cells
+    zombies.forEach((zombie, index) => {
+        if (!zombie || !zombie.mesh || !zombie.mesh.position) return;
+        
+        const cellX = Math.floor(zombie.mesh.position.x / gridSize);
+        const cellZ = Math.floor(zombie.mesh.position.z / gridSize);
+        const cellKey = `${cellX},${cellZ}`;
+        
+        if (!grid[cellKey]) {
+            grid[cellKey] = [];
+        }
+        
+        grid[cellKey].push(index);
+    });
+    
+    // Function to get nearby zombies using grid
+    const getNearbyZombies = (position, index) => {
+        const cellX = Math.floor(position.x / gridSize);
+        const cellZ = Math.floor(position.z / gridSize);
+        const nearby = [];
+        
+        // Check current cell and 8 surrounding cells
+        for (let x = cellX - 1; x <= cellX + 1; x++) {
+            for (let z = cellZ - 1; z <= cellZ + 1; z++) {
+                const cellKey = `${x},${z}`;
+                if (grid[cellKey]) {
+                    grid[cellKey].forEach(otherIndex => {
+                        if (otherIndex !== index) {
+                            nearby.push(otherIndex);
+                        }
+                    });
+                }
+            }
+        }
+        
+        return nearby;
+    };
+    
+    // Randomize zombie update order to prevent clustering in a line
+    const updateOrder = zombies.map((_, index) => index);
+    for (let i = updateOrder.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [updateOrder[i], updateOrder[j]] = [updateOrder[j], updateOrder[i]];
+    }
+    
+    // Update zombies in random order
+    updateOrder.forEach(index => {
+        const zombie = zombies[index];
         if (!zombie || !zombie.mesh || !zombie.mesh.position) {
             return;
         }
         
         try {
+            // Calculate base direction to player
             const direction = new THREE.Vector3(
                 playerPosition.x - zombie.mesh.position.x,
                 0,
@@ -343,13 +432,38 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60) => {
             
             const distance = direction.length();
             
+            // Calculate a leading target position based on player velocity
+            const leadingFactor = 1.0; // How much to lead the player (higher = more leading)
+            const leadingPosition = new THREE.Vector3().copy(playerPosition);
+            
+            // Only lead if player is moving and zombie is far enough away
+            if (playerVelocity.length() > 0.1 && distance > 5) {
+                // Predict where the player will be in the future
+                // The further away the zombie, the more it should lead
+                const leadTime = Math.min(distance * 0.1, 2.0); // Cap at 2 seconds of leading
+                leadingPosition.add(playerVelocity.clone().multiplyScalar(leadTime * leadingFactor));
+            }
+            
+            // Calculate direction to leading position
+            const leadingDirection = new THREE.Vector3(
+                leadingPosition.x - zombie.mesh.position.x,
+                0,
+                leadingPosition.z - zombie.mesh.position.z
+            ).normalize();
+            
+            // Add some randomness to movement to prevent line formation
+            // More randomness for zombies that are further away from player
+            const randomFactor = Math.min(0.3, distance * 0.01); // More randomness at greater distances
+            const randomAngle = (Math.random() - 0.5) * Math.PI * randomFactor;
+            const randomDirection = leadingDirection.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), randomAngle);
+            
             // Handle special enemy behaviors based on type
             switch (zombie.mesh.enemyType) {
                 case 'skeletonArcher':
                     // Archers try to maintain distance from player
                     if (distance < 8) {
                         // Move away from player if too close
-                        direction.negate();
+                        leadingDirection.negate();
                     } else if (distance > 15) {
                         // Move toward player if too far
                         // Direction already points to player
@@ -403,13 +517,18 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60) => {
             }
             
             if (distance > 0) {
-                direction.normalize();
+                // Mix in some randomness to prevent line formation
+                // Use more direct path when closer to player
+                const directPathFactor = Math.min(0.9, 0.5 + (15 - Math.min(distance, 15)) / 15 * 0.4);
+                const finalDirection = new THREE.Vector3()
+                    .addScaledVector(leadingDirection, directPathFactor)
+                    .addScaledVector(randomDirection, 1 - directPathFactor)
+                    .normalize();
                 
-                // Calculate intended position
                 const moveDistance = zombie.speed * delta * 60;
                 const intendedPosition = new THREE.Vector3()
                     .copy(zombie.mesh.position)
-                    .addScaledVector(direction, moveDistance);
+                    .addScaledVector(finalDirection, moveDistance);
                 
                 // Check for collision with player
                 if (checkCollision(intendedPosition, playerPosition, COLLISION_DISTANCE)) {
@@ -431,17 +550,45 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60) => {
                     }
                 }
                 
-                // Check for collisions with other zombies
+                // Check for collisions with nearby zombies only (using spatial grid)
                 let hasZombieCollision = false;
-                for (let i = 0; i < zombies.length; i++) {
-                    if (i !== index && zombies[i] && zombies[i].mesh) {
-                        const otherZombie = zombies[i];
+                const nearbyZombies = getNearbyZombies(zombie.mesh.position, index);
+                
+                for (let i = 0; i < nearbyZombies.length; i++) {
+                    const otherIndex = nearbyZombies[i];
+                    const otherZombie = zombies[otherIndex];
+                    
+                    if (!otherZombie || !otherZombie.mesh) continue;
+                    
+                    // Skip if the other zombie is exploding
+                    if (otherZombie.mesh.isExploding) continue;
+                    
+                    if (checkCollision(intendedPosition, otherZombie.mesh.position, ZOMBIE_COLLISION_DISTANCE)) {
+                        // Compare sizes to determine pushing behavior
+                        const thisSize = zombieSizes[index] || 1.0;
+                        const otherSize = zombieSizes[otherIndex] || 1.0;
                         
-                        // Skip if the other zombie is exploding
-                        if (otherZombie.mesh.isExploding) continue;
-                        
-                        if (checkCollision(intendedPosition, otherZombie.mesh.position, ZOMBIE_COLLISION_DISTANCE)) {
-                            // Push away from other zombie
+                        // If this zombie is significantly bigger, it can push the other zombie
+                        if (thisSize > otherSize * 1.3) {
+                            // Bigger zombie pushes smaller one
+                            const pushDirection = new THREE.Vector3()
+                                .subVectors(otherZombie.mesh.position, intendedPosition)
+                                .normalize();
+                            
+                            // Move the smaller zombie
+                            otherZombie.mesh.position.addScaledVector(pushDirection, moveDistance * 0.5);
+                            
+                            // This zombie can continue on its path with minimal adjustment
+                            const avoidancePosition = pushAway(
+                                intendedPosition, 
+                                otherZombie.mesh.position, 
+                                ZOMBIE_COLLISION_DISTANCE * 0.5 // Reduced collision distance
+                            );
+                            
+                            intendedPosition.x = (intendedPosition.x * 0.8 + avoidancePosition.x * 0.2);
+                            intendedPosition.z = (intendedPosition.z * 0.8 + avoidancePosition.z * 0.2);
+                        } else {
+                            // Normal collision avoidance
                             const avoidancePosition = pushAway(
                                 intendedPosition, 
                                 otherZombie.mesh.position, 
@@ -451,9 +598,9 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60) => {
                             // Apply avoidance, but with reduced effect to prevent gridlock
                             intendedPosition.x = (intendedPosition.x + avoidancePosition.x) * 0.5;
                             intendedPosition.z = (intendedPosition.z + avoidancePosition.z) * 0.5;
-                            
-                            hasZombieCollision = true;
                         }
+                        
+                        hasZombieCollision = true;
                     }
                 }
                 
@@ -461,7 +608,7 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60) => {
                 zombie.mesh.position.copy(intendedPosition);
                 
                 // Face the direction of movement
-                zombie.mesh.rotation.y = Math.atan2(direction.x, direction.z);
+                zombie.mesh.rotation.y = Math.atan2(finalDirection.x, finalDirection.z);
             }
         } catch (error) {
             console.error("Error updating zombie:", error);
@@ -489,31 +636,53 @@ export const damagePlayer = (gameState, damageAmount) => {
 };
 
 /**
- * Damages a zombie and checks if it's dead (unchanged from original)
+ * Damages a zombie and checks if it's dead
  * @param {Object} zombie - The zombie object
  * @param {number} damage - Amount of damage to apply
+ * @param {THREE.Scene} scene - The scene for visual effects
  * @returns {Object} Updated zombie object
  */
-export const damageZombie = (zombie, damage) => {
+export const damageZombie = (zombie, damage, scene) => {
     if (!zombie) return zombie;
     
+    // Create a copy of the zombie with updated health
     const updatedZombie = {
         ...zombie,
         health: zombie.health - damage
     };
     
+    // Debug logging
+    logger.debug(`Zombie ${zombie.type} took ${damage.toFixed(1)} damage, health: ${updatedZombie.health.toFixed(1)}/${zombie.dismemberment?.maxHealth || 'unknown'}`);
+    
+    // Process dismemberment if we have the scene and the system is set up
+    if (scene && zombie.dismemberment) {
+        // Process dismemberment based on new damage
+        const bloodParticles = processDismemberment(updatedZombie, damage, scene);
+        
+        // Add blood particles to game state for animation
+        if (bloodParticles.length > 0 && zombie.gameState) {
+            if (!zombie.gameState.bloodParticles) {
+                zombie.gameState.bloodParticles = [];
+            }
+            zombie.gameState.bloodParticles.push(...bloodParticles);
+            logger.debug(`Added ${bloodParticles.length} blood particles`);
+        }
+    } else if (!zombie.dismemberment) {
+        logger.debug(`Zombie ${zombie.type} has no dismemberment system set up`);
+    } else if (!scene) {
+        logger.debug(`No scene provided for dismemberment effects`);
+    }
+    
     return updatedZombie;
 };
 
 /**
- * Checks if a zombie is dead (unchanged from original)
- * @param {Object} zombie - The zombie object
+ * Checks if a zombie is dead
+ * @param {Object} zombie - The zombie object to check
  * @returns {boolean} True if the zombie is dead
  */
 export const isZombieDead = (zombie) => {
-    if (!zombie) return false;
-    
-    return zombie.health <= 0;
+    return zombie && zombie.health <= 0;
 };
 
 /**
@@ -553,7 +722,7 @@ export const createExplosion = (scene, position, radius = 3, damage = 100, zombi
             if (zombieDistance < radius) {
                 // Calculate damage based on distance
                 const zombieDamage = damage * (1 - zombieDistance / radius);
-                damageZombie(zombie, zombieDamage);
+                damageZombie(zombie, zombieDamage, scene);
             }
         }
     });

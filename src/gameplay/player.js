@@ -76,9 +76,12 @@ export const createPlayer = () => {
 
     // Weapon attachment point (at end of right hand)
     const weaponMount = new THREE.Object3D();
-    weaponMount.position.set(0.375, 0.375, -0.125); // End of right arm (y lowered to hand level)
+    weaponMount.position.set(0.375, 0.375, 0.125); // End of right arm (y lowered to hand level, positive Z due to rotation)
     player.add(weaponMount);
     player.userData.weaponMount = weaponMount; // Accessible for weapon attachment
+    
+    // Rotate the entire player model 180 degrees so it faces the correct direction
+    player.rotation.y = Math.PI;
 
     return player;
 };
@@ -98,7 +101,7 @@ export const createPlayerWeapon = () => {
         roughness: 0.1 
     });
     const gun = new THREE.Mesh(gunGeometry, gunMaterial);
-    gun.position.z = 0.4; // Extend forward
+    gun.position.z = -0.4; // Extend forward (negative Z due to player rotation)
     
     // Add a barrel
     const barrelGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.9, 16);
@@ -109,7 +112,7 @@ export const createPlayerWeapon = () => {
     });
     const barrel = new THREE.Mesh(barrelGeometry, barrelMaterial);
     barrel.rotation.x = Math.PI / 2; // Rotate to point forward
-    barrel.position.z = 0.7; // Position at the front of the gun
+    barrel.position.z = -0.7; // Position at the front of the gun (negative Z due to player rotation)
     
     // Add a handle
     const handleGeometry = new THREE.BoxGeometry(0.1, 0.3, 0.1);
@@ -130,7 +133,7 @@ export const createPlayerWeapon = () => {
     });
     const sight = new THREE.Mesh(sightGeometry, sightMaterial);
     sight.position.y = 0.1;
-    sight.position.z = 0.2;
+    sight.position.z = -0.2; // Negative Z due to player rotation
     
     // Add parts to weapon
     weapon.add(gun);
@@ -180,7 +183,7 @@ export const handlePlayerMovement = (player, keys, baseSpeed, mouse) => {
 };
 
 /**
- * Aims the player and weapon based on mouse position (unchanged from original)
+ * Aims the player and weapon based on mouse position
  * @param {THREE.Group} player - The player object
  * @param {Object} mouse - Mouse position for aiming
  * @param {THREE.Camera} camera - The camera for raycasting
@@ -199,6 +202,7 @@ export const aimPlayerWithMouse = (player, mouse, camera) => {
     direction.y = 0;
     
     if (direction.length() > 0.1) {
-        player.rotation.y = Math.atan2(direction.x, direction.z) + Math.PI;
+        // Make player face the mouse pointer directly
+        player.rotation.y = Math.atan2(direction.x, direction.z);
     }
 };

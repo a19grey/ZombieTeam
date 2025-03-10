@@ -18,6 +18,7 @@ import { createBullet, updateBullets } from './gameplay/weapons.js';
 import { logger } from './utils/logger.js';
 import { createTripleShotPowerup, createShotgunBlastPowerup, createExplosionPowerup, animatePowerup } from './gameplay/powerups.js';
 import { createTexturedGround, createBuilding, createRock, createDeadTree } from './rendering/environment.js';
+import { setupDismemberment, updateBloodEffects } from './gameplay/dismemberment.js';
 
 // Set log level based on debug flag
 const DEBUG_MODE = true;
@@ -34,7 +35,7 @@ const gameState = {
     player: {
         health: 100,
         exp: 0,
-        damage: 25,
+        damage: 40,
         speed: 0.15,
         activePowerup: null,
         powerupDuration: 0
@@ -54,7 +55,8 @@ const gameState = {
     enemySpawnRate: 200, // Time between enemy spawns in ms (reduced for more zombies)
     lastEnemySpawnTime: 0,
     maxZombies: 100, // Maximum number of zombies allowed at once
-    initialSpawnCount: 30 // Number of zombies to spawn at start
+    initialSpawnCount: 30, // Number of zombies to spawn at start
+    bloodParticles: [] // Store blood particles for dismemberment effects
 };
 
 // Initialize the scene
@@ -72,6 +74,10 @@ scene.add(ground);
 const player = createPlayer();
 scene.add(player);
 player.position.y = 0;
+
+// Add weapon to player
+const playerWeapon = createPlayerWeapon();
+player.add(playerWeapon);
 
 // Create clock for timing
 const clock = new THREE.Clock();
@@ -150,22 +156,32 @@ const spawnEnvironmentObjects = () => {
 const shootBullet = () => {
     // Check if enough time has passed since the last shot
     const currentTime = Date.now();
-    if (currentTime - gameState.lastShotTime < 150) { // Reduced cooldown for faster firing
+    if (currentTime - gameState.lastShotTime < 100) { // Reduced cooldown for faster firing
         return; // Still in cooldown
     }
     
     gameState.lastShotTime = currentTime;
     
-    // Get player's forward direction - INVERTED for correct aiming
+    // Get player's forward direction
     const direction = new THREE.Vector3(0, 0, -1);
     direction.applyQuaternion(player.quaternion);
     
-    // Create bullet with position slightly in front of player
-    const bulletPosition = new THREE.Vector3(
-        player.position.x + direction.x * 0.5,
-        player.position.y + 0.5, // Bullet height
-        player.position.z + direction.z * 0.5
-    );
+    // Get weapon mount position if available
+    let bulletPosition;
+    if (player.userData.weaponMount) {
+        bulletPosition = new THREE.Vector3();
+        player.userData.weaponMount.getWorldPosition(bulletPosition);
+        
+        // Offset slightly in the direction the player is facing
+        bulletPosition.add(direction.clone().multiplyScalar(0.5));
+    } else {
+        // Fallback to position in front of player
+        bulletPosition = new THREE.Vector3(
+            player.position.x + direction.x * 0.5,
+            player.position.y + 0.5, // Bullet height
+            player.position.z + direction.z * 0.5
+        );
+    }
     
     const bullet = createBullet(
         bulletPosition,
@@ -174,7 +190,10 @@ const shootBullet = () => {
         1.5 // Faster bullet speed
     );
     
-    scene.add(bullet.mesh);
+    // Only add mesh to scene if it's a tracer bullet
+    if (bullet.mesh) {
+        scene.add(bullet.mesh);
+    }
     gameState.bullets.push(bullet);
     
     // Apply powerup effects if active
@@ -197,8 +216,10 @@ const shootBullet = () => {
             1.5
         );
         
-        scene.add(leftBullet.mesh);
-        scene.add(rightBullet.mesh);
+        // Only add meshes to scene if they're tracer bullets
+        if (leftBullet.mesh) scene.add(leftBullet.mesh);
+        if (rightBullet.mesh) scene.add(rightBullet.mesh);
+        
         gameState.bullets.push(leftBullet);
         gameState.bullets.push(rightBullet);
     } else if (gameState.player.activePowerup === 'shotgunBlast') {
@@ -216,7 +237,8 @@ const shootBullet = () => {
                 1.5
             );
             
-            scene.add(spreadBullet.mesh);
+            // Only add mesh to scene if it's a tracer bullet
+            if (spreadBullet.mesh) scene.add(spreadBullet.mesh);
             gameState.bullets.push(spreadBullet);
         }
     }
@@ -315,7 +337,7 @@ const spawnEnemy = (playerPos) => {
         const zombieKing = createZombieKing(position);
         enemyObj = {
             mesh: zombieKing,
-            health: 500, // Boss has much more health
+            health: 200, // Reduced from 500 to make dismemberment more visible
             speed: 0.02, // Slower but powerful
             gameState: gameState,
             baseSpeed: 0.02,
@@ -323,6 +345,12 @@ const spawnEnemy = (playerPos) => {
         };
         showMessage("A Zombie King has appeared!", 3000);
     }
+    
+    // Ensure the mesh has the same type property for consistency
+    enemyObj.mesh.type = enemyObj.type;
+    
+    // Set up dismemberment system for this zombie
+    setupDismemberment(enemyObj);
     
     gameState.zombies.push(enemyObj);
     scene.add(enemyObj.mesh);
@@ -369,7 +397,7 @@ spawnEnvironmentObjects();
 
 // Spawn initial zombies
 for (let i = 0; i < gameState.initialSpawnCount; i++) {
-    spawnEnemy(new THREE.Vector3(0, 0, 0));
+    spawnEnemy(player.position);
 }
 
 // Animation loop
@@ -394,7 +422,7 @@ function animate() {
         // Update camera to follow player
         camera.position.x = player.position.x;
         camera.position.z = player.position.z + 10;
-        camera.position.y = 7; // Higher camera position for better angle
+        camera.position.y = 10; // Higher camera position for more overhead view (was 7)
         
         // Calculate a target point that's:
         // 1. At the player's x position
@@ -402,8 +430,8 @@ function animate() {
         // 3. In front of the player (to look slightly downward)
         const targetPoint = new THREE.Vector3(
             player.position.x,
-            player.position.y - 1.5, // Lower target to position player at ~35% from bottom
-            player.position.z - 5    // Target in front of player for downward angle
+            player.position.y - 1, // Adjusted to tilt camera more overhead
+            player.position.z - 3  // Reduced from -5 to -3 to tilt camera more overhead
         );
         camera.lookAt(targetPoint);
         
@@ -428,6 +456,7 @@ function animate() {
                 // Skip if zombie is already dead
                 if (zombie.health <= 0) continue;
                 
+                // Use bullet.position for both tracer and non-tracer bullets
                 if (checkCollision(bullet.position, zombie.mesh.position, 1.0)) {
                     // Apply damage to zombie
                     zombie.health -= bullet.damage;
@@ -480,7 +509,10 @@ function animate() {
         // Remove bullets marked for removal
         for (let i = gameState.bullets.length - 1; i >= 0; i--) {
             if (gameState.bullets[i].toRemove) {
-                scene.remove(gameState.bullets[i].mesh);
+                // Only remove mesh from scene if it's a tracer bullet
+                if (gameState.bullets[i].mesh) {
+                    scene.remove(gameState.bullets[i].mesh);
+                }
                 gameState.bullets.splice(i, 1);
             }
         }
@@ -677,6 +709,11 @@ function animate() {
         
         // Update UI
         updateUI(gameState);
+        
+        // Update blood particles from dismemberment
+        if (gameState.bloodParticles && gameState.bloodParticles.length > 0) {
+            updateBloodEffects(gameState.bloodParticles, scene, delta);
+        }
         
         // Render scene
         renderer.render(scene, camera);

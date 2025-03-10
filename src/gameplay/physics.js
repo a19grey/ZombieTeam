@@ -10,9 +10,9 @@
  */
 
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
-import { isZombieDead, damageZombie } from './zombie.js';
+import { createBullet } from './weapons.js';
+import { damageZombie, isZombieDead } from './zombie.js';
 import { logger } from '../utils/logger.js';
-import { createBullet } from '../gameplay/weapons.js';
 import { showMessage } from '../ui/ui.js';
 
 // Create audio for damage sound
@@ -371,7 +371,7 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
                 
                 if (checkCollision(bullet.position, zombie.mesh.position, 1.0)) {
                     // Damage zombie
-                    const updatedZombie = damageZombie(zombie, bullet.userData.damage);
+                    const updatedZombie = damageZombie(zombie, bullet.userData.damage, scene);
                     zombies[j] = updatedZombie;
                     
                     // Remove bullet
@@ -563,7 +563,7 @@ export const applyPowerupEffect = (gameState, position, direction, scene) => {
                     const damage = EXPLOSION_DAMAGE * damageMultiplier;
                     
                     // Apply damage to zombie
-                    const updatedZombie = damageZombie(zombie, damage);
+                    const updatedZombie = damageZombie(zombie, damage, scene);
                     gameState.zombies[index] = updatedZombie;
                     
                     // Check if zombie is dead
