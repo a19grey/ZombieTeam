@@ -13,9 +13,10 @@ import { createScene, createCamera, createRenderer, createLighting, createGround
 import { createPlayer, handlePlayerMovement, createPlayerWeapon, aimPlayerWithMouse } from './gameplay/player.js';
 import { createZombie, updateZombies } from './gameplay/zombie.js';
 import { updateUI, showMessage, initUI } from './ui/ui.js';
-import { handleCollisions, checkCollision } from './gameplay/physics.js';
+import { handleCollisions, checkCollision, applyPowerupEffect } from './gameplay/physics.js';
 import { createBullet, updateBullets } from './gameplay/weapons.js';
 import { logger } from './utils/logger.js';
+import { createTripleShotPowerup, createShotgunBlastPowerup, createExplosionPowerup, animatePowerup } from './gameplay/powerups.js';
 
 // Set log level based on debug flag
 const DEBUG_MODE = true;
@@ -33,7 +34,9 @@ const gameState = {
         health: 100,
         exp: 0,
         damage: 25,
-        speed: 0.1
+        speed: 0.15,
+        activePowerup: null,
+        powerupDuration: 0
     },
     zombies: [],
     bullets: [],
@@ -42,7 +45,9 @@ const gameState = {
     mouseDown: false, // Track if mouse button is held down
     gameOver: false,
     debug: DEBUG_MODE, // Enable debug mode
-    camera: null // Added for camera reference
+    camera: null, // Added for camera reference
+    powerups: [],
+    lastShotTime: 0
 };
 
 // Initialize Three.js scene
@@ -94,9 +99,46 @@ try {
     // Store the audio listener in the player's userData
     player.userData.audioListener = audioListener;
     
+    // Create powerups
+    logger.debug('Creating powerups');
+    const powerups = [];
+    
+    // Create Triple Shot powerup - placed more randomly
+    const tripleShot = createTripleShotPowerup({ x: -15, z: 12 });
+    scene.add(tripleShot);
+    powerups.push({
+        mesh: tripleShot,
+        type: 'tripleShot',
+        active: true
+    });
+    logger.debug('Triple Shot powerup created', { position: tripleShot.position });
+    
+    // Create Shotgun Blast powerup - placed more randomly
+    const shotgun = createShotgunBlastPowerup({ x: 18, z: -8 });
+    scene.add(shotgun);
+    powerups.push({
+        mesh: shotgun,
+        type: 'shotgunBlast',
+        active: true
+    });
+    logger.debug('Shotgun Blast powerup created', { position: shotgun.position });
+    
+    // Create Explosion powerup - placed more randomly
+    const explosion = createExplosionPowerup({ x: -5, z: -20 });
+    scene.add(explosion);
+    powerups.push({
+        mesh: explosion,
+        type: 'explosion',
+        active: true
+    });
+    logger.debug('Explosion powerup created', { position: explosion.position });
+    
+    // Add powerups to gameState
+    gameState.powerups = powerups;
+    
     // Create initial zombies
     logger.debug('Creating initial zombies');
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 10; i++) {
         const position = {
             x: Math.random() * 40 - 20,
             z: Math.random() * 40 - 20
@@ -104,10 +146,13 @@ try {
         // Don't spawn zombies too close to player
         if (Math.sqrt(position.x * position.x + position.z * position.z) > 10) {
             const zombie = createZombie(position);
+            const baseSpeed = 0.03 + Math.random() * 0.02;
             gameState.zombies.push({
                 mesh: zombie,
                 health: 50,
-                speed: 0.03 + Math.random() * 0.02
+                speed: baseSpeed,
+                baseSpeed: baseSpeed, // Store base speed for reference
+                gameState: gameState // Pass gameState reference to zombie
             });
             scene.add(zombie);
             logger.debug(`Zombie ${i} created`, { position });
@@ -126,8 +171,8 @@ try {
     logger.debug('Initializing UI');
     initUI();
     
-    // Show instructions
-    showMessage("Use WASD to move, MOUSE to aim, and HOLD LEFT MOUSE BUTTON to shoot zombies", 5000);
+    // Don't show the startup message with controls
+    // showMessage("Use WASD to move, MOUSE to aim, and HOLD LEFT MOUSE BUTTON to shoot zombies", 5000);
     
     // Event listeners
     logger.debug('Setting up event listeners');
@@ -182,63 +227,77 @@ try {
     
     // Function to handle shooting
     const shootBullet = () => {
-        const bullet = createBullet(player.position, player.rotation);
-        if (bullet) {
-            scene.add(bullet);
-            gameState.bullets.push(bullet);
-            updateUI(gameState);
-            logger.debug('Bullet created', { 
-                position: { x: bullet.position.x, y: bullet.position.y, z: bullet.position.z },
-                rotation: { y: player.rotation.y }
-            });
+        // Get the weapon mount from player's userData if available
+        const weaponMount = player.userData.weaponMount || null;
+        
+        // Get bullet start position and direction
+        const bulletStartPos = new THREE.Vector3();
+        const bulletDirection = new THREE.Vector3();
+        
+        if (weaponMount) {
+            // Use weapon mount position if available
+            weaponMount.getWorldPosition(bulletStartPos);
             
-            // Add muzzle flash effect
-            const muzzleFlash = new THREE.PointLight(0xffff00, 1, 3);
-            muzzleFlash.position.set(
-                player.position.x + Math.sin(player.rotation.y) * 1.0,
-                player.position.y + 0.5,
-                player.position.z + Math.cos(player.rotation.y) * 1.0
-            );
-            scene.add(muzzleFlash);
+            // Get direction from player rotation - FIXED DIRECTION
+            // In Three.js, positive Z is forward in our game's coordinate system
+            bulletDirection.set(0, 0, 1).applyQuaternion(player.quaternion);
+        } else {
+            // Fallback to player position
+            bulletStartPos.copy(player.position);
+            bulletStartPos.y += 1; // Adjust height
             
-            // Remove muzzle flash after a short time
-            setTimeout(() => {
-                scene.remove(muzzleFlash);
-            }, 100);
+            // Get direction from player rotation - FIXED DIRECTION
+            bulletDirection.set(0, 0, 1).applyQuaternion(player.quaternion);
         }
+        
+        // Apply powerup effect or create normal bullet
+        applyPowerupEffect(gameState, bulletStartPos, bulletDirection, scene);
+        
+        // Add muzzle flash effect
+        const muzzleFlash = new THREE.PointLight(0xffff00, 1, 3);
+        muzzleFlash.position.copy(bulletStartPos);
+        scene.add(muzzleFlash);
+        
+        // Remove muzzle flash after a short time
+        setTimeout(() => {
+            scene.remove(muzzleFlash);
+        }, 100);
+        
+        // Update UI
+        updateUI(gameState);
     };
     
     // Function to spawn a new zombie
     const spawnZombie = (playerPos) => {
-        // Generate a position away from the player, mostly to the north
+        // Generate a position away from the player, primarily in front of the player
         let position;
         let tooClose = true;
         
         // Keep trying until we find a suitable position
         while (tooClose) {
-            // 80% chance to spawn north of the player
-            const spawnNorth = Math.random() < 0.8;
+            // Generate a random angle, biased towards the front of the player
+            // Front is considered to be the positive Z direction (top of screen)
+            let theta;
             
-            if (spawnNorth) {
-                // Spawn north of the player (negative z)
-                position = {
-                    x: Math.random() * 60 - 30, // Wider range for x
-                    z: playerPos.z - 20 - Math.random() * 20 // Always north (negative z)
-                };
-            } else {
-                // Random direction but still far from player
-                position = {
-                    x: Math.random() * 60 - 30,
-                    z: Math.random() * 60 - 30
-                };
-            }
+            // Rejection sampling for angle - higher probability in front of player
+            // This will generate angles primarily in the range of π/2 to 3π/2 (top half)
+            do {
+                theta = Math.random() * 2 * Math.PI; // Random angle between 0 and 2π
+            } while (Math.random() > (1 + Math.cos(theta + Math.PI)) / 2); // Rejection sampling with flipped direction
+            
+            // Calculate position based on angle and distance
+            const distance = 20 + Math.random() * 10; // Distance from player
+            position = {
+                x: playerPos.x + distance * Math.sin(theta),
+                z: playerPos.z + distance * Math.cos(theta)
+            };
             
             // Check if position is far enough from player
             const dx = position.x - playerPos.x;
             const dz = position.z - playerPos.z;
-            const distance = Math.sqrt(dx * dx + dz * dz);
+            const distanceToPlayer = Math.sqrt(dx * dx + dz * dz);
             
-            if (distance > 15) {
+            if (distanceToPlayer > 15) {
                 tooClose = false;
             }
         }
@@ -248,7 +307,9 @@ try {
         const zombieObj = {
             mesh: zombie,
             health: 50,
-            speed: 0.03 + Math.random() * 0.02
+            speed: 0.03 + Math.random() * 0.02,
+            gameState: gameState, // Pass gameState reference to zombie
+            baseSpeed: 0.03 + Math.random() * 0.02 // Store the base speed for reference
         };
         
         gameState.zombies.push(zombieObj);
@@ -308,9 +369,40 @@ try {
             );
             camera.lookAt(targetPoint);
             
-            // Handle continuous firing when mouse is held down
+            // Handle continuous firing when mouse is held down - with rate limiting
             if (gameState.mouseDown && !gameState.gameOver) {
-                shootBullet();
+                // Check if enough time has passed since the last shot
+                const currentTime = Date.now();
+                if (!gameState.lastShotTime) {
+                    gameState.lastShotTime = 0;
+                }
+                
+                const SHOT_COOLDOWN = 300; // 300ms between shots (slower fire rate)
+                if (currentTime - gameState.lastShotTime > SHOT_COOLDOWN) {
+                    shootBullet();
+                    gameState.lastShotTime = currentTime;
+                }
+            }
+            
+            // Update powerup duration
+            if (gameState.player.activePowerup && gameState.player.powerupDuration > 0) {
+                gameState.player.powerupDuration -= delta;
+                
+                // Clear powerup when duration expires
+                if (gameState.player.powerupDuration <= 0) {
+                    gameState.player.activePowerup = null;
+                    gameState.player.powerupDuration = 0;
+                    showMessage("Powerup expired", 1000);
+                }
+            }
+            
+            // Animate powerups
+            if (gameState.powerups) {
+                gameState.powerups.forEach(powerup => {
+                    if (powerup.active && powerup.mesh) {
+                        animatePowerup(powerup.mesh, Date.now() * 0.001);
+                    }
+                });
             }
             
             // Update bullets
@@ -325,8 +417,8 @@ try {
             // Update UI every frame
             updateUI(gameState);
             
-            // Spawn new zombies continuously
-            if (Math.random() < 0.01) {
+            // Spawn new zombies continuously - increased spawn rate by 50%
+            if (Math.random() < 0.045) { // Changed from 0.03 to 0.045
                 spawnZombie(player.position);
             }
             

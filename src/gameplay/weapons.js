@@ -18,11 +18,12 @@ const BULLET_COOLDOWN = 250; // milliseconds
 
 /**
  * Creates a bullet projectile
- * @param {THREE.Vector3} position - Starting position of the bullet
+ * @param {THREE.Vector3} position - Starting position of the player
  * @param {THREE.Euler} rotation - Rotation of the shooter
+ * @param {THREE.Object3D} weaponMount - Optional weapon mount point
  * @returns {Object} The bullet object or null if on cooldown
  */
-export const createBullet = (position, rotation) => {
+export const createBullet = (position, rotation, weaponMount = null) => {
     const currentTime = Date.now();
     
     // Check if enough time has passed since the last bullet (cooldown)
@@ -40,12 +41,26 @@ export const createBullet = (position, rotation) => {
     // Get direction based on player rotation
     const direction = new THREE.Vector3(0, 0, 1).applyEuler(rotation);
     
-    // Set initial position (slightly in front of the player)
-    bullet.position.set(
-        position.x + direction.x * 1.0,
-        position.y + 0.5, // Bullet height
-        position.z + direction.z * 1.0
-    );
+    // Set initial position
+    if (weaponMount) {
+        // Use the weapon mount position if available
+        const weaponPos = new THREE.Vector3();
+        weaponMount.getWorldPosition(weaponPos);
+        
+        // Offset slightly in the direction the player is facing
+        bullet.position.set(
+            weaponPos.x + direction.x * 0.5,
+            weaponPos.y,
+            weaponPos.z + direction.z * 0.5
+        );
+    } else {
+        // Fallback to player position with offset
+        bullet.position.set(
+            position.x + direction.x * 0.7,
+            position.y + 1.0, // Higher to match weapon height
+            position.z + direction.z * 0.7
+        );
+    }
     
     // Store direction and other properties
     bullet.userData = {

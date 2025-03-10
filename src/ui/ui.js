@@ -63,6 +63,32 @@ export const initUI = () => {
         const zombieCountElement = document.createElement('div');
         zombieCountElement.id = 'zombieCount';
         uiContainer.appendChild(zombieCountElement);
+        
+        // Create powerup display
+        const powerupElement = document.createElement('div');
+        powerupElement.id = 'powerup';
+        uiContainer.appendChild(powerupElement);
+        
+        // Create powerup duration bar container
+        const powerupBarContainer = document.createElement('div');
+        powerupBarContainer.id = 'powerup-bar-container';
+        powerupBarContainer.style.width = '200px';
+        powerupBarContainer.style.height = '10px';
+        powerupBarContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        powerupBarContainer.style.border = '1px solid white';
+        powerupBarContainer.style.marginTop = '5px';
+        powerupBarContainer.style.marginBottom = '10px';
+        powerupBarContainer.style.display = 'none'; // Hide initially
+        uiContainer.appendChild(powerupBarContainer);
+        
+        // Create powerup duration bar
+        const powerupBar = document.createElement('div');
+        powerupBar.id = 'powerup-bar';
+        powerupBar.style.width = '100%';
+        powerupBar.style.height = '100%';
+        powerupBar.style.backgroundColor = 'cyan';
+        powerupBar.style.transition = 'width 0.3s';
+        powerupBarContainer.appendChild(powerupBar);
     }
 };
 
@@ -119,6 +145,51 @@ export const updateUI = (gameState) => {
     const zombieCountElement = document.getElementById('zombieCount');
     if (zombieCountElement && gameState.zombies) {
         zombieCountElement.textContent = `Zombies: ${gameState.zombies.length}`;
+    }
+    
+    // Update powerup display
+    const powerupElement = document.getElementById('powerup');
+    const powerupBarContainer = document.getElementById('powerup-bar-container');
+    const powerupBar = document.getElementById('powerup-bar');
+    
+    if (powerupElement && powerupBarContainer && powerupBar) {
+        if (player.activePowerup) {
+            // Format the powerup name for display
+            const formattedName = player.activePowerup
+                .replace(/([A-Z])/g, ' $1') // Add space before capital letters
+                .replace(/^./, str => str.toUpperCase()); // Capitalize first letter
+            
+            powerupElement.textContent = `Active Powerup: ${formattedName}`;
+            powerupElement.style.color = getPowerupColor(player.activePowerup);
+            
+            // Show and update powerup duration bar
+            powerupBarContainer.style.display = 'block';
+            const durationPercent = (player.powerupDuration / 10) * 100; // Assuming max duration is 10 seconds
+            powerupBar.style.width = `${durationPercent}%`;
+            powerupBar.style.backgroundColor = getPowerupColor(player.activePowerup);
+        } else {
+            powerupElement.textContent = 'No Active Powerup';
+            powerupElement.style.color = 'white';
+            powerupBarContainer.style.display = 'none';
+        }
+    }
+};
+
+/**
+ * Gets the color associated with a powerup type
+ * @param {string} powerupType - The type of powerup
+ * @returns {string} The color as a hex string
+ */
+const getPowerupColor = (powerupType) => {
+    switch (powerupType) {
+        case 'tripleShot':
+            return '#ffa500'; // Orange
+        case 'shotgunBlast':
+            return '#4682b4'; // Steel blue
+        case 'explosion':
+            return '#ff0000'; // Red
+        default:
+            return '#ffffff'; // White
     }
 };
 

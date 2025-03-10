@@ -12,6 +12,8 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
 import { isZombieDead, damageZombie } from './zombie.js';
 import { logger } from '../utils/logger.js';
+import { createBullet } from '../gameplay/weapons.js';
+import { showMessage } from '../ui/ui.js';
 
 // Create audio for damage sound
 let damageSound = null;
@@ -199,39 +201,35 @@ const createDamageIndicator = (damage, position, camera) => {
  */
 export const handleCollisions = (gameState, scene, delta = 1/60) => {
     try {
-        const { player, zombies, bullets } = gameState;
-        
-        // Safety check for undefined objects
-        if (!player || !zombies || !bullets || !scene) {
-            logger.warn("Missing required objects for collision detection");
+        const { bullets, zombies, player } = gameState;
+        if (!bullets || !zombies || !player) {
             return;
         }
         
+        // Get powerups from gameState
+        const powerups = gameState.powerups || [];
+        
+        // Collision distances
+        const COLLISION_DISTANCE = 1.0;
+        const DAMAGE_DISTANCE = 1.2;
+        
         // Initialize damage sound if not already done
-        if (!damageSound && player.userData && player.userData.audioListener) {
-            damageSound = initDamageSound(player.userData.audioListener);
+        if (!damageSound && gameState.camera && gameState.camera.children[0]) {
+            initDamageSound(gameState.camera.children[0]);
         }
         
-        const COLLISION_DISTANCE = 1.0; // Physical collision distance (reduced from 1.5)
-        const DAMAGE_DISTANCE = 1.2;    // Damage reach distance (reduced from 1.7)
-        const DAMAGE_PER_SECOND = 20;
         const ZOMBIE_COLLISION_DISTANCE = 1.0; // Also reduced zombie-zombie collision distance
         
-        // Player-zombie damage (collision detection moved to updateZombies)
+        // Player-zombie damage visual effects
+        // Note: Actual damage is now handled in zombie.js
         for (let i = 0; i < zombies.length; i++) {
             const zombie = zombies[i];
             if (!zombie || !zombie.mesh || !zombie.mesh.position) continue;
             
             if (checkCollision(player.position, zombie.mesh.position, DAMAGE_DISTANCE)) {
-                // Damage player based on time (per-second style)
-                const damageThisFrame = DAMAGE_PER_SECOND * delta;
-                
-                // Directly update the player health in gameState
-                gameState.player.health -= damageThisFrame;
-                
                 // Show damage indicator occasionally
                 if (Math.random() < 0.2 && gameState.camera) {
-                    createDamageIndicator(damageThisFrame, player.position, gameState.camera);
+                    createDamageIndicator(1, player.position, gameState.camera);
                 }
                 
                 // Play damage sound occasionally to avoid sound spam
@@ -241,14 +239,6 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
                         logger.debug('Playing damage sound');
                     } catch (error) {
                         logger.error('Error playing damage sound:', error);
-                    }
-                }
-                
-                // Check for game over
-                if (gameState.player.health <= 0) {
-                    gameState.player.health = 0; // Prevent negative health
-                    if (typeof gameState.handleGameOver === 'function') {
-                        gameState.handleGameOver();
                     }
                 }
                 
@@ -339,6 +329,42 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
             const bullet = bullets[i];
             if (!bullet || !bullet.position) continue;
             
+            let bulletHit = false;
+            
+            // Check bullet-powerup collisions first
+            for (let p = powerups.length - 1; p >= 0; p--) {
+                const powerup = powerups[p];
+                if (!powerup || !powerup.mesh || !powerup.active) continue;
+                
+                if (checkCollision(bullet.position, powerup.mesh.position, 1.0)) {
+                    // Activate powerup
+                    activatePowerup(gameState, powerup.type);
+                    
+                    // Remove bullet
+                    scene.remove(bullet);
+                    bullets.splice(i, 1);
+                    
+                    // Remove powerup from scene
+                    scene.remove(powerup.mesh);
+                    powerup.active = false;
+                    
+                    // Log powerup activation
+                    logger.debug(`Powerup activated: ${powerup.type}`);
+                    
+                    // Show message to player
+                    if (typeof showMessage === 'function') {
+                        showMessage(`${powerup.type} activated!`, 2000);
+                    }
+                    
+                    bulletHit = true;
+                    break;
+                }
+            }
+            
+            // If bullet already hit a powerup, skip zombie collision checks
+            if (bulletHit) continue;
+            
+            // Check bullet-zombie collisions
             for (let j = zombies.length - 1; j >= 0; j--) {
                 const zombie = zombies[j];
                 if (!zombie || !zombie.mesh || !zombie.mesh.position) continue;
@@ -388,5 +414,187 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
         }
     } catch (error) {
         logger.error('Error in handleCollisions:', error);
+    }
+};
+
+/**
+ * Activates a powerup effect
+ * @param {Object} gameState - The game state object
+ * @param {string} powerupType - The type of powerup to activate
+ */
+export const activatePowerup = (gameState, powerupType) => {
+    if (!gameState || !powerupType) return;
+    
+    // Set the active powerup in the game state
+    gameState.player.activePowerup = powerupType;
+    gameState.player.powerupDuration = 10; // 10 seconds duration
+    
+    // Log powerup activation
+    logger.debug(`Powerup activated: ${powerupType}`);
+    
+    // Show message to player
+    showMessage(`${powerupType} activated!`, 2000);
+};
+
+/**
+ * Applies the active powerup effect to a bullet shot
+ * @param {Object} gameState - The game state object
+ * @param {THREE.Vector3} position - The position to create bullets at
+ * @param {THREE.Vector3} direction - The direction for bullets to travel
+ * @param {THREE.Scene} scene - The scene to add bullets to
+ */
+export const applyPowerupEffect = (gameState, position, direction, scene) => {
+    if (!gameState || !gameState.player) {
+        return;
+    }
+    
+    // Create a bullet directly with the correct parameters
+    const createBulletWithDirection = (pos, dir) => {
+        // Create bullet geometry
+        const bulletGeometry = new THREE.SphereGeometry(0.2, 8, 8);
+        const bulletMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+        const bullet = new THREE.Mesh(bulletGeometry, bulletMaterial);
+        
+        // Set initial position
+        bullet.position.copy(pos);
+        
+        // Store direction and other properties
+        bullet.userData = {
+            direction: dir.normalize(),
+            speed: 1.0,
+            distance: 0,
+            maxDistance: 50,
+            damage: 25
+        };
+        
+        return bullet;
+    };
+    
+    // Check if there's an active powerup
+    const powerupType = gameState.player.activePowerup;
+    
+    if (!powerupType) {
+        // No active powerup, create a normal bullet
+        const bullet = createBulletWithDirection(position, direction);
+        gameState.bullets.push(bullet);
+        scene.add(bullet);
+        return;
+    }
+    
+    switch (powerupType) {
+        case 'tripleShot':
+            // Create three bullets in a spread pattern
+            const spreadAngle = Math.PI / 12; // 15 degrees
+            
+            // Center bullet
+            const centerBullet = createBulletWithDirection(position, direction.clone());
+            gameState.bullets.push(centerBullet);
+            scene.add(centerBullet);
+            
+            // Left bullet (rotate direction)
+            const leftDir = direction.clone();
+            leftDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), spreadAngle);
+            const leftBullet = createBulletWithDirection(position, leftDir);
+            gameState.bullets.push(leftBullet);
+            scene.add(leftBullet);
+            
+            // Right bullet (rotate direction)
+            const rightDir = direction.clone();
+            rightDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), -spreadAngle);
+            const rightBullet = createBulletWithDirection(position, rightDir);
+            gameState.bullets.push(rightBullet);
+            scene.add(rightBullet);
+            
+            logger.debug('Triple shot fired');
+            break;
+            
+        case 'shotgunBlast':
+            // Create a spread of 5 bullets in a cone (reduced from 7 for performance)
+            const shotgunSpread = Math.PI / 8; // 22.5 degrees
+            const numPellets = 5;
+            
+            for (let i = 0; i < numPellets; i++) {
+                // Calculate angle for this pellet (evenly distributed across the spread)
+                const angle = (i / (numPellets - 1) - 0.5) * 2 * shotgunSpread;
+                
+                // Create direction vector with spread
+                const pelletDir = direction.clone();
+                pelletDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
+                
+                // Create bullet with reduced damage
+                const pellet = createBulletWithDirection(position, pelletDir);
+                pellet.userData.damage = 15; // Reduced damage per pellet
+                gameState.bullets.push(pellet);
+                scene.add(pellet);
+            }
+            
+            logger.debug('Shotgun blast fired');
+            break;
+            
+        case 'explosion':
+            // Create an explosion effect that damages all zombies within range
+            const EXPLOSION_RADIUS = 10;
+            const EXPLOSION_DAMAGE = 100;
+            
+            // Visual effect - simple flash
+            const explosionLight = new THREE.PointLight(0xff5500, 2, EXPLOSION_RADIUS * 2);
+            explosionLight.position.copy(gameState.player.position);
+            explosionLight.position.y = 1;
+            scene.add(explosionLight);
+            
+            // Remove light after a short time
+            setTimeout(() => {
+                scene.remove(explosionLight);
+            }, 500);
+            
+            // Damage all zombies within range
+            const zombiesToRemove = [];
+            
+            gameState.zombies.forEach((zombie, index) => {
+                if (!zombie || !zombie.mesh) return;
+                
+                const dx = gameState.player.position.x - zombie.mesh.position.x;
+                const dz = gameState.player.position.z - zombie.mesh.position.z;
+                const distance = Math.sqrt(dx * dx + dz * dz);
+                
+                if (distance <= EXPLOSION_RADIUS) {
+                    // Calculate damage based on distance (more damage closer to center)
+                    const damageMultiplier = 1 - (distance / EXPLOSION_RADIUS);
+                    const damage = EXPLOSION_DAMAGE * damageMultiplier;
+                    
+                    // Apply damage to zombie
+                    const updatedZombie = damageZombie(zombie, damage);
+                    gameState.zombies[index] = updatedZombie;
+                    
+                    // Check if zombie is dead
+                    if (isZombieDead(updatedZombie)) {
+                        zombiesToRemove.push({ index, mesh: zombie.mesh });
+                        
+                        // Award EXP to player
+                        gameState.player.exp += 10;
+                    }
+                }
+            });
+            
+            // Remove dead zombies after the loop to avoid array index issues
+            zombiesToRemove.sort((a, b) => b.index - a.index); // Sort in reverse order
+            zombiesToRemove.forEach(zombie => {
+                scene.remove(zombie.mesh);
+                gameState.zombies.splice(zombie.index, 1);
+            });
+            
+            // Clear the powerup after use (explosion is one-time use)
+            gameState.player.activePowerup = null;
+            gameState.player.powerupDuration = 0;
+            
+            logger.debug('Explosion activated');
+            break;
+            
+        default:
+            // Default to normal bullet
+            const bullet = createBulletWithDirection(position, direction);
+            gameState.bullets.push(bullet);
+            scene.add(bullet);
+            break;
     }
 }; 
