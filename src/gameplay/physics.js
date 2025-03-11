@@ -14,6 +14,7 @@ import { createBullet } from './weapons.js';
 import { damageZombie, isZombieDead } from './zombie.js';
 import { logger } from '../utils/logger.js';
 import { showMessage } from '../ui/ui.js';
+import { playSound } from './audio.js'; // Import audio system
 
 // Create audio for damage sound
 let damageSound = null;
@@ -468,6 +469,9 @@ export const activatePowerup = (gameState, powerupType, activationMethod = 'walk
     } else {
         logger.debug(`Powerup activated by shooting: ${powerupType}`);
     }
+    
+    // Play powerup pickup sound
+    playSound('powerupPickup');
 };
 
 /**

@@ -20,6 +20,7 @@ import { createTripleShotPowerup, createShotgunBlastPowerup, createExplosionPowe
 import { createTexturedGround, createBuilding, createRock, createDeadTree } from './rendering/environment.js';
 import { setupDismemberment, updateBloodEffects } from './gameplay/dismemberment.js';
 import { shouldSpawnPowerup, spawnPowerupBehindPlayer, cleanupOldPowerups } from './gameplay/powerupSpawner.js';
+import { initAudio, loadAudio, loadPositionalAudio, playSound, stopSound, toggleMute, setMasterVolume } from './gameplay/audio.js';
 
 // Set log level based on debug flag
 const DEBUG_MODE = true;
@@ -75,14 +76,40 @@ window.gameState = gameState;
 
 // Initialize the scene
 const scene = createScene();
+
+// Create camera
 const camera = createCamera();
 gameState.camera = camera; // Store camera reference
+
+// Initialize audio system
+initAudio(camera);
+
+// Create renderer
 const renderer = createRenderer();
 const { ambientLight, directionalLight } = createLighting(scene);
 
 // Create textured ground
 const ground = createTexturedGround(1000);
 scene.add(ground);
+
+/**
+ * Loads all game audio files
+ */
+const loadGameAudio = async () => {
+  try {
+    await loadAudio('backgroundMusic', '/audio/zombie-theme.mp3', true, 0.5);
+    await loadAudio('gunshot', '/audio/gunshot.mp3', false, 0.8);
+    await loadPositionalAudio('zombieGrowl', '/audio/zombie-growl.mp3', 10, 0.7);
+    await loadPositionalAudio('explosion', '/audio/explosion.mp3', 15, 1.0);
+    await loadAudio('powerupPickup', '/audio/powerup-pickup.mp3', false, 0.6);
+    
+    // Start playing background music
+    playSound('backgroundMusic');
+    logger.info('Game audio loaded successfully');
+  } catch (error) {
+    logger.error(`Failed to load game audio: ${error}`);
+  }
+};
 
 // Create player
 const player = createPlayer();
@@ -214,6 +241,9 @@ const shootBullet = () => {
     }
     
     gameState.lastShotTime = currentTime;
+    
+    // Play gunshot sound
+    playSound('gunshot');
     
     // Get player's forward direction - now using positive Z as forward
     const direction = new THREE.Vector3(0, 0, 1);
@@ -406,6 +436,10 @@ const spawnEnemy = (playerPos) => {
     
     gameState.zombies.push(enemyObj);
     scene.add(enemyObj.mesh);
+    
+    // Play zombie growl sound at the zombie's position
+    playSound('zombieGrowl', enemyObj.mesh.position);
+    
     logger.debug(`New ${enemyObj.type} spawned`, { position });
     
     return enemyObj;
@@ -413,6 +447,9 @@ const spawnEnemy = (playerPos) => {
 
 // Function to handle game over
 const handleGameOver = () => {
+    // Stop background music
+    stopSound('backgroundMusic');
+    
     gameState.gameOver = true;
     
     // Display game over message
@@ -446,6 +483,9 @@ gameState.handleGameOver = handleGameOver;
 
 // Spawn initial environment objects
 spawnEnvironmentObjects();
+
+// Load game audio
+loadGameAudio();
 
 // Spawn initial zombies
 for (let i = 0; i < gameState.initialSpawnCount; i++) {
@@ -1045,6 +1085,26 @@ function createDebugUI(gameState) {
     });
     
     debugContainer.appendChild(superHealthButton);
+    
+    // Add mute toggle button
+    const muteButton = document.createElement('button');
+    muteButton.textContent = 'Toggle Mute';
+    muteButton.style.padding = '8px 16px';
+    muteButton.style.backgroundColor = '#ff4444';
+    muteButton.style.color = 'white';
+    muteButton.style.border = 'none';
+    muteButton.style.borderRadius = '4px';
+    muteButton.style.cursor = 'pointer';
+    muteButton.style.width = '100%';
+    muteButton.style.marginTop = '10px';
+    
+    muteButton.addEventListener('click', () => {
+        const isMuted = toggleMute();
+        muteButton.textContent = isMuted ? 'Unmute' : 'Toggle Mute';
+        showMessage(isMuted ? 'Audio muted' : 'Audio unmuted', 1000);
+    });
+    
+    debugContainer.appendChild(muteButton);
     
     // Add to document
     document.body.appendChild(debugContainer);

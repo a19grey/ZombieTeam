@@ -8,6 +8,7 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
 import { checkCollision, pushAway } from './physics.js'; // Import physics helpers
 import { setupDismemberment, processDismemberment } from './dismemberment.js'; // Import dismemberment system
+import { playSound } from './audio.js'; // Import audio system
 
 /**
  * Creates a Minecraft-style low-poly zombie character
@@ -764,6 +765,9 @@ export const createExplosion = (scene, position, radius = 3, damage = 100, zombi
         explosion.position.copy(position);
         explosion.scale.set(0.1, 0.1, 0.1); // Start small
         scene.add(explosion);
+        
+        // Play explosion sound at the explosion position
+        playSound('explosion', position);
         
         // Add a point light for glow effect
         const light = new THREE.PointLight(0xff5500, 2, radius * 2);
