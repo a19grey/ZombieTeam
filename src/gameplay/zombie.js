@@ -604,6 +604,28 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60) => {
                     }
                 }
                 
+                // Check for collisions with environment objects (buildings, rocks, etc.)
+                if (window.gameState && window.gameState.environmentObjects) {
+                    for (const object of window.gameState.environmentObjects) {
+                        if (object && object.isObstacle) {
+                            const dx = zombie.mesh.position.x - object.position.x;
+                            const dz = zombie.mesh.position.z - object.position.z;
+                            const distance = Math.sqrt(dx * dx + dz * dz);
+                            
+                            // If zombie is colliding with an environment object
+                            if (distance < (object.boundingRadius || 2.5)) {
+                                // Push zombie away from the object
+                                const pushDirection = new THREE.Vector3(dx, 0, dz).normalize();
+                                const pushDistance = (object.boundingRadius || 2.5) - distance + 0.1;
+                                
+                                zombie.mesh.position.x += pushDirection.x * pushDistance;
+                                zombie.mesh.position.z += pushDirection.z * pushDistance;
+                                break; // Only handle one collision at a time
+                            }
+                        }
+                    }
+                }
+                
                 // Apply final position
                 zombie.mesh.position.copy(intendedPosition);
                 
@@ -632,6 +654,38 @@ export const damagePlayer = (gameState, damageAmount) => {
     
     if (gameState.player.health <= 0 && typeof gameState.handleGameOver === 'function') {
         gameState.handleGameOver();
+    }
+    
+    // Add a damage animation effect to the health halo
+    if (gameState.player.health > 0 && gameState.playerObject && gameState.playerObject.userData) {
+        const halo = gameState.playerObject.userData.healthHalo;
+        const glowHalo = gameState.playerObject.userData.glowHalo;
+        
+        if (halo) {
+            // Flash the halo red briefly
+            const originalColor = halo.material.color.getHex();
+            halo.material.color.set(0xff0000);
+            
+            // Reset after a short time
+            setTimeout(() => {
+                if (halo.material) {
+                    halo.material.color.set(originalColor);
+                }
+            }, 150);
+        }
+        
+        if (glowHalo) {
+            // Make the glow halo briefly larger
+            const originalScale = glowHalo.scale.x;
+            glowHalo.scale.set(1.3, 1.3, 1);
+            
+            // Reset after a short time
+            setTimeout(() => {
+                if (glowHalo.scale) {
+                    glowHalo.scale.set(originalScale, originalScale, 1);
+                }
+            }, 150);
+        }
     }
 };
 
@@ -686,64 +740,113 @@ export const isZombieDead = (zombie) => {
 };
 
 /**
- * Creates an explosion effect at the specified position
+ * Creates an explosion effect at the given position
  * @param {THREE.Scene} scene - The scene to add the explosion to
  * @param {THREE.Vector3} position - The position of the explosion
  * @param {number} radius - The radius of the explosion
- * @param {number} damage - The damage the explosion deals
- * @param {Array} zombies - Array of all zombies to check for damage
- * @param {Object} player - The player object to check for damage
- * @param {Object} gameState - The game state object
+ * @param {number} damage - The damage dealt by the explosion
+ * @param {Array} zombies - Array of zombies to check for damage
+ * @param {THREE.Object3D} player - The player object
+ * @param {Object} gameState - The game state
  */
 export const createExplosion = (scene, position, radius = 3, damage = 100, zombies = [], player, gameState) => {
-    // Create explosion visual effect
-    const explosionGeometry = new THREE.SphereGeometry(radius, 16, 16);
-    const explosionMaterial = new THREE.MeshBasicMaterial({
-        color: 0xff5500,
-        transparent: true,
-        opacity: 0.8
-    });
-    const explosion = new THREE.Mesh(explosionGeometry, explosionMaterial);
-    explosion.position.copy(position);
-    scene.add(explosion);
-    
-    // Check for player in explosion radius
-    const playerDistance = player.position.distanceTo(position);
-    if (playerDistance < radius) {
-        // Calculate damage based on distance (more damage closer to center)
-        const playerDamage = damage * (1 - playerDistance / radius);
-        damagePlayer(gameState, playerDamage);
-    }
-    
-    // Check for zombies in explosion radius
-    zombies.forEach(zombie => {
-        if (zombie && zombie.mesh) {
-            const zombieDistance = zombie.mesh.position.distanceTo(position);
-            if (zombieDistance < radius) {
-                // Calculate damage based on distance
-                const zombieDamage = damage * (1 - zombieDistance / radius);
-                damageZombie(zombie, zombieDamage, scene);
+    try {
+        console.log("Creating explosion at", position, "with radius", radius, "and damage", damage);
+        
+        // Create explosion visual effect
+        const explosionGeometry = new THREE.SphereGeometry(radius, 16, 16);
+        const explosionMaterial = new THREE.MeshBasicMaterial({
+            color: 0xff5500,
+            transparent: true,
+            opacity: 0.8
+        });
+        const explosion = new THREE.Mesh(explosionGeometry, explosionMaterial);
+        explosion.position.copy(position);
+        explosion.scale.set(0.1, 0.1, 0.1); // Start small
+        scene.add(explosion);
+        
+        // Add a point light for glow effect
+        const light = new THREE.PointLight(0xff5500, 2, radius * 2);
+        light.position.copy(position);
+        scene.add(light);
+        
+        // Check for player in explosion radius
+        if (player && player.position) {
+            const playerDistance = player.position.distanceTo(position);
+            if (playerDistance < radius) {
+                // Calculate damage based on distance (more damage closer to center)
+                const playerDamage = damage * (1 - playerDistance / radius);
+                console.log("Player in explosion radius, dealing", playerDamage, "damage");
+                damagePlayer(gameState, playerDamage);
             }
         }
-    });
-    
-    // Animate explosion and remove after a short time
-    let scale = 0.1;
-    const expandSpeed = 0.15;
-    
-    const animateExplosion = () => {
-        scale += expandSpeed;
-        explosion.scale.set(scale, scale, scale);
-        explosion.material.opacity = Math.max(0, 0.8 - scale * 0.2);
         
-        if (scale < 1.5) {
-            requestAnimationFrame(animateExplosion);
-        } else {
-            scene.remove(explosion);
-            explosion.geometry.dispose();
-            explosion.material.dispose();
+        // Check for zombies in explosion radius and damage them
+        const zombiesToDamage = [];
+        
+        if (zombies && zombies.length > 0) {
+            for (let i = 0; i < zombies.length; i++) {
+                const zombie = zombies[i];
+                if (zombie && zombie.mesh && zombie.mesh.position) {
+                    const zombieDistance = zombie.mesh.position.distanceTo(position);
+                    if (zombieDistance < radius) {
+                        // Calculate damage based on distance
+                        const zombieDamage = damage * (1 - zombieDistance / radius);
+                        console.log("Zombie in explosion radius, dealing", zombieDamage, "damage");
+                        zombiesToDamage.push({ zombie, damage: zombieDamage });
+                    }
+                }
+            }
         }
-    };
-    
-    animateExplosion();
+        
+        // Apply damage to zombies after checking all of them
+        zombiesToDamage.forEach(({ zombie, damage }) => {
+            damageZombie(zombie, damage, scene);
+        });
+        
+        // Animation variables
+        let scale = 0.1;
+        let opacity = 0.8;
+        const expandSpeed = 0.15;
+        const fadeSpeed = 0.05;
+        
+        // Animation function
+        function animate() {
+            // Increase scale
+            scale += expandSpeed;
+            explosion.scale.set(scale, scale, scale);
+            
+            // Decrease opacity
+            opacity -= fadeSpeed;
+            explosion.material.opacity = Math.max(0, opacity);
+            light.intensity = Math.max(0, opacity * 2);
+            
+            // Continue animation until fully faded
+            if (opacity > 0) {
+                requestAnimationFrame(animate);
+            } else {
+                // Clean up when animation is complete
+                scene.remove(explosion);
+                scene.remove(light);
+                explosion.geometry.dispose();
+                explosion.material.dispose();
+            }
+        }
+        
+        // Start animation
+        requestAnimationFrame(animate);
+        
+        // Backup cleanup - force remove after 3 seconds
+        setTimeout(() => {
+            if (explosion.parent) {
+                scene.remove(explosion);
+                scene.remove(light);
+                explosion.geometry.dispose();
+                explosion.material.dispose();
+            }
+        }, 3000);
+        
+    } catch (error) {
+        console.error('Error creating explosion:', error);
+    }
 };

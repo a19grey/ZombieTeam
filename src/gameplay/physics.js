@@ -210,8 +210,9 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
         const powerups = gameState.powerups || [];
         
         // Collision distances
-        const COLLISION_DISTANCE = 1.0;
+        const COLLISION_DISTANCE = 1.5; // Increased from 1.0 to better detect nearby enemies
         const DAMAGE_DISTANCE = 1.2;
+        const POWERUP_PICKUP_DISTANCE = 1.5; // Distance for player to pick up powerups
         
         // Initialize damage sound if not already done
         if (!damageSound && gameState.camera && gameState.camera.children[0]) {
@@ -225,9 +226,9 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
             const powerup = powerups[i];
             if (!powerup || !powerup.mesh || !powerup.active) continue;
             
-            if (checkCollision(player.position, powerup.mesh.position, COLLISION_DISTANCE)) {
+            if (checkCollision(player.position, powerup.mesh.position, POWERUP_PICKUP_DISTANCE)) {
                 // Activate powerup
-                activatePowerup(gameState, powerup.type);
+                activatePowerup(gameState, powerup.type, 'walk');
                 
                 // Remove powerup from scene
                 scene.remove(powerup.mesh);
@@ -348,7 +349,11 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
         // Check bullet-zombie collisions
         for (let i = bullets.length - 1; i >= 0; i--) {
             const bullet = bullets[i];
-            if (!bullet || !bullet.position) continue;
+            if (!bullet) continue;
+            
+            // Get bullet position - handle both tracer and non-tracer bullets
+            const bulletPosition = bullet.mesh ? bullet.mesh.position : bullet.position;
+            if (!bulletPosition) continue;
             
             let bulletHit = false;
             
@@ -357,12 +362,17 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
                 const powerup = powerups[p];
                 if (!powerup || !powerup.mesh || !powerup.active) continue;
                 
-                if (checkCollision(bullet.position, powerup.mesh.position, 1.0)) {
+                // Use a slightly larger collision distance for non-tracer bullets to improve hit detection
+                const bulletCollisionDistance = bullet.mesh ? 1.0 : 1.5;
+                
+                if (checkCollision(bulletPosition, powerup.mesh.position, bulletCollisionDistance)) {
                     // Activate powerup
-                    activatePowerup(gameState, powerup.type);
+                    activatePowerup(gameState, powerup.type, 'shoot');
                     
                     // Remove bullet
-                    scene.remove(bullet);
+                    if (bullet.mesh) {
+                        scene.remove(bullet.mesh);
+                    }
                     bullets.splice(i, 1);
                     
                     // Remove powerup from scene
@@ -370,13 +380,9 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
                     powerup.active = false;
                     
                     // Log powerup activation
-                    logger.debug(`Powerup activated: ${powerup.type}`);
+                    logger.debug(`Powerup activated by bullet: ${powerup.type}`);
                     
-                    // Show message to player
-                    if (typeof showMessage === 'function') {
-                        showMessage(`${powerup.type} activated!`, 2000);
-                    }
-                    
+                    // Mark bullet as hit
                     bulletHit = true;
                     break;
                 }
@@ -390,25 +396,30 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
                 const zombie = zombies[j];
                 if (!zombie || !zombie.mesh || !zombie.mesh.position) continue;
                 
-                if (checkCollision(bullet.position, zombie.mesh.position, 1.0)) {
+                if (checkCollision(bulletPosition, zombie.mesh.position, COLLISION_DISTANCE)) {
                     // Damage zombie
-                    const updatedZombie = damageZombie(zombie, bullet.userData.damage, scene);
+                    const updatedZombie = damageZombie(zombie, bullet.userData ? bullet.userData.damage : 25, scene);
                     zombies[j] = updatedZombie;
                     
                     // Remove bullet
-                    scene.remove(bullet);
+                    if (bullet.mesh) {
+                        scene.remove(bullet.mesh);
+                    }
                     bullets.splice(i, 1);
+                    
+                    // Mark bullet as hit
+                    bulletHit = true;
                     
                     // Check if zombie is dead
                     if (isZombieDead(updatedZombie)) {
-                        scene.remove(zombie.mesh);
+                        // Remove zombie from scene
+                        scene.remove(updatedZombie.mesh);
+                        
+                        // Remove zombie from array
                         zombies.splice(j, 1);
                         
                         // Award EXP to player
                         gameState.player.exp += 10;
-                        logger.debug('Zombie killed, EXP awarded');
-                    } else {
-                        logger.debug('Zombie hit, health remaining:', updatedZombie.health);
                     }
                     
                     break; // Bullet can only hit one zombie
@@ -442,19 +453,21 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
  * Activates a powerup effect
  * @param {Object} gameState - The game state object
  * @param {string} powerupType - The type of powerup to activate
+ * @param {string} activationMethod - How the powerup was activated ('walk' or 'shoot')
  */
-export const activatePowerup = (gameState, powerupType) => {
+export const activatePowerup = (gameState, powerupType, activationMethod = 'walk') => {
     if (!gameState || !powerupType) return;
     
     // Set the active powerup in the game state
     gameState.player.activePowerup = powerupType;
     gameState.player.powerupDuration = 10; // 10 seconds duration
     
-    // Log powerup activation
-    logger.debug(`Powerup activated: ${powerupType}`);
-    
-    // Show message to player
-    showMessage(`${powerupType} activated!`, 2000);
+    // Log powerup activation (for debugging only)
+    if (activationMethod === 'walk') {
+        logger.debug(`Powerup collected by walking: ${powerupType}`);
+    } else {
+        logger.debug(`Powerup activated by shooting: ${powerupType}`);
+    }
 };
 
 /**

@@ -26,6 +26,38 @@ export const createPlayer = () => {
     head.castShadow = true;
     player.add(head);
 
+    // Create health halo (annulus/ring) above the player's head
+    const haloRadius = 0.4; // Size of the halo
+    const haloTubeWidth = 0.08; // Thickness of the ring
+    const haloGeometry = new THREE.RingGeometry(haloRadius - haloTubeWidth, haloRadius, 32);
+    const haloMaterial = new THREE.MeshBasicMaterial({
+        color: 0xf0f0f0, // Soft white glow
+        transparent: true,
+        opacity: 0.8,
+        side: THREE.DoubleSide
+    });
+    const healthHalo = new THREE.Mesh(haloGeometry, haloMaterial);
+    healthHalo.rotation.x = -Math.PI / 2; // Make it horizontal
+    healthHalo.position.y = 1.9; // Position above the head
+    player.add(healthHalo);
+    
+    // Add a subtle glow effect to the halo
+    const glowGeometry = new THREE.RingGeometry(haloRadius - haloTubeWidth - 0.02, haloRadius + 0.02, 32);
+    const glowMaterial = new THREE.MeshBasicMaterial({
+        color: 0xf0f0f0,
+        transparent: true,
+        opacity: 0.3,
+        side: THREE.DoubleSide
+    });
+    const glowHalo = new THREE.Mesh(glowGeometry, glowMaterial);
+    glowHalo.rotation.x = -Math.PI / 2;
+    glowHalo.position.y = 1.9;
+    player.add(glowHalo);
+    
+    // Store reference to the health halo for updating
+    player.userData.healthHalo = healthHalo;
+    player.userData.glowHalo = glowHalo;
+    
     // Body (rectangular prism)
     const bodyGeometry = new THREE.BoxGeometry(0.5, 0.75, 0.25);
     const bodyMaterial = new THREE.MeshStandardMaterial({
@@ -76,12 +108,12 @@ export const createPlayer = () => {
 
     // Weapon attachment point (at end of right hand)
     const weaponMount = new THREE.Object3D();
-    weaponMount.position.set(0.375, 0.375, 0.125); // End of right arm (y lowered to hand level, positive Z due to rotation)
+    weaponMount.position.set(0.375, 0.375, 0.125); // End of right arm (y lowered to hand level, positive Z for forward direction)
     player.add(weaponMount);
     player.userData.weaponMount = weaponMount; // Accessible for weapon attachment
     
-    // Rotate the entire player model 180 degrees so it faces the correct direction
-    player.rotation.y = Math.PI;
+    // No need to rotate the player 180 degrees - we'll handle direction in the aiming function
+    // player.rotation.y = Math.PI;
 
     return player;
 };
@@ -101,7 +133,7 @@ export const createPlayerWeapon = () => {
         roughness: 0.1 
     });
     const gun = new THREE.Mesh(gunGeometry, gunMaterial);
-    gun.position.z = -0.4; // Extend forward (negative Z due to player rotation)
+    gun.position.z = 0.4; // Extend forward (positive Z now that we've fixed the orientation)
     
     // Add a barrel
     const barrelGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.9, 16);
@@ -112,7 +144,7 @@ export const createPlayerWeapon = () => {
     });
     const barrel = new THREE.Mesh(barrelGeometry, barrelMaterial);
     barrel.rotation.x = Math.PI / 2; // Rotate to point forward
-    barrel.position.z = -0.7; // Position at the front of the gun (negative Z due to player rotation)
+    barrel.position.z = 0.7; // Position at the front of the gun (positive Z now)
     
     // Add a handle
     const handleGeometry = new THREE.BoxGeometry(0.1, 0.3, 0.1);
@@ -133,7 +165,7 @@ export const createPlayerWeapon = () => {
     });
     const sight = new THREE.Mesh(sightGeometry, sightMaterial);
     sight.position.y = 0.1;
-    sight.position.z = -0.2; // Negative Z due to player rotation
+    sight.position.z = 0.2; // Positive Z now
     
     // Add parts to weapon
     weapon.add(gun);
@@ -158,10 +190,11 @@ export const handlePlayerMovement = (player, keys, baseSpeed, mouse) => {
     const moveX = ((keys['a'] || keys['arrowleft']) ? -1 : 0) + ((keys['d'] || keys['arrowright']) ? 1 : 0);
     const moveZ = ((keys['w'] || keys['arrowup']) ? -1 : 0) + ((keys['s'] || keys['arrowdown']) ? 1 : 0);
     
-    const zombieBaseSpeed = 0.03;
-    const forwardSpeed = zombieBaseSpeed * 1.05;
-    const backwardSpeed = zombieBaseSpeed * 1.02;
-    const sideSpeed = zombieBaseSpeed * 1.03;
+    // Use the baseSpeed parameter instead of hardcoded values
+    // Apply slight modifiers for different directions
+    const forwardSpeed = baseSpeed * 1.05;
+    const backwardSpeed = baseSpeed * 0.95;
+    const sideSpeed = baseSpeed;
     
     let speedX = sideSpeed;
     let speedZ = moveZ < 0 ? forwardSpeed : backwardSpeed;

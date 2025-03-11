@@ -58,8 +58,20 @@ const gameState = {
     maxZombies: 100, // Maximum number of zombies allowed at once
     initialSpawnCount: 30, // Number of zombies to spawn at start
     bloodParticles: [], // Store blood particles for dismemberment effects
-    lastPowerupSpawnTime: 0 // Track when the last powerup was spawned
+    lastPowerupSpawnTime: 0, // Track when the last powerup was spawned
+    playerObject: null, // Store player object for access by other functions
+    // Debug settings
+    debug: {
+        enabled: DEBUG_MODE,
+        gunFireRate: 100, // ms between shots
+        playerMoveSpeed: 0.15, // Base movement speed
+        zombieSpawnRate: 200, // ms between zombie spawns
+        powerupSpawnRate: 15000, // ms between powerup spawns
+    }
 };
+
+// Make gameState globally accessible for zombie collision detection
+window.gameState = gameState;
 
 // Initialize the scene
 const scene = createScene();
@@ -77,9 +89,40 @@ const player = createPlayer();
 scene.add(player);
 player.position.y = 0;
 
+// Store player object in gameState for access by other functions
+gameState.playerObject = player;
+
 // Add weapon to player
 const playerWeapon = createPlayerWeapon();
 player.add(playerWeapon);
+
+// Create powerup timer indicator (initially invisible)
+const powerupTimerGeometry = new THREE.RingGeometry(0, 2, 32);
+const powerupTimerMaterial = new THREE.MeshBasicMaterial({
+    color: 0x00ffff,
+    transparent: true,
+    opacity: 0.6,
+    side: THREE.DoubleSide
+});
+const powerupTimer = new THREE.Mesh(powerupTimerGeometry, powerupTimerMaterial);
+powerupTimer.rotation.x = Math.PI / 2; // Lay flat on ground
+powerupTimer.position.y = 0.05; // Just above ground
+powerupTimer.visible = false; // Initially invisible
+player.add(powerupTimer);
+
+// Add inner circle for better visual effect
+const innerCircleGeometry = new THREE.CircleGeometry(0.5, 32);
+const innerCircleMaterial = new THREE.MeshBasicMaterial({
+    color: 0xffffff,
+    transparent: true,
+    opacity: 0.3,
+    side: THREE.DoubleSide
+});
+const innerCircle = new THREE.Mesh(innerCircleGeometry, innerCircleMaterial);
+innerCircle.rotation.x = Math.PI / 2; // Lay flat on ground
+innerCircle.position.y = 0.04; // Just below the ring
+innerCircle.visible = false; // Initially invisible
+player.add(innerCircle);
 
 // Create clock for timing
 const clock = new THREE.Clock();
@@ -164,14 +207,16 @@ const spawnEnvironmentObjects = () => {
 const shootBullet = () => {
     // Check if enough time has passed since the last shot
     const currentTime = Date.now();
-    if (currentTime - gameState.lastShotTime < 100) { // Reduced cooldown for faster firing
+    // Use debug gun fire rate if available
+    const fireRateCooldown = gameState.debug && gameState.debug.gunFireRate ? gameState.debug.gunFireRate : 100;
+    if (currentTime - gameState.lastShotTime < fireRateCooldown) { // Use debug setting
         return; // Still in cooldown
     }
     
     gameState.lastShotTime = currentTime;
     
-    // Get player's forward direction
-    const direction = new THREE.Vector3(0, 0, -1);
+    // Get player's forward direction - now using positive Z as forward
+    const direction = new THREE.Vector3(0, 0, 1);
     direction.applyQuaternion(player.quaternion);
     
     // Get weapon mount position if available
@@ -180,14 +225,14 @@ const shootBullet = () => {
         bulletPosition = new THREE.Vector3();
         player.userData.weaponMount.getWorldPosition(bulletPosition);
         
-        // Offset slightly in the direction the player is facing
-        bulletPosition.add(direction.clone().multiplyScalar(0.5));
+        // Offset slightly in the direction the player is facing (reduced offset for closer bullets)
+        bulletPosition.add(direction.clone().multiplyScalar(0.2));
     } else {
         // Fallback to position in front of player
         bulletPosition = new THREE.Vector3(
-            player.position.x + direction.x * 0.5,
+            player.position.x + direction.x * 0.2,
             player.position.y + 0.5, // Bullet height
-            player.position.z + direction.z * 0.5
+            player.position.z + direction.z * 0.2
         );
     }
     
@@ -351,7 +396,6 @@ const spawnEnemy = (playerPos) => {
             baseSpeed: 0.02,
             type: 'zombieKing'
         };
-        showMessage("A Zombie King has appeared!", 3000);
     }
     
     // Ensure the mesh has the same type property for consistency
@@ -428,29 +472,121 @@ function animate() {
         // Aim player with mouse
         aimPlayerWithMouse(player, gameState.mouse, camera);
         
+        // Update health halo based on player health
+        if (player.userData.healthHalo) {
+            // Calculate the angle based on health percentage (full circle = 2π radians)
+            const healthPercent = Math.max(0, Math.min(100, gameState.player.health)) / 100;
+            const angle = healthPercent * Math.PI * 2;
+            
+            // Replace the current halo with an updated one that shows the correct health
+            const haloRadius = 0.4;
+            const haloTubeWidth = 0.08;
+            
+            // Remove the old halo
+            const oldHalo = player.userData.healthHalo;
+            player.remove(oldHalo);
+            
+            // Remove the old glow halo if it exists
+            if (player.userData.glowHalo) {
+                const oldGlow = player.userData.glowHalo;
+                player.remove(oldGlow);
+            }
+            
+            // Create a new halo with the correct arc length
+            const haloGeometry = new THREE.RingGeometry(
+                haloRadius - haloTubeWidth, 
+                haloRadius, 
+                32, 
+                1, 
+                0, 
+                angle
+            );
+            
+            // Change color based on health - improved gradient
+            let haloColor;
+            if (healthPercent > 0.8) {
+                haloColor = 0xffffff; // White for 80-100%
+            } else if (healthPercent > 0.6) {
+                haloColor = 0x00ff00; // Green for 60-80%
+            } else if (healthPercent > 0.4) {
+                haloColor = 0xffff00; // Yellow for 40-60%
+            } else if (healthPercent > 0.2) {
+                haloColor = 0xff8800; // Orange for 20-40%
+            } else {
+                haloColor = 0xff0000; // Red for 0-20%
+            }
+            
+            const haloMaterial = new THREE.MeshBasicMaterial({
+                color: haloColor,
+                transparent: true,
+                opacity: 0.8,
+                side: THREE.DoubleSide
+            });
+            
+            const newHalo = new THREE.Mesh(haloGeometry, haloMaterial);
+            newHalo.rotation.x = -Math.PI / 2; // Make it horizontal
+            newHalo.position.y = 1.9; // Position above the head
+            player.add(newHalo);
+            
+            // Create a new glow halo with the correct arc length
+            const glowGeometry = new THREE.RingGeometry(
+                haloRadius - haloTubeWidth - 0.02, 
+                haloRadius + 0.02, 
+                32, 
+                1, 
+                0, 
+                angle
+            );
+            
+            const glowMaterial = new THREE.MeshBasicMaterial({
+                color: haloColor,
+                transparent: true,
+                opacity: 0.3,
+                side: THREE.DoubleSide
+            });
+            
+            const newGlow = new THREE.Mesh(glowGeometry, glowMaterial);
+            newGlow.rotation.x = -Math.PI / 2;
+            newGlow.position.y = 1.9;
+            player.add(newGlow);
+            
+            // Update the references
+            player.userData.healthHalo = newHalo;
+            player.userData.glowHalo = newGlow;
+            
+            // Add a subtle pulsing effect to the glow when health is low
+            if (healthPercent < 0.3) {
+                const pulseScale = 1 + 0.1 * Math.sin(currentTime * 0.01);
+                newGlow.scale.set(pulseScale, pulseScale, 1);
+            }
+        }
+        
         // Update camera to follow player
         camera.position.x = player.position.x;
-        camera.position.z = player.position.z + 10;
+        camera.position.z = player.position.z + 10; // Now in front of the player (flipped 180 degrees)
         camera.position.y = 10; // Higher camera position for more overhead view (was 7)
         
         // Calculate a target point that's:
         // 1. At the player's x position
         // 2. Below the player's y position (to position player higher in frame)
-        // 3. In front of the player (to look slightly downward)
+        // 3. Behind the player (to look back at the player)
         const targetPoint = new THREE.Vector3(
             player.position.x,
             player.position.y - 1, // Adjusted to tilt camera more overhead
-            player.position.z - 3  // Reduced from -5 to -3 to tilt camera more overhead
+            player.position.z - 3  // Now behind the player (flipped 180 degrees)
         );
         camera.lookAt(targetPoint);
         
         // Handle continuous firing when mouse is held down - with rate limiting
-        if (gameState.mouseDown && !gameState.gameOver) {
+        if ((gameState.mouseDown || gameState.keys[' ']) && !gameState.gameOver) {
             shootBullet();
         }
         
         // Update bullets
         updateBullets(gameState.bullets, delta);
+        
+        // Handle all collisions (player-powerup, bullet-powerup, player-zombie, etc.)
+        handleCollisions(gameState, scene, delta);
         
         // Check for bullet collisions with zombies
         for (let i = gameState.bullets.length - 1; i >= 0; i--) {
@@ -466,7 +602,8 @@ function animate() {
                 if (zombie.health <= 0) continue;
                 
                 // Use bullet.position for both tracer and non-tracer bullets
-                if (checkCollision(bullet.position, zombie.mesh.position, 1.0)) {
+                // Increased collision threshold from 1.0 to 1.5 to better detect nearby enemies
+                if (checkCollision(bullet.position, zombie.mesh.position, 1.5)) {
                     // Apply damage to zombie
                     zombie.health -= bullet.damage;
                     
@@ -498,7 +635,6 @@ function animate() {
                             }
                         } else if (zombie.type === 'zombieKing') {
                             pointsAwarded = 200;
-                            showMessage("The Zombie King has been defeated!", 3000);
                         }
                         
                         gameState.score += pointsAwarded;
@@ -531,29 +667,44 @@ function animate() {
         
         // Handle exploder explosions
         for (let i = gameState.zombies.length - 1; i >= 0; i--) {
-            const zombie = gameState.zombies[i];
-            
-            if (zombie.type === 'exploder' && 
-                zombie.mesh.isExploding && 
-                zombie.mesh.explosionTimer <= 0) {
+            try {
+                const zombie = gameState.zombies[i];
                 
-                // Create explosion
-                createExplosion(
-                    scene, 
-                    zombie.mesh.position.clone(), 
-                    4, // radius
-                    75, // damage
-                    gameState.zombies, 
-                    player, 
-                    gameState
-                );
+                if (!zombie || !zombie.mesh) continue;
                 
-                // Remove exploder
-                scene.remove(zombie.mesh);
-                gameState.zombies.splice(i, 1);
-                
-                // Add points for successful explosion
-                gameState.score += 25;
+                if (zombie.type === 'exploder' && 
+                    zombie.mesh.isExploding && 
+                    zombie.mesh.explosionTimer <= 0) {
+                    
+                    // Create explosion
+                    createExplosion(
+                        scene, 
+                        zombie.mesh.position.clone(), 
+                        4, // radius
+                        75, // damage
+                        gameState.zombies, 
+                        player, 
+                        gameState
+                    );
+                    
+                    // Remove exploder
+                    scene.remove(zombie.mesh);
+                    gameState.zombies.splice(i, 1);
+                    
+                    // Add points for successful explosion
+                    gameState.score += 25;
+                }
+            } catch (error) {
+                logger.error(`Error handling exploder explosion: ${error.message}`);
+                // Try to safely remove the zombie if there was an error
+                try {
+                    if (gameState.zombies[i] && gameState.zombies[i].mesh) {
+                        scene.remove(gameState.zombies[i].mesh);
+                    }
+                    gameState.zombies.splice(i, 1);
+                } catch (e) {
+                    logger.error(`Error cleaning up zombie after explosion error: ${e.message}`);
+                }
             }
         }
         
@@ -703,12 +854,58 @@ function animate() {
         if (gameState.player.activePowerup && gameState.player.powerupDuration > 0) {
             gameState.player.powerupDuration -= delta;
             
+            // Update powerup timer indicator
+            if (!powerupTimer.visible) {
+                powerupTimer.visible = true;
+                innerCircle.visible = true;
+                
+                // Set color based on powerup type
+                let timerColor, innerColor;
+                if (gameState.player.activePowerup === 'tripleShot') {
+                    timerColor = 0xffa500; // Orange
+                    innerColor = 0xffcc00; // Light orange
+                } else if (gameState.player.activePowerup === 'shotgunBlast') {
+                    timerColor = 0xff0000; // Red
+                    innerColor = 0xff6666; // Light red
+                } else if (gameState.player.activePowerup === 'explosion') {
+                    timerColor = 0x00ffff; // Cyan
+                    innerColor = 0x99ffff; // Light cyan
+                }
+                
+                powerupTimerMaterial.color.set(timerColor);
+                innerCircleMaterial.color.set(innerColor);
+            }
+            
+            // Calculate scale based on remaining duration (starts at 2, shrinks to 0)
+            const scale = gameState.player.powerupDuration / 10 * 2;
+            
+            // Dispose old geometries
+            powerupTimerGeometry.dispose();
+            innerCircleGeometry.dispose();
+            
+            // Create new geometries with updated sizes
+            powerupTimer.geometry = new THREE.RingGeometry(scale * 0.8, scale, 32);
+            innerCircle.geometry = new THREE.CircleGeometry(scale * 0.7, 32);
+            
+            // Add pulsing effect to the inner circle
+            const pulseScale = 0.9 + Math.sin(clock.elapsedTime * 5) * 0.1;
+            innerCircle.scale.set(pulseScale, pulseScale, 1);
+            
+            // Adjust opacity based on remaining time (fade out as time runs out)
+            const remainingTimeRatio = gameState.player.powerupDuration / 10;
+            powerupTimerMaterial.opacity = 0.6 * remainingTimeRatio + 0.2; // Min opacity 0.2
+            
             // Clear powerup if duration is up
             if (gameState.player.powerupDuration <= 0) {
                 gameState.player.activePowerup = null;
                 gameState.player.powerupDuration = 0;
-                showMessage("Powerup expired", 1500);
+                powerupTimer.visible = false;
+                innerCircle.visible = false;
             }
+        } else if (powerupTimer.visible || innerCircle.visible) {
+            // Ensure timer elements are hidden when no powerup is active
+            powerupTimer.visible = false;
+            innerCircle.visible = false;
         }
         
         // Update UI
@@ -728,4 +925,127 @@ function animate() {
 }
 
 // Start animation loop
-animate(); 
+animate();
+
+// Create debug UI if in debug mode
+if (DEBUG_MODE) {
+    createDebugUI(gameState);
+}
+
+// Function to create debug UI
+function createDebugUI(gameState) {
+    // Create container
+    const debugContainer = document.createElement('div');
+    debugContainer.style.position = 'absolute';
+    debugContainer.style.top = '10px';
+    debugContainer.style.left = '10px';
+    debugContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    debugContainer.style.padding = '10px';
+    debugContainer.style.borderRadius = '5px';
+    debugContainer.style.color = 'white';
+    debugContainer.style.fontFamily = 'Arial, sans-serif';
+    debugContainer.style.zIndex = '1000';
+    debugContainer.style.width = '300px';
+    
+    // Add title
+    const title = document.createElement('h3');
+    title.textContent = 'Debug Controls';
+    title.style.margin = '0 0 10px 0';
+    debugContainer.appendChild(title);
+    
+    // Create sliders
+    const sliders = [
+        {
+            name: 'Gun Fire Rate',
+            min: 50,
+            max: 500,
+            value: gameState.debug.gunFireRate,
+            step: 10,
+            onChange: (value) => {
+                gameState.debug.gunFireRate = value;
+            }
+        },
+        {
+            name: 'Player Move Speed',
+            min: 0.05,
+            max: 0.5,
+            value: gameState.debug.playerMoveSpeed,
+            step: 0.01,
+            onChange: (value) => {
+                gameState.debug.playerMoveSpeed = value;
+                gameState.player.speed = value;
+            }
+        },
+        {
+            name: 'Zombie Spawn Rate',
+            min: 100,
+            max: 2000,
+            value: gameState.debug.zombieSpawnRate,
+            step: 100,
+            onChange: (value) => {
+                gameState.debug.zombieSpawnRate = value;
+                gameState.enemySpawnRate = value;
+            }
+        },
+        {
+            name: 'Powerup Spawn Rate',
+            min: 5000,
+            max: 30000,
+            value: gameState.debug.powerupSpawnRate,
+            step: 1000,
+            onChange: (value) => {
+                gameState.debug.powerupSpawnRate = value;
+            }
+        }
+    ];
+    
+    // Add sliders to container
+    sliders.forEach(slider => {
+        const sliderContainer = document.createElement('div');
+        sliderContainer.style.marginBottom = '10px';
+        
+        const label = document.createElement('label');
+        label.textContent = `${slider.name}: ${slider.value}`;
+        label.style.display = 'block';
+        label.style.marginBottom = '5px';
+        
+        const input = document.createElement('input');
+        input.type = 'range';
+        input.min = slider.min;
+        input.max = slider.max;
+        input.value = slider.value;
+        input.step = slider.step;
+        input.style.width = '100%';
+        
+        input.addEventListener('input', () => {
+            slider.onChange(parseFloat(input.value));
+            label.textContent = `${slider.name}: ${input.value}`;
+        });
+        
+        sliderContainer.appendChild(label);
+        sliderContainer.appendChild(input);
+        debugContainer.appendChild(sliderContainer);
+    });
+    
+    // Add super health button
+    const superHealthButton = document.createElement('button');
+    superHealthButton.textContent = 'Give 100x Health';
+    superHealthButton.style.padding = '8px 16px';
+    superHealthButton.style.backgroundColor = '#4CAF50';
+    superHealthButton.style.color = 'white';
+    superHealthButton.style.border = 'none';
+    superHealthButton.style.borderRadius = '4px';
+    superHealthButton.style.cursor = 'pointer';
+    superHealthButton.style.width = '100%';
+    superHealthButton.style.marginTop = '10px';
+    
+    superHealthButton.addEventListener('click', () => {
+        gameState.player.health = 10000;
+        showMessage('Super health activated!', 2000);
+    });
+    
+    debugContainer.appendChild(superHealthButton);
+    
+    // Add to document
+    document.body.appendChild(debugContainer);
+} 

@@ -34,10 +34,20 @@ const MIN_TIME_BETWEEN_POWERUPS = 10000; // Minimum time between powerup spawns 
  * @returns {boolean} Whether a powerup should spawn
  */
 export const shouldSpawnPowerup = (gameState, currentTime) => {
+    // Get spawn rate from debug settings if available
+    const spawnRate = gameState.debug && gameState.debug.powerupSpawnRate 
+        ? gameState.debug.powerupSpawnRate 
+        : MIN_TIME_BETWEEN_POWERUPS;
+    
     // Don't spawn if we've spawned recently
     if (gameState.lastPowerupSpawnTime && 
-        currentTime - gameState.lastPowerupSpawnTime < MIN_TIME_BETWEEN_POWERUPS) {
+        currentTime - gameState.lastPowerupSpawnTime < spawnRate) {
         return false;
+    }
+    
+    // Always spawn if enough time has passed
+    if (currentTime - gameState.lastPowerupSpawnTime > spawnRate * 1.5) {
+        return true;
     }
     
     // Random chance to spawn
