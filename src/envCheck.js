@@ -3,6 +3,8 @@
  * 
  * This script helps debug environment-related issues by displaying the current
  * environment variables and settings in a visible overlay on the page.
+ * The overlay appears for 2 seconds and then collapses to a small wrench icon
+ * that can be clicked to expand it again.
  * 
  * Example usage: Import this module in your HTML to see environment information.
  */
@@ -15,8 +17,8 @@ window.addEventListener('DOMContentLoaded', () => {
   const container = document.createElement('div');
   container.id = 'env-check-container';
   container.style.position = 'fixed';
-  container.style.top = '10px';
-  container.style.left = '10px';
+  container.style.bottom = '10px';
+  container.style.right = '10px';
   container.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
   container.style.color = 'white';
   container.style.padding = '15px';
@@ -26,6 +28,26 @@ window.addEventListener('DOMContentLoaded', () => {
   container.style.zIndex = '10000';
   container.style.maxWidth = '400px';
   container.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.5)';
+  container.style.transition = 'all 0.3s ease-in-out';
+  
+  // Create collapsed container (wrench icon)
+  const collapsedContainer = document.createElement('div');
+  collapsedContainer.id = 'env-check-collapsed';
+  collapsedContainer.style.position = 'fixed';
+  collapsedContainer.style.bottom = '10px';
+  collapsedContainer.style.right = '10px';
+  collapsedContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+  collapsedContainer.style.color = 'white';
+  collapsedContainer.style.padding = '10px';
+  collapsedContainer.style.borderRadius = '5px';
+  collapsedContainer.style.fontFamily = 'monospace';
+  collapsedContainer.style.fontSize = '16px';
+  collapsedContainer.style.zIndex = '10000';
+  collapsedContainer.style.cursor = 'pointer';
+  collapsedContainer.style.boxShadow = '0 0 10px rgba(0, 0, 0, 0.5)';
+  collapsedContainer.style.display = 'none';
+  collapsedContainer.innerHTML = '🔧'; // Wrench icon
+  collapsedContainer.title = 'Click to expand environment info';
   
   // Determine the environment value
   const appEnv = window.APP_ENV || 'not set';
@@ -62,14 +84,21 @@ window.addEventListener('DOMContentLoaded', () => {
     </div>
   `;
   
-  // Add to the document
-  document.body.appendChild(container);
-  
-  // Log available global variables
-  console.log('ENV CHECK: Global variables check:');
-  console.log('window.renderer:', window.renderer);
-  console.log('window.scene:', window.scene);
-  console.log('window.camera:', window.camera);
+  // Add a collapse button
+  const collapseButton = document.createElement('button');
+  collapseButton.textContent = 'Collapse';
+  collapseButton.style.marginTop = '10px';
+  collapseButton.style.marginRight = '5px';
+  collapseButton.style.padding = '5px 10px';
+  collapseButton.style.backgroundColor = '#2196F3';
+  collapseButton.style.color = 'white';
+  collapseButton.style.border = 'none';
+  collapseButton.style.borderRadius = '3px';
+  collapseButton.style.cursor = 'pointer';
+  collapseButton.onclick = () => {
+    container.style.display = 'none';
+    collapsedContainer.style.display = 'block';
+  };
   
   // Add a refresh button to force reload the page
   const refreshButton = document.createElement('button');
@@ -85,7 +114,31 @@ window.addEventListener('DOMContentLoaded', () => {
     window.location.reload(true); // Force reload from server
   };
   
+  // Add buttons to container
+  container.appendChild(collapseButton);
   container.appendChild(refreshButton);
+  
+  // Add containers to the document
+  document.body.appendChild(container);
+  document.body.appendChild(collapsedContainer);
+  
+  // Set up click handler for collapsed container
+  collapsedContainer.onclick = () => {
+    collapsedContainer.style.display = 'none';
+    container.style.display = 'block';
+  };
+  
+  // Log available global variables
+  console.log('ENV CHECK: Global variables check:');
+  console.log('window.renderer:', window.renderer);
+  console.log('window.scene:', window.scene);
+  console.log('window.camera:', window.camera);
+  
+  // Auto-collapse after 2 seconds
+  setTimeout(() => {
+    container.style.display = 'none';
+    collapsedContainer.style.display = 'block';
+  }, 2000);
 });
 
 // Export for module support

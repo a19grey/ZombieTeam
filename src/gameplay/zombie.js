@@ -600,7 +600,7 @@ export const damagePlayer = (gameState, damageAmount) => {
         const halo = gameState.playerObject.userData.healthHalo;
         const glowHalo = gameState.playerObject.userData.glowHalo;
         
-        if (halo) {
+        /*if (halo) { // disabled it was confusing during playing the halo changinc color
             // Flash the halo red briefly
             const originalColor = halo.material.color.getHex();
             halo.material.color.set(0xff0000);
@@ -611,7 +611,7 @@ export const damagePlayer = (gameState, damageAmount) => {
                     halo.material.color.set(originalColor);
                 }
             }, 150);
-        }
+        }*/
         
         if (glowHalo) {
             // Make the glow halo briefly larger

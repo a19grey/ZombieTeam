@@ -66,7 +66,6 @@ const gameState = {
     powerups: [],
     lastShotTime: 0,
     environmentObjects: [], // Store environment objects
-    score: 0, // Track player score
     enemySpawnRate: 200, // Time between enemy spawns in ms (reduced for more zombies)
     lastEnemySpawnTime: 0,
     maxZombies: 1000, // Maximum number of zombies allowed at once
@@ -667,7 +666,7 @@ const handleGameOver = () => {
     gameOverDiv.style.textShadow = '2px 2px 4px #000000';
     gameOverDiv.innerHTML = `
         GAME OVER<br>
-        Score: ${gameState.score}<br><br>
+        Score: ${gameState.player.exp}<br><br>
         <span style="font-size: 24px">Press R to restart</span>
     `;
     document.body.appendChild(gameOverDiv);

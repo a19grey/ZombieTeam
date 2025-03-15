@@ -33,17 +33,12 @@ export const initUI = (gameState) => {
         // Health is now displayed as a halo above the player's head
         // No need for health display elements in the UI
         
-        // Create score display
-        const scoreElement = document.createElement('div');
-        scoreElement.id = 'score';
-        scoreElement.style.fontSize = '20px';
-        scoreElement.style.fontWeight = 'bold';
-        scoreElement.style.marginBottom = '10px';
-        uiContainer.appendChild(scoreElement);
-        
         // Create EXP display
         const expElement = document.createElement('div');
         expElement.id = 'exp';
+        expElement.style.fontSize = '20px';
+        expElement.style.fontWeight = 'bold';
+        expElement.style.marginBottom = '10px';
         uiContainer.appendChild(expElement);
         
         // Create zombie count display
@@ -145,21 +140,6 @@ export const updateUI = (gameState) => {
     
     // Health is now displayed as a halo above the player's head
     // No need to update health display elements in the UI
-    
-    // Update score display
-    const scoreElement = document.getElementById('score');
-    if (scoreElement) {
-        scoreElement.textContent = `Score: ${gameState.score}`;
-        
-        // Pulse animation when score changes
-        if (gameState.score > (gameState.lastDisplayedScore || 0)) {
-            scoreElement.style.color = '#ffff00'; // Yellow flash
-            setTimeout(() => {
-                scoreElement.style.color = 'white';
-            }, 300);
-            gameState.lastDisplayedScore = gameState.score;
-        }
-    }
     
     // Update EXP display
     const expElement = document.getElementById('exp');
