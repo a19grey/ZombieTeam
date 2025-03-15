@@ -15,8 +15,44 @@ const port = process.env.PORT || 3000;
 const alternativePorts = [3001, 3002, 3003, 3004, 3005];
 
 // Get environment from NODE_ENV (default to production if not set)
-const environment = process.env.NODE_ENV || 'production';
-console.log(`Running in ${environment} mode`);
+console.log(`NODE_ENV environment variable: ${process.env.NODE_ENV}`);
+const environment = process.env.NODE_ENV;
+console.log(`I will soon be Running in ${environment} mode because that is process.env.NODE_ENV value right now`);
+
+
+// Inject environment variable into index.html
+app.get('/', (req, res) => {
+  fs.readFile(path.join(__dirname, 'index.html'), 'utf8', (err, data) => {
+    if (err) {
+      console.error('Error reading index.html:', err);
+      return res.status(500).send('Error loading game');
+    }
+    
+    const timestamp = new Date().toISOString();
+    
+    // Create script content based on environment
+    let scriptContent = `
+      <script>
+        window.APP_ENV = "${environment}";
+        window.NODE_ENV = "${environment}";
+        window.SERVER_TIMESTAMP = "${timestamp}";
+        console.log("Server injected APP_ENV:", "${environment}");
+        console.log("Server injected NODE_ENV:", "${environment}");
+        console.log("Server timestamp:", "${timestamp}");
+      </script>
+      <script type="module" src="./src/debugCheck.js"></script>`;
+    
+    // Only include envCheck.js in development mode
+    if (environment === 'development') {
+      scriptContent += `\n      <script type="module" src="./src/envCheck.js"></script>`;
+    }
+    
+    // Inject the scripts before closing head tag
+    const injectedData = data.replace('</head>', `${scriptContent}</head>`);
+    
+    res.send(injectedData);
+  });
+});
 
 // Serve static files from the root directory
 app.use(express.static(__dirname, {
@@ -27,23 +63,6 @@ app.use(express.static(__dirname, {
     }
   }
 }));
-
-// Inject environment variable into index.html
-app.get('/', (req, res) => {
-  fs.readFile(path.join(__dirname, 'index.html'), 'utf8', (err, data) => {
-    if (err) {
-      console.error('Error reading index.html:', err);
-      return res.status(500).send('Error loading game');
-    }
-    
-    // Inject environment variable as a global JavaScript variable
-    const injectedData = data.replace('</head>', 
-      `<script>window.APP_ENV = "${environment}";</script></head>`);
-    
-    res.send(injectedData);
-  });
-});
-
 // Try to start the server on the main port, fall back to alternatives if needed
 const startServer = (portToUse, portIndex = 0) => {
   const server = app.listen(portToUse, () => {

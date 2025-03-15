@@ -192,7 +192,7 @@ export const createLighting = (scene) => {
 };
 
 /**
- * Creates a ground plane for the scene
+ * Creates a ground plane for the scene 
  * @returns {THREE.Mesh} The created ground mesh
  */
 export const createGround = () => {

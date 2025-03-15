@@ -4,9 +4,13 @@
   "description": "A 3D browser-based cooperative multiplayer zombie survival game using Three.js",
   "main": "src/main.js",
   "scripts": {
-    "start": "NODE_ENV=production node server.js",
-    "dev": "NODE_ENV=development node server.js",
+    "": "NODE_ENV=production node server.js",
+    "start": "./run-prod.sh",
+    "run": "./run-prod.sh",
+    "prod": "./run-prod.sh",
+    "dev": "./run-dev.sh",
     "serve": "serve .",
+    "check-env": "./check-env.sh",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

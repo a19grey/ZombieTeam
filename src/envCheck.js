@@ -31,6 +31,10 @@ window.addEventListener('DOMContentLoaded', () => {
   const appEnv = window.APP_ENV || 'not set';
   console.log('ENV CHECK: APP_ENV =', appEnv);
   
+  // Get NODE_ENV value
+  const nodeEnv = window.NODE_ENV || 'not set';
+  console.log('ENV CHECK: NODE_ENV =', nodeEnv);
+  
   // Calculate DEBUG_MODE value
   const debugMode = appEnv === 'development';
   console.log('ENV CHECK: DEBUG_MODE =', debugMode);
@@ -40,16 +44,12 @@ window.addEventListener('DOMContentLoaded', () => {
   const hasScene = typeof window.scene !== 'undefined';
   const hasCamera = typeof window.camera !== 'undefined';
   
-  // Check for dev mode functions
-  const hasCreateDevPanel = typeof window.createDevPanel === 'function' || 
-                           (typeof window.devMode !== 'undefined' && typeof window.devMode.createDevPanel === 'function');
-  
   // Add environment information to the container
   container.innerHTML = `
-    <h3 style="margin-top: 0; margin-bottom: 10px; color: #4CAF50;">Environment Check</h3>
+    <h3 style="margin-top: 0; margin-bottom: 10px; color: ${appEnv === 'development' ? '#4CAF50' : '#FF5252'};">Environment Check: ${appEnv.toUpperCase()}</h3>
     <div style="margin-bottom: 5px;"><strong>window.APP_ENV:</strong> <span style="color: ${appEnv === 'development' ? '#4CAF50' : '#FF5252'}">${appEnv}</span></div>
+    <div style="margin-bottom: 5px;"><strong>window.NODE_ENV:</strong> <span style="color: ${nodeEnv === 'development' ? '#4CAF50' : '#FF5252'}">${nodeEnv}</span></div>
     <div style="margin-bottom: 5px;"><strong>DEBUG_MODE:</strong> <span style="color: ${debugMode ? '#4CAF50' : '#FF5252'}">${debugMode}</span></div>
-    <div style="margin-bottom: 5px;"><strong>NodeJS ENV:</strong> <span>${window.NODE_ENV || 'not set'}</span></div>
     <div style="margin-bottom: 5px;"><strong>URL:</strong> <span>${window.location.href}</span></div>
     <div style="margin-top: 10px; color: ${hasRenderer && hasScene && hasCamera ? '#4CAF50' : '#FF5252'}">
       <strong>Three.js Globals:</strong>
@@ -57,59 +57,10 @@ window.addEventListener('DOMContentLoaded', () => {
       <div>scene: ${hasScene ? '✓' : '✗'}</div>
       <div>camera: ${hasCamera ? '✓' : '✗'}</div>
     </div>
-    <div style="margin-top: 10px; color: ${hasCreateDevPanel ? '#4CAF50' : '#FF5252'}">
-      <strong>Dev Functions:</strong>
-      <div>createDevPanel: ${hasCreateDevPanel ? '✓' : '✗'}</div>
+    <div style="margin-top: 10px;">
+      <strong>Script Load Time:</strong> ${new Date().toISOString()}
     </div>
   `;
-  
-  // Create a button to attempt to manually create the dev panel
-  const createPanelButton = document.createElement('button');
-  createPanelButton.textContent = 'Create Dev Panel';
-  createPanelButton.style.marginTop = '10px';
-  createPanelButton.style.padding = '8px 12px';
-  createPanelButton.style.backgroundColor = '#2196F3';
-  createPanelButton.style.color = 'white';
-  createPanelButton.style.border = 'none';
-  createPanelButton.style.borderRadius = '4px';
-  createPanelButton.style.cursor = 'pointer';
-  createPanelButton.style.display = 'block';
-  createPanelButton.style.width = '100%';
-  
-  createPanelButton.addEventListener('click', () => {
-    try {
-      if (window.createDevPanel) {
-        window.createDevPanel(window.renderer, window.scene, window.camera);
-        console.log('Dev panel created via window.createDevPanel');
-        alert('Dev panel created via global function');
-      } else if (window.devMode && window.devMode.createDevPanel) {
-        window.devMode.createDevPanel(window.renderer, window.scene, window.camera);
-        console.log('Dev panel created via window.devMode.createDevPanel');
-        alert('Dev panel created via devMode module');
-      } else {
-        // Try to dynamically import the module
-        import('./utils/devMode.js')
-          .then(module => {
-            if (module && module.createDevPanel) {
-              module.createDevPanel(window.renderer, window.scene, window.camera);
-              console.log('Dev panel created via dynamic import');
-              alert('Dev panel created via dynamic import');
-            } else {
-              throw new Error('createDevPanel function not found in module');
-            }
-          })
-          .catch(error => {
-            console.error('Failed to import devMode module:', error);
-            alert(`Failed to import devMode module: ${error.message}`);
-          });
-      }
-    } catch (error) {
-      console.error('Error creating dev panel:', error);
-      alert(`Error creating dev panel: ${error.message}`);
-    }
-  });
-  
-  container.appendChild(createPanelButton);
   
   // Add to the document
   document.body.appendChild(container);
@@ -119,8 +70,22 @@ window.addEventListener('DOMContentLoaded', () => {
   console.log('window.renderer:', window.renderer);
   console.log('window.scene:', window.scene);
   console.log('window.camera:', window.camera);
-  console.log('window.createDevPanel:', window.createDevPanel);
-  console.log('window.devMode:', window.devMode);
+  
+  // Add a refresh button to force reload the page
+  const refreshButton = document.createElement('button');
+  refreshButton.textContent = 'Refresh Page';
+  refreshButton.style.marginTop = '10px';
+  refreshButton.style.padding = '5px 10px';
+  refreshButton.style.backgroundColor = '#4CAF50';
+  refreshButton.style.color = 'white';
+  refreshButton.style.border = 'none';
+  refreshButton.style.borderRadius = '3px';
+  refreshButton.style.cursor = 'pointer';
+  refreshButton.onclick = () => {
+    window.location.reload(true); // Force reload from server
+  };
+  
+  container.appendChild(refreshButton);
 });
 
 // Export for module support

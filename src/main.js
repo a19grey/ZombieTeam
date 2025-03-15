@@ -23,18 +23,16 @@ import { shouldSpawnPowerup, spawnPowerupBehindPlayer, cleanupOldPowerups } from
 import { initAudio, loadAudio, loadPositionalAudio, playSound, stopSound, toggleMute, setMasterVolume, debugAudioSystem, getAudioState, setAudioEnabled } from './gameplay/audio.js';
 import { createSoundSettingsUI, toggleSoundSettingsUI, isSoundSettingsVisible } from './ui/soundSettings.js';
 import { debugWebGL, fixWebGLContext, monitorRenderingPerformance, createFallbackCanvas } from './debug.js';
-import { createDevPanel } from './utils/devMode.js';
 import { runTests } from './utils/testRunner.js';
 import { testWeaponsSystem } from './utils/weaponsTester.js';
 import { safeCall } from './utils/safeAccess.js';
 import { checkAudioFiles, suggestAudioFix } from './utils/audioChecker.js';
 
-// Make critical functions globally available for debugging
-window.createDevPanel = createDevPanel;
-window.devMode = { createDevPanel };
-
 // Set log level based on environment
-const DEBUG_MODE = window.APP_ENV === 'development';
+const DEBUG_MODE = window.NODE_ENV === 'development';
+console.log('i am here MAIN.JS: NODE_ENV = ', window.NODE_ENV);
+console.log('cat man dog MAIN.JS: DEBUG_MODE =', DEBUG_MODE);
+
 if (DEBUG_MODE) {
     logger.setLevel(logger.levels.DEBUG);
     logger.info('Debug mode enabled - verbose logging active');
@@ -72,7 +70,7 @@ const gameState = {
     enemySpawnRate: 200, // Time between enemy spawns in ms (reduced for more zombies)
     lastEnemySpawnTime: 0,
     maxZombies: 1000, // Maximum number of zombies allowed at once
-    initialSpawnCount: 500, // Number of zombies to spawn at start (increased from 30 to 300)
+    initialSpawnCount: 10, // Number of zombies to spawn at start (increased from 30 to 300)
     bloodParticles: [], // Store blood particles for dismemberment effects
     lastPowerupSpawnTime: 0, // Track when the last powerup was spawned
     playerObject: null, // Store player object for access by other functions
@@ -701,7 +699,7 @@ const loadGameAudio = async () => {
         await loadAudio('backgroundMusic', './audio/music/Pulse-Drive.mp3', true, 0.5, 'music');
         
         // Load weapon sounds
-        await loadAudio('gunshot', './audio/sfx/bullet.flac', false, 0.8);
+        await loadAudio('gunshot', './audio/sfx/bullet.mp3', false, 0.8);
         
         // Load zombie sounds
         await loadPositionalAudio('zombieGrowl', './audio/sfx/zombie-growl.mp3', 15, 0.7);
@@ -1291,67 +1289,10 @@ function animate() {
     }
 }
 
-// Force debug mode to true for testing (if not already enabled)
-if (!DEBUG_MODE) {
-    console.warn('DEBUG_MODE was disabled even though we expected it to be enabled. Forcing it to true.');
-    window.APP_ENV = 'development';
-    window.forcedDebugMode = true;
-}
-
+if (DEBUG_MODE) {
 // Start performance monitoring in debug mode
 let stopMonitoring;
-let devPanel;
-
-// Create dev panel immediately
-console.log('Attempting to create dev panel...');
-if (renderer && scene && camera) {
-    try {
-        devPanel = createDevPanel(renderer, scene, camera);
-        logger.info('Dev panel created');
-        console.log('Dev panel created successfully!');
-    } catch (error) {
-        logger.error('Failed to create dev panel:', error);
-        console.error('Failed to create dev panel:', error);
-    }
 }
-
-// Add a debug button that's always visible to force create the dev panel
-const forceDebugButton = document.createElement('button');
-forceDebugButton.textContent = '🛠️ Debug Panel';
-forceDebugButton.style.position = 'absolute';
-forceDebugButton.style.top = '90px';
-forceDebugButton.style.right = '10px';
-forceDebugButton.style.padding = '8px 16px';
-forceDebugButton.style.backgroundColor = 'rgba(0, 0, 255, 0.7)';
-forceDebugButton.style.color = 'white';
-forceDebugButton.style.border = 'none';
-forceDebugButton.style.borderRadius = '5px';
-forceDebugButton.style.cursor = 'pointer';
-forceDebugButton.style.fontSize = '16px';
-forceDebugButton.style.zIndex = '1000';
-
-forceDebugButton.addEventListener('click', () => {
-    try {
-        if (typeof createDevPanel === 'function' && renderer && scene && camera) {
-            const panel = createDevPanel(renderer, scene, camera);
-            console.log('Dev panel created manually!', panel);
-            showMessage('Dev panel created', 2000);
-        } else {
-            console.error('Cannot create dev panel: Missing objects', { 
-                renderer: !!renderer, 
-                scene: !!scene, 
-                camera: !!camera,
-                createDevPanel: typeof createDevPanel
-            });
-            showMessage('Failed to create dev panel', 2000);
-        }
-    } catch (error) {
-        console.error('Error creating dev panel:', error);
-        showMessage(`Error: ${error.message}`, 2000);
-    }
-});
-
-document.body.appendChild(forceDebugButton);
 
 // Start animation loop
 animate();

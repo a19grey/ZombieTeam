@@ -9,45 +9,24 @@ Players cannot harm each other; gameplay is fully cooperative against zombies.
 
 Powerups (e.g., increased damage, speed, health) near one player apply to all nearby players, encouraging teamwork.
 
+Powerups are presented always as an option between 1 2 or 3 items, sometimes bad choices! But user cannot get more tha none as being driven backwards. 
+
 Players earn experience points (EXP) for zombies killed, with EXP shared among nearby players.
 
+Choose minecraft like polygon shapes for zombies and bosses and heros so that we don't have to make a lot of complicated 3D renders with graphics.
+
+Zombies spawn mainly in front of players so player is driven back.
+
+At least 500 zombies, or even a thousand, I'm talking real horde man so optimization is important 
+
+View is from behind player looking forward to the horde advancing. 
+
+Fast paced music thumbs in background and sound effects from zombies overlaid (user can turn off music or gameplay)
+
+** Multiplayer **
 Harder zombies spawn as more players cluster together, incentivizing grouping for survival and higher rewards.
 
-2. Technical Components
-A. Three.js Frontend (Client-Side)
-Rendering:
-Use Three.js with WebGL to create a 3D environment (e.g., urban wasteland, forest) with zombies, players, and powerups.
+Use WebRTC with socket.io UDP do **not use WebSockets** for multiplayer. Use Zustand to maintain state. 
 
-Scene setup: Scene, PerspectiveCamera, WebGLRenderer, and objects like player models (humanoid), zombies (animated models), and powerups (e.g., glowing spheres).
-
-Models: Load 3D models (e.g., via GLTFLoader) for players, zombies, and environment. Use simple geometries (e.g., BoxGeometry) for prototyping.
-
-Lighting: Add DirectionalLight and AmbientLight for realistic illumination.
-
-Animations: Use Three.js animations for player movement, zombie attacks, and powerup effects (e.g., Clock with requestAnimationFrame).
-
-Gameplay:
-Player controls: Keyboard/mouse for movement (WASD/Arrow keys) and shooting (mouse click or spacebar).
-
-Zombie AI: Simple pathfinding (e.g., using Yuka.js or a custom script) to chase players, with attack animations.
-
-Physics: Use Ammo.js or a custom system for collisions (player-zombie, player-powerup).
-
-UI: Display health, ammo, EXP/points, and powerup status using HTML/CSS or dat.gui.
-
-B. Multiplayer Architecture (Server-Side)
-Real-Time Sync: Use Node.js with Socket.IO for WebSocket-based communication.
-
-Game State Management:
-Server tracks player positions, health, EXP, zombie locations, and powerup states.
-
-Broadcast updates (e.g., player/zombie positions, powerup activations) at 30–60 FPS for smooth real-time interaction.
-
-Share EXP for zombies killed within a radius (e.g., 10 units) of any player, encouraging clustering.
-
-Scale zombie difficulty (e.g., faster, stronger zombies) based on the number of players in a cluster (detect via proximity checks).
-
-Cooperative Features:
-Powerups (e.g., +50% damage, +20% speed) apply to all players within a radius (e.g., 15 units) when picked up.
-
-Prevent player damage to each other (server-side validation).
+** Revenue ** 
+It is free to play we will allow people to purchase bosses - harder bosses last longer on screen so they cost more of course. This can be on roadmap i it is not minimum viable. 
