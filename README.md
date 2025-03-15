@@ -28,6 +28,16 @@ The game world includes various environmental elements:
 - **Health System**: Player must manage health to survive.
 - **Powerups**: Various powerups can be collected to enhance combat abilities.
 
+### Powerups
+
+The game features a variety of powerful weapon enhancements:
+
+- **Rapid Fire**: Replaces Triple Shot with a machine gun effect that fires bullets at 3x the normal rate.
+- **Shotgun Blast**: Fires a wide spread of pellets, effective against groups of enemies at close range.
+- **Explosion**: Creates a powerful area-of-effect explosion around the player, damaging all nearby zombies.
+- **Laser Shot**: Fires a high-damage laser beam that travels extremely fast and can pierce through enemies.
+- **Grenade Launcher**: Lobs grenades that explode on impact, leaving smoke trails and creating area damage.
+
 ### Controls
 
 - **WASD/Arrow Keys**: Move the player character

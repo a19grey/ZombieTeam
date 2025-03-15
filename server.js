@@ -9,8 +9,14 @@
 
 const express = require('express');
 const path = require('path');
+const fs = require('fs');
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
+const alternativePorts = [3001, 3002, 3003, 3004, 3005];
+
+// Get environment from NODE_ENV (default to production if not set)
+const environment = process.env.NODE_ENV || 'production';
+console.log(`Running in ${environment} mode`);
 
 // Serve static files from the root directory
 app.use(express.static(__dirname, {
@@ -22,7 +28,45 @@ app.use(express.static(__dirname, {
   }
 }));
 
+// Inject environment variable into index.html
+app.get('/', (req, res) => {
+  fs.readFile(path.join(__dirname, 'index.html'), 'utf8', (err, data) => {
+    if (err) {
+      console.error('Error reading index.html:', err);
+      return res.status(500).send('Error loading game');
+    }
+    
+    // Inject environment variable as a global JavaScript variable
+    const injectedData = data.replace('</head>', 
+      `<script>window.APP_ENV = "${environment}";</script></head>`);
+    
+    res.send(injectedData);
+  });
+});
+
+// Try to start the server on the main port, fall back to alternatives if needed
+const startServer = (portToUse, portIndex = 0) => {
+  const server = app.listen(portToUse, () => {
+    console.log(`Zombie Survival Game running at http://localhost:${portToUse} in ${environment} mode`);
+  }).on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.log(`Port ${portToUse} is already in use.`);
+      
+      // Try the next alternative port if available
+      if (portIndex < alternativePorts.length) {
+        const nextPort = alternativePorts[portIndex];
+        console.log(`Trying alternative port: ${nextPort}`);
+        startServer(nextPort, portIndex + 1);
+      } else {
+        console.error('All ports are in use. Please close one of the running servers or specify a different port.');
+        process.exit(1);
+      }
+    } else {
+      console.error('Error starting server:', err);
+      process.exit(1);
+    }
+  });
+};
+
 // Start the server
-app.listen(port, () => {
-  console.log(`Zombie Survival Game running at http://localhost:${port}`);
-}); 
+startServer(port); 

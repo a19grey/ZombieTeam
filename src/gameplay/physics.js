@@ -487,10 +487,10 @@ export const applyPowerupEffect = (gameState, position, direction, scene) => {
     }
     
     // Create a bullet directly with the correct parameters
-    const createBulletWithDirection = (pos, dir) => {
+    const createBulletWithDirection = (pos, dir, color = 0xffff00, damage = 25, speed = 1.0) => {
         // Create bullet geometry
         const bulletGeometry = new THREE.SphereGeometry(0.2, 8, 8);
-        const bulletMaterial = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+        const bulletMaterial = new THREE.MeshBasicMaterial({ color: color });
         const bullet = new THREE.Mesh(bulletGeometry, bulletMaterial);
         
         // Set initial position
@@ -499,10 +499,10 @@ export const applyPowerupEffect = (gameState, position, direction, scene) => {
         // Store direction and other properties
         bullet.userData = {
             direction: dir.normalize(),
-            speed: 1.0,
+            speed: speed,
             distance: 0,
             maxDistance: 50,
-            damage: 25
+            damage: damage
         };
         
         return bullet;
@@ -520,36 +520,19 @@ export const applyPowerupEffect = (gameState, position, direction, scene) => {
     }
     
     switch (powerupType) {
-        case 'tripleShot':
-            // Create three bullets in a spread pattern
-            const spreadAngle = Math.PI / 12; // 15 degrees
+        case 'rapidFire':
+            // Create a single faster bullet with standard damage
+            const rapidBullet = createBulletWithDirection(position, direction.clone(), 0xffa500, 25, 1.5);
+            gameState.bullets.push(rapidBullet);
+            scene.add(rapidBullet);
             
-            // Center bullet
-            const centerBullet = createBulletWithDirection(position, direction.clone());
-            gameState.bullets.push(centerBullet);
-            scene.add(centerBullet);
-            
-            // Left bullet (rotate direction)
-            const leftDir = direction.clone();
-            leftDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), spreadAngle);
-            const leftBullet = createBulletWithDirection(position, leftDir);
-            gameState.bullets.push(leftBullet);
-            scene.add(leftBullet);
-            
-            // Right bullet (rotate direction)
-            const rightDir = direction.clone();
-            rightDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), -spreadAngle);
-            const rightBullet = createBulletWithDirection(position, rightDir);
-            gameState.bullets.push(rightBullet);
-            scene.add(rightBullet);
-            
-            logger.debug('Triple shot fired');
+            logger.debug('Rapid fire bullet fired');
             break;
             
         case 'shotgunBlast':
-            // Create a spread of 5 bullets in a cone (reduced from 7 for performance)
+            // Create a spread of 8 bullets in a cone (increased from 5 for better spread)
             const shotgunSpread = Math.PI / 8; // 22.5 degrees
-            const numPellets = 5;
+            const numPellets = 8;
             
             for (let i = 0; i < numPellets; i++) {
                 // Calculate angle for this pellet (evenly distributed across the spread)
@@ -560,13 +543,52 @@ export const applyPowerupEffect = (gameState, position, direction, scene) => {
                 pelletDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
                 
                 // Create bullet with reduced damage
-                const pellet = createBulletWithDirection(position, pelletDir);
-                pellet.userData.damage = 15; // Reduced damage per pellet
+                const pellet = createBulletWithDirection(position, pelletDir, 0x4682b4, 15, 1.0);
                 gameState.bullets.push(pellet);
                 scene.add(pellet);
             }
             
             logger.debug('Shotgun blast fired');
+            break;
+            
+        case 'laserShot':
+            // Create a laser beam (long, thin bullet with high damage)
+            const laserBullet = createBulletWithDirection(position, direction.clone(), 0x00ffff, 50, 2.0);
+            
+            // Make laser longer and thinner
+            laserBullet.scale.set(0.05, 0.05, 3.0);
+            
+            gameState.bullets.push(laserBullet);
+            scene.add(laserBullet);
+            
+            // Add laser light effect
+            const laserLight = new THREE.PointLight(0x00ffff, 1, 5);
+            laserLight.position.copy(position);
+            scene.add(laserLight);
+            
+            // Remove light after a short time
+            setTimeout(() => {
+                scene.remove(laserLight);
+            }, 100);
+            
+            logger.debug('Laser shot fired');
+            break;
+            
+        case 'grenadeLauncher':
+            // Create a grenade (slower moving bullet that explodes on impact)
+            const grenadeBullet = createBulletWithDirection(position, direction.clone(), 0x228b22, 0, 0.8);
+            
+            // Make grenade larger and spherical
+            grenadeBullet.scale.set(0.3, 0.3, 0.3);
+            
+            // Add grenade properties
+            grenadeBullet.userData.isGrenade = true;
+            grenadeBullet.userData.smokeTrail = [];
+            
+            gameState.bullets.push(grenadeBullet);
+            scene.add(grenadeBullet);
+            
+            logger.debug('Grenade launched');
             break;
             
         case 'explosion':
@@ -598,41 +620,38 @@ export const applyPowerupEffect = (gameState, position, direction, scene) => {
                 if (distance <= EXPLOSION_RADIUS) {
                     // Calculate damage based on distance (more damage closer to center)
                     const damageMultiplier = 1 - (distance / EXPLOSION_RADIUS);
-                    const damage = EXPLOSION_DAMAGE * damageMultiplier;
+                    const damage = Math.floor(EXPLOSION_DAMAGE * damageMultiplier);
                     
-                    // Apply damage to zombie
-                    const updatedZombie = damageZombie(zombie, damage, scene);
-                    gameState.zombies[index] = updatedZombie;
+                    // Apply damage
+                    zombie.health -= damage;
                     
                     // Check if zombie is dead
-                    if (isZombieDead(updatedZombie)) {
-                        zombiesToRemove.push({ index, mesh: zombie.mesh });
-                        
-                        // Award EXP to player
-                        gameState.player.exp += 10;
+                    if (zombie.health <= 0) {
+                        zombiesToRemove.push(index);
                     }
                 }
             });
             
-            // Remove dead zombies after the loop to avoid array index issues
-            zombiesToRemove.sort((a, b) => b.index - a.index); // Sort in reverse order
-            zombiesToRemove.forEach(zombie => {
-                scene.remove(zombie.mesh);
-                gameState.zombies.splice(zombie.index, 1);
-            });
+            // Remove dead zombies (in reverse order to avoid index issues)
+            for (let i = zombiesToRemove.length - 1; i >= 0; i--) {
+                const index = zombiesToRemove[i];
+                const zombie = gameState.zombies[index];
+                
+                if (zombie && zombie.mesh) {
+                    scene.remove(zombie.mesh);
+                }
+                
+                gameState.zombies.splice(index, 1);
+            }
             
-            // Clear the powerup after use (explosion is one-time use)
-            gameState.player.activePowerup = null;
-            gameState.player.powerupDuration = 0;
-            
-            logger.debug('Explosion activated');
+            logger.debug(`Explosion powerup activated, damaged/killed ${zombiesToRemove.length} zombies`);
             break;
             
         default:
-            // Default to normal bullet
-            const bullet = createBulletWithDirection(position, direction);
-            gameState.bullets.push(bullet);
-            scene.add(bullet);
+            // Unknown powerup, create a normal bullet
+            const defaultBullet = createBulletWithDirection(position, direction);
+            gameState.bullets.push(defaultBullet);
+            scene.add(defaultBullet);
             break;
     }
 }; 

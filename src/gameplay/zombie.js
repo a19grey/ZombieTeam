@@ -9,6 +9,7 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.m
 import { checkCollision, pushAway } from './physics.js'; // Import physics helpers
 import { setupDismemberment, processDismemberment } from './dismemberment.js'; // Import dismemberment system
 import { playSound } from './audio.js'; // Import audio system
+import { logger } from '../utils/logger.js'; // Import logger for debugging
 
 /**
  * Creates a Minecraft-style low-poly zombie character
@@ -315,7 +316,7 @@ export const createZombieKing = (position) => {
 };
 
 /**
- * Updates the positions of all zombies to chase the player
+ * Updates the positions of all zombies to chase the player with extended enemy behaviors
  * @param {Array} zombies - Array of zombie objects
  * @param {THREE.Vector3} playerPosition - The player's current position
  * @param {number} delta - Time delta between frames
@@ -332,23 +333,18 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60) => {
     const ZOMBIE_COLLISION_DISTANCE = 0.8; // Distance to maintain between zombies
     
     // Calculate player velocity for leading behavior
-    // This would normally come from the player object, but we'll estimate it
-    // based on the difference between current and previous position
     const playerVelocity = new THREE.Vector3();
     if (window.previousPlayerPosition) {
         playerVelocity.subVectors(playerPosition, window.previousPlayerPosition);
-        playerVelocity.multiplyScalar(1 / delta); // Scale to units per second
+        playerVelocity.multiplyScalar(1 / delta);
     }
     window.previousPlayerPosition = playerPosition.clone();
     
     // First, update zombie king speeds
     zombies.forEach(zombie => {
         if (zombie.type === 'zombieKing') {
-            // Gradually increase zombie king speed over time
-            // Start at baseSpeed and increase up to regular zombie speed
-            const maxSpeed = 0.03; // Regular zombie speed
-            const speedIncreaseFactor = 0.0001; // How quickly speed increases
-            
+            const maxSpeed = 0.03;
+            const speedIncreaseFactor = 0.0001;
             zombie.speed = Math.min(maxSpeed, zombie.speed + speedIncreaseFactor * delta * 60);
         }
     });
@@ -357,59 +353,47 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60) => {
     const zombieSizes = {};
     zombies.forEach((zombie, index) => {
         if (zombie.type === 'zombieKing') {
-            zombieSizes[index] = 2.0; // King is largest
+            zombieSizes[index] = 2.0;
         } else if (zombie.type === 'exploder') {
-            zombieSizes[index] = 1.2; // Exploders are medium-large
+            zombieSizes[index] = 1.2;
         } else if (zombie.type === 'skeletonArcher') {
-            zombieSizes[index] = 0.8; // Archers are smaller
+            zombieSizes[index] = 0.8;
         } else {
-            zombieSizes[index] = 1.0; // Regular zombies are medium
+            zombieSizes[index] = 1.0;
         }
     });
     
-    // Create spatial partitioning for zombies to reduce O(n²) collision checks
-    const gridSize = 5; // Size of each grid cell
+    // Create spatial partitioning for zombies
+    const gridSize = 5;
     const grid = {};
     
-    // Place zombies in grid cells
     zombies.forEach((zombie, index) => {
         if (!zombie || !zombie.mesh || !zombie.mesh.position) return;
-        
         const cellX = Math.floor(zombie.mesh.position.x / gridSize);
         const cellZ = Math.floor(zombie.mesh.position.z / gridSize);
         const cellKey = `${cellX},${cellZ}`;
-        
-        if (!grid[cellKey]) {
-            grid[cellKey] = [];
-        }
-        
+        if (!grid[cellKey]) grid[cellKey] = [];
         grid[cellKey].push(index);
     });
     
-    // Function to get nearby zombies using grid
     const getNearbyZombies = (position, index) => {
         const cellX = Math.floor(position.x / gridSize);
         const cellZ = Math.floor(position.z / gridSize);
         const nearby = [];
-        
-        // Check current cell and 8 surrounding cells
         for (let x = cellX - 1; x <= cellX + 1; x++) {
             for (let z = cellZ - 1; z <= cellZ + 1; z++) {
                 const cellKey = `${x},${z}`;
                 if (grid[cellKey]) {
                     grid[cellKey].forEach(otherIndex => {
-                        if (otherIndex !== index) {
-                            nearby.push(otherIndex);
-                        }
+                        if (otherIndex !== index) nearby.push(otherIndex);
                     });
                 }
             }
         }
-        
         return nearby;
     };
     
-    // Randomize zombie update order to prevent clustering in a line
+    // Randomize zombie update order
     const updateOrder = zombies.map((_, index) => index);
     for (let i = updateOrder.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -419,9 +403,7 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60) => {
     // Update zombies in random order
     updateOrder.forEach(index => {
         const zombie = zombies[index];
-        if (!zombie || !zombie.mesh || !zombie.mesh.position) {
-            return;
-        }
+        if (!zombie || !zombie.mesh || !zombie.mesh.position) return;
         
         try {
             // Calculate base direction to player
@@ -433,93 +415,140 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60) => {
             
             const distance = direction.length();
             
-            // Calculate a leading target position based on player velocity
-            const leadingFactor = 1.0; // How much to lead the player (higher = more leading)
+            // Calculate leading target position
+            const leadingFactor = 1.0;
             const leadingPosition = new THREE.Vector3().copy(playerPosition);
-            
-            // Only lead if player is moving and zombie is far enough away
             if (playerVelocity.length() > 0.1 && distance > 5) {
-                // Predict where the player will be in the future
-                // The further away the zombie, the more it should lead
-                const leadTime = Math.min(distance * 0.1, 2.0); // Cap at 2 seconds of leading
+                const leadTime = Math.min(distance * 0.1, 2.0);
                 leadingPosition.add(playerVelocity.clone().multiplyScalar(leadTime * leadingFactor));
             }
             
-            // Calculate direction to leading position
             const leadingDirection = new THREE.Vector3(
                 leadingPosition.x - zombie.mesh.position.x,
                 0,
                 leadingPosition.z - zombie.mesh.position.z
             ).normalize();
             
-            // Add some randomness to movement to prevent line formation
-            // More randomness for zombies that are further away from player
-            const randomFactor = Math.min(0.3, distance * 0.01); // More randomness at greater distances
+            // Add randomness to movement
+            const randomFactor = Math.min(0.3, distance * 0.01);
             const randomAngle = (Math.random() - 0.5) * Math.PI * randomFactor;
             const randomDirection = leadingDirection.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), randomAngle);
             
-            // Handle special enemy behaviors based on type
+            // Handle special enemy behaviors
             switch (zombie.mesh.enemyType) {
                 case 'skeletonArcher':
-                    // Archers try to maintain distance from player
                     if (distance < 8) {
-                        // Move away from player if too close
                         leadingDirection.negate();
                     } else if (distance > 15) {
-                        // Move toward player if too far
-                        // Direction already points to player
+                        // Move toward player
                     } else {
-                        // At good range, don't move, just shoot
                         return;
                     }
                     break;
                     
                 case 'exploder':
-                    // If close to player, start explosion sequence
                     if (distance < 3 && !zombie.mesh.isExploding) {
                         zombie.mesh.isExploding = true;
-                        zombie.mesh.explosionTimer = 1.5; // 1.5 seconds until explosion
-                        
-                        // Change color to indicate explosion imminent
+                        zombie.mesh.explosionTimer = 1.5;
                         zombie.mesh.children.forEach(child => {
                             if (child.material && child.material.color) {
-                                child.material.color.set(0xff0000); // Red
+                                child.material.color.set(0xff0000);
                                 if (child.material.emissive) {
                                     child.material.emissive.set(0xff0000);
                                     child.material.emissiveIntensity = 0.5;
                                 }
                             }
                         });
-                        
-                        return; // Don't move while exploding
+                        return;
                     } else if (zombie.mesh.isExploding) {
-                        // Count down explosion timer
                         zombie.mesh.explosionTimer -= delta;
-                        
-                        // Flash faster as explosion approaches
                         const flashSpeed = Math.max(0.1, zombie.mesh.explosionTimer / 3);
                         const flashIntensity = Math.sin(Date.now() * 0.01 / flashSpeed) * 0.5 + 0.5;
-                        
                         zombie.mesh.children.forEach(child => {
                             if (child.material && child.material.emissiveIntensity !== undefined) {
                                 child.material.emissiveIntensity = flashIntensity;
                             }
                         });
-                        
-                        return; // Don't move while exploding
+                        return;
                     }
                     break;
                     
                 case 'zombieKing':
-                    // King moves slower but has more health
-                    // Summon minions periodically
                     zombie.mesh.summonCooldown -= delta;
+                    break;
+                    
+                case 'plagueTitan':
+                    zombie.mesh.slamCooldown = zombie.mesh.slamCooldown || 5;
+                    zombie.mesh.slamCooldown -= delta;
+                    if (zombie.mesh.slamCooldown <= 0 && distance < 5) {
+                        zombie.mesh.slamCooldown = 5;
+                        createExplosion(
+                            scene,
+                            zombie.mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0)),
+                            4,
+                            50,
+                            zombies,
+                            gameState.playerObject,
+                            gameState
+                        );
+                    }
+                    break;
+                    
+                case 'necrofiend':
+                    zombie.mesh.spawnCooldown = zombie.mesh.spawnCooldown || 3;
+                    zombie.mesh.spawnCooldown -= delta;
+                    if (zombie.mesh.spawnCooldown <= 0 && distance < 10) {
+                        zombie.mesh.spawnCooldown = 3;
+                        const minion = createZombie({
+                            x: zombie.mesh.position.x + (Math.random() - 0.5) * 2,
+                            z: zombie.mesh.position.z + (Math.random() - 0.5) * 2
+                        });
+                        minion.health = 50;
+                        zombies.push(minion);
+                        scene.add(minion);
+                    }
+                    break;
+                    
+                case 'rotBehemoth':
+                    zombie.mesh.shootCooldown = zombie.mesh.shootCooldown || 2;
+                    zombie.mesh.shootCooldown -= delta;
+                    if (zombie.mesh.shootCooldown <= 0 && distance < 15) {
+                        zombie.mesh.shootCooldown = 2;
+                        const projectile = new THREE.Mesh(
+                            new THREE.SphereGeometry(0.5, 8, 8),
+                            new THREE.MeshStandardMaterial({ 
+                                color: 0x00ff00, 
+                                emissive: 0x00ff00, 
+                                emissiveIntensity: 0.5 
+                            })
+                        );
+                        projectile.position.copy(zombie.mesh.position).add(new THREE.Vector3(0, 5, 0));
+                        scene.add(projectile);
+
+                        const direction = playerPosition.clone().sub(projectile.position).normalize();
+                        const moveProjectile = () => {
+                            projectile.position.addScaledVector(direction, 0.2);
+                            if (projectile.position.distanceTo(playerPosition) < 1) {
+                                createExplosion(scene, projectile.position, 2, 30, zombies, gameState.playerObject, gameState);
+                                scene.remove(projectile);
+                            } else if (projectile.position.y < 0) {
+                                scene.remove(projectile);
+                            } else {
+                                requestAnimationFrame(moveProjectile);
+                            }
+                        };
+                        moveProjectile();
+                    }
+                    break;
+                    
+                case 'skittercrab':
+                    if (distance < 2) {
+                        zombie.mesh.position.addScaledVector(leadingDirection, zombie.speed * delta * 60 * 2);
+                    }
                     break;
             }
             
             if (distance > 0) {
-                // Mix in some randomness to prevent line formation
-                // Use more direct path when closer to player
                 const directPathFactor = Math.min(0.9, 0.5 + (15 - Math.min(distance, 15)) / 15 * 0.4);
                 const finalDirection = new THREE.Vector3()
                     .addScaledVector(leadingDirection, directPathFactor)
@@ -531,106 +560,74 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60) => {
                     .copy(zombie.mesh.position)
                     .addScaledVector(finalDirection, moveDistance);
                 
-                // Check for collision with player
+                // Player collision
                 if (checkCollision(intendedPosition, playerPosition, COLLISION_DISTANCE)) {
                     const newPosition = pushAway(intendedPosition, playerPosition, COLLISION_DISTANCE);
                     intendedPosition.x = newPosition.x;
                     intendedPosition.z = newPosition.z;
                     
                     if (checkCollision(intendedPosition, playerPosition, DAMAGE_DISTANCE)) {
-                        // Different enemies do different damage
                         let damageAmount = DAMAGE_PER_SECOND * delta;
-                        
-                        if (zombie.mesh.enemyType === 'zombieKing') {
-                            damageAmount *= 2; // King does double damage
-                        }
-                        
-                        if (zombie.gameState) {
-                            damagePlayer(zombie.gameState, damageAmount);
-                        }
+                        if (zombie.mesh.enemyType === 'zombieKing') damageAmount *= 2;
+                        if (zombie.gameState) damagePlayer(zombie.gameState, damageAmount);
                     }
                 }
                 
-                // Check for collisions with nearby zombies only (using spatial grid)
-                let hasZombieCollision = false;
+                // Zombie collisions
                 const nearbyZombies = getNearbyZombies(zombie.mesh.position, index);
-                
                 for (let i = 0; i < nearbyZombies.length; i++) {
                     const otherIndex = nearbyZombies[i];
                     const otherZombie = zombies[otherIndex];
-                    
-                    if (!otherZombie || !otherZombie.mesh) continue;
-                    
-                    // Skip if the other zombie is exploding
-                    if (otherZombie.mesh.isExploding) continue;
+                    if (!otherZombie || !otherZombie.mesh || otherZombie.mesh.isExploding) continue;
                     
                     if (checkCollision(intendedPosition, otherZombie.mesh.position, ZOMBIE_COLLISION_DISTANCE)) {
-                        // Compare sizes to determine pushing behavior
                         const thisSize = zombieSizes[index] || 1.0;
                         const otherSize = zombieSizes[otherIndex] || 1.0;
                         
-                        // If this zombie is significantly bigger, it can push the other zombie
                         if (thisSize > otherSize * 1.3) {
-                            // Bigger zombie pushes smaller one
                             const pushDirection = new THREE.Vector3()
                                 .subVectors(otherZombie.mesh.position, intendedPosition)
                                 .normalize();
-                            
-                            // Move the smaller zombie
                             otherZombie.mesh.position.addScaledVector(pushDirection, moveDistance * 0.5);
-                            
-                            // This zombie can continue on its path with minimal adjustment
                             const avoidancePosition = pushAway(
                                 intendedPosition, 
                                 otherZombie.mesh.position, 
-                                ZOMBIE_COLLISION_DISTANCE * 0.5 // Reduced collision distance
+                                ZOMBIE_COLLISION_DISTANCE * 0.5
                             );
-                            
                             intendedPosition.x = (intendedPosition.x * 0.8 + avoidancePosition.x * 0.2);
                             intendedPosition.z = (intendedPosition.z * 0.8 + avoidancePosition.z * 0.2);
                         } else {
-                            // Normal collision avoidance
                             const avoidancePosition = pushAway(
                                 intendedPosition, 
                                 otherZombie.mesh.position, 
                                 ZOMBIE_COLLISION_DISTANCE
                             );
-                            
-                            // Apply avoidance, but with reduced effect to prevent gridlock
                             intendedPosition.x = (intendedPosition.x + avoidancePosition.x) * 0.5;
                             intendedPosition.z = (intendedPosition.z + avoidancePosition.z) * 0.5;
                         }
-                        
-                        hasZombieCollision = true;
                     }
                 }
                 
-                // Check for collisions with environment objects (buildings, rocks, etc.)
+                // Environment collisions
                 if (window.gameState && window.gameState.environmentObjects) {
                     for (const object of window.gameState.environmentObjects) {
                         if (object && object.isObstacle) {
                             const dx = zombie.mesh.position.x - object.position.x;
                             const dz = zombie.mesh.position.z - object.position.z;
                             const distance = Math.sqrt(dx * dx + dz * dz);
-                            
-                            // If zombie is colliding with an environment object
                             if (distance < (object.boundingRadius || 2.5)) {
-                                // Push zombie away from the object
                                 const pushDirection = new THREE.Vector3(dx, 0, dz).normalize();
                                 const pushDistance = (object.boundingRadius || 2.5) - distance + 0.1;
-                                
                                 zombie.mesh.position.x += pushDirection.x * pushDistance;
                                 zombie.mesh.position.z += pushDirection.z * pushDistance;
-                                break; // Only handle one collision at a time
+                                break;
                             }
                         }
                     }
                 }
                 
-                // Apply final position
+                // Apply final position and rotation
                 zombie.mesh.position.copy(intendedPosition);
-                
-                // Face the direction of movement
                 zombie.mesh.rotation.y = Math.atan2(finalDirection.x, finalDirection.z);
             }
         } catch (error) {
@@ -706,8 +703,12 @@ export const damageZombie = (zombie, damage, scene) => {
         health: zombie.health - damage
     };
     
-    // Debug logging
-    logger.debug(`Zombie ${zombie.type} took ${damage.toFixed(1)} damage, health: ${updatedZombie.health.toFixed(1)}/${zombie.dismemberment?.maxHealth || 'unknown'}`);
+    // Debug logging with error handling
+    try {
+        logger.debug(`Zombie ${zombie.type} took ${damage.toFixed(1)} damage, health: ${updatedZombie.health.toFixed(1)}/${zombie.dismemberment?.maxHealth || 'unknown'}`);
+    } catch (error) {
+        console.log(`Zombie ${zombie.type} took ${damage.toFixed(1)} damage, health: ${updatedZombie.health.toFixed(1)}`);
+    }
     
     // Process dismemberment if we have the scene and the system is set up
     if (scene && zombie.dismemberment) {
@@ -720,7 +721,11 @@ export const damageZombie = (zombie, damage, scene) => {
                 zombie.gameState.bloodParticles = [];
             }
             zombie.gameState.bloodParticles.push(...bloodParticles);
-            logger.debug(`Added ${bloodParticles.length} blood particles`);
+            try {
+                logger.debug(`Added ${bloodParticles.length} blood particles`);
+            } catch (error) {
+                console.log(`Added ${bloodParticles.length} blood particles`);
+            }
         }
     } else if (!zombie.dismemberment) {
         logger.debug(`Zombie ${zombie.type} has no dismemberment system set up`);
@@ -754,6 +759,17 @@ export const createExplosion = (scene, position, radius = 3, damage = 100, zombi
     try {
         console.log("Creating explosion at", position, "with radius", radius, "and damage", damage);
         
+        // Safety check for required parameters
+        if (!scene) {
+            console.error("Explosion creation failed: scene is undefined");
+            return;
+        }
+        
+        if (!position) {
+            console.error("Explosion creation failed: position is undefined");
+            return;
+        }
+        
         // Create explosion visual effect
         const explosionGeometry = new THREE.SphereGeometry(radius, 16, 16);
         const explosionMaterial = new THREE.MeshBasicMaterial({
@@ -767,7 +783,11 @@ export const createExplosion = (scene, position, radius = 3, damage = 100, zombi
         scene.add(explosion);
         
         // Play explosion sound at the explosion position
-        playSound('explosion', position);
+        try {
+            playSound('explosion', position);
+        } catch (soundError) {
+            console.warn("Could not play explosion sound:", soundError);
+        }
         
         // Add a point light for glow effect
         const light = new THREE.PointLight(0xff5500, 2, radius * 2);
@@ -781,7 +801,11 @@ export const createExplosion = (scene, position, radius = 3, damage = 100, zombi
                 // Calculate damage based on distance (more damage closer to center)
                 const playerDamage = damage * (1 - playerDistance / radius);
                 console.log("Player in explosion radius, dealing", playerDamage, "damage");
-                damagePlayer(gameState, playerDamage);
+                try {
+                    damagePlayer(gameState, playerDamage);
+                } catch (playerDamageError) {
+                    console.error("Failed to damage player:", playerDamageError);
+                }
             }
         }
         
@@ -805,7 +829,11 @@ export const createExplosion = (scene, position, radius = 3, damage = 100, zombi
         
         // Apply damage to zombies after checking all of them
         zombiesToDamage.forEach(({ zombie, damage }) => {
-            damageZombie(zombie, damage, scene);
+            try {
+                damageZombie(zombie, damage, scene);
+            } catch (zombieDamageError) {
+                console.error("Failed to damage zombie:", zombieDamageError);
+            }
         });
         
         // Animation variables
@@ -854,3 +882,281 @@ export const createExplosion = (scene, position, radius = 3, damage = 100, zombi
         console.error('Error creating explosion:', error);
     }
 };
+
+/**
+ * Creates a Plague Titan boss - a colossal zombie that slams the ground
+ * @param {Object} position - The initial position of the titan
+ * @returns {THREE.Group} The Plague Titan object
+ */
+export const createPlagueTitan = (position) => {
+    const titan = new THREE.Group();
+
+    // Massive body
+    const bodyGeometry = new THREE.BoxGeometry(2, 6, 1.5);
+    const bodyMaterial = new THREE.MeshStandardMaterial({
+        color: 0x3c2f2f, // Dark reddish-brown, festering flesh
+        roughness: 0.9
+    });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.position.y = 3;
+    body.castShadow = true;
+    titan.add(body);
+
+    // Head with oozing sores
+    const headGeometry = new THREE.BoxGeometry(1, 1, 1);
+    const headMaterial = new THREE.MeshStandardMaterial({
+        color: 0x2e8b57, // Greenish decay
+        roughness: 0.9
+    });
+    const head = new THREE.Mesh(headGeometry, headMaterial);
+    head.position.y = 7;
+    head.castShadow = true;
+    titan.add(head);
+
+    // Glowing sores (emissive)
+    const soreGeometry = new THREE.BoxGeometry(0.3, 0.3, 0.3);
+    const soreMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffff00, // Yellow pus
+        emissive: 0xffff00,
+        emissiveIntensity: 0.5
+    });
+    const sore1 = new THREE.Mesh(soreGeometry, soreMaterial);
+    sore1.position.set(0.8, 4, 0.8);
+    titan.add(sore1);
+    const sore2 = new THREE.Mesh(soreGeometry, soreMaterial);
+    sore2.position.set(-0.8, 2, 0.8);
+    titan.add(sore2);
+
+    // Club-like arms
+    const armGeometry = new THREE.BoxGeometry(1, 3, 1);
+    const leftArm = new THREE.Mesh(armGeometry, bodyMaterial);
+    leftArm.position.set(-1.5, 4, 0);
+    leftArm.rotation.x = Math.PI / 4;
+    leftArm.castShadow = true;
+    titan.add(leftArm);
+    const rightArm = new THREE.Mesh(armGeometry, bodyMaterial);
+    rightArm.position.set(1.5, 4, 0);
+    rightArm.rotation.x = Math.PI / 4;
+    rightArm.castShadow = true;
+    titan.add(rightArm);
+
+    // Legs
+    const legGeometry = new THREE.BoxGeometry(0.8, 4, 0.8);
+    const leftLeg = new THREE.Mesh(legGeometry, bodyMaterial);
+    leftLeg.position.set(-0.6, 2, 0);
+    leftLeg.castShadow = true;
+    titan.add(leftLeg);
+    const rightLeg = new THREE.Mesh(legGeometry, bodyMaterial);
+    rightLeg.position.set(0.6, 2, 0);
+    rightLeg.castShadow = true;
+    titan.add(rightLeg);
+
+    titan.position.set(position.x, 0, position.z);
+    titan.mesh = titan;
+    titan.enemyType = 'plagueTitan';
+    titan.speed = 0.015; // Slow movement
+    titan.health = 500; // High health
+    titan.slamCooldown = 0; // For ground slam timing
+
+    return titan;
+};
+
+/**
+ * Creates a Necrofiend boss - a tall zombie that spawns minions
+ * @param {Object} position - The initial position of the necrofiend
+ * @returns {THREE.Group} The Necrofiend object
+ */
+export const createNecrofiend = (position) => {
+    const necro = new THREE.Group();
+
+    // Elongated body
+    const bodyGeometry = new THREE.BoxGeometry(0.8, 4, 0.6);
+    const bodyMaterial = new THREE.MeshStandardMaterial({
+        color: 0x483c32, // Dark grayish-brown
+        roughness: 0.9
+    });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.position.y = 2;
+    body.castShadow = true;
+    necro.add(body);
+
+    // Head with gaping maw
+    const headGeometry = new THREE.BoxGeometry(0.6, 0.8, 0.6);
+    const headMaterial = new THREE.MeshStandardMaterial({
+        color: 0x2e8b57, // Greenish decay
+        roughness: 0.9
+    });
+    const head = new THREE.Mesh(headGeometry, headMaterial);
+    head.position.y = 5;
+    head.castShadow = true;
+    necro.add(head);
+    const mouth = new THREE.Mesh(
+        new THREE.BoxGeometry(0.4, 0.4, 0.1),
+        new THREE.MeshStandardMaterial({ color: 0x000000 })
+    );
+    mouth.position.set(0, 4.8, 0.31);
+    necro.add(mouth);
+
+    // Claw-like arms
+    const armGeometry = new THREE.BoxGeometry(0.3, 2, 0.3);
+    const leftArm = new THREE.Mesh(armGeometry, bodyMaterial);
+    leftArm.position.set(-0.6, 3, 0.2);
+    leftArm.rotation.x = Math.PI / 3;
+    leftArm.castShadow = true;
+    necro.add(leftArm);
+    const rightArm = new THREE.Mesh(armGeometry, bodyMaterial);
+    rightArm.position.set(0.6, 3, 0.2);
+    rightArm.rotation.x = Math.PI / 3;
+    rightArm.castShadow = true;
+    necro.add(rightArm);
+
+    // Legs
+    const legGeometry = new THREE.BoxGeometry(0.4, 2, 0.4);
+    const leftLeg = new THREE.Mesh(legGeometry, bodyMaterial);
+    leftLeg.position.set(-0.2, 1, 0);
+    leftLeg.castShadow = true;
+    necro.add(leftLeg);
+    const rightLeg = new THREE.Mesh(legGeometry, bodyMaterial);
+    rightLeg.position.set(0.2, 1, 0);
+    rightLeg.castShadow = true;
+    necro.add(rightLeg);
+
+    necro.position.set(position.x, 0, position.z);
+    necro.mesh = necro;
+    necro.enemyType = 'necrofiend';
+    necro.speed = 0.04; // Faster than regular zombies
+    necro.health = 300; // Moderate health
+    necro.spawnCooldown = 0; // For minion spawning
+
+    return necro;
+};
+
+/**
+ * Creates a Rot Behemoth boss - a bloated zombie with toxic projectiles
+ * @param {Object} position - The initial position of the behemoth
+ * @returns {THREE.Group} The Rot Behemoth object
+ */
+export const createRotBehemoth = (position) => {
+    const behemoth = new THREE.Group();
+
+    // Bloated body
+    const bodyGeometry = new THREE.BoxGeometry(2, 4, 2);
+    const bodyMaterial = new THREE.MeshStandardMaterial({
+        color: 0x556b2f, // Olive green rot
+        roughness: 0.9
+    });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.position.y = 2;
+    body.castShadow = true;
+    behemoth.add(body);
+
+    // Multiple heads
+    const headGeometry = new THREE.BoxGeometry(0.7, 0.7, 0.7);
+    const head1 = new THREE.Mesh(headGeometry, bodyMaterial);
+    head1.position.set(-0.5, 5, 0);
+    head1.castShadow = true;
+    behemoth.add(head1);
+    const head2 = new THREE.Mesh(headGeometry, bodyMaterial);
+    head2.position.set(0.5, 5, 0);
+    head2.castShadow = true;
+    behemoth.add(head2);
+
+    // Tentacle arms
+    const tentacleGeometry = new THREE.BoxGeometry(0.4, 3, 0.4);
+    const leftTentacle = new THREE.Mesh(tentacleGeometry, bodyMaterial);
+    leftTentacle.position.set(-1.2, 3, 0.3);
+    leftTentacle.rotation.x = Math.PI / 4;
+    leftTentacle.castShadow = true;
+    behemoth.add(leftTentacle);
+    const rightTentacle = new THREE.Mesh(tentacleGeometry, bodyMaterial);
+    rightTentacle.position.set(1.2, 3, 0.3);
+    rightTentacle.rotation.x = Math.PI / 4;
+    rightTentacle.castShadow = true;
+    behemoth.add(rightTentacle);
+
+    // Legs
+    const legGeometry = new THREE.BoxGeometry(0.8, 4, 0.8);
+    const leftLeg = new THREE.Mesh(legGeometry, bodyMaterial);
+    leftLeg.position.set(-0.6, 2, 0);
+    leftLeg.castShadow = true;
+    behemoth.add(leftLeg);
+    const rightLeg = new THREE.Mesh(legGeometry, bodyMaterial);
+    rightLeg.position.set(0.6, 2, 0);
+    rightLeg.castShadow = true;
+    behemoth.add(rightLeg);
+
+    behemoth.position.set(position.x, 0, position.z);
+    behemoth.mesh = behemoth;
+    behemoth.enemyType = 'rotBehemoth';
+    behemoth.speed = 0.02; // Slow movement
+    behemoth.health = 400; // High health
+    behemoth.shootCooldown = 0; // For projectile timing
+
+    return behemoth;
+};
+
+/**
+ * Creates a Skittercrab - a small, fast crab-like zombie
+ * @param {Object} position - The initial position of the skittercrab
+ * @returns {THREE.Group} The Skittercrab object
+ */
+export const createSkittercrab = (position) => {
+    const crab = new THREE.Group();
+
+    // Low, wide body
+    const bodyGeometry = new THREE.BoxGeometry(1, 0.5, 0.8);
+    const bodyMaterial = new THREE.MeshStandardMaterial({
+        color: 0x696969, // Dark gray carapace
+        roughness: 0.9
+    });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.position.y = 0.25;
+    body.castShadow = true;
+    crab.add(body);
+
+    // Spiky shell
+    const spikeGeometry = new THREE.BoxGeometry(0.2, 0.4, 0.2);
+    const spikeMaterial = new THREE.MeshStandardMaterial({
+        color: 0x8b0000, // Dark red spikes
+        roughness: 0.9
+    });
+    const spike1 = new THREE.Mesh(spikeGeometry, spikeMaterial);
+    spike1.position.set(0, 0.65, 0);
+    crab.add(spike1);
+    const spike2 = new THREE.Mesh(spikeGeometry, spikeMaterial);
+    spike2.position.set(0.3, 0.55, 0);
+    crab.add(spike2);
+
+    // Pincer legs
+    const pincerGeometry = new THREE.BoxGeometry(0.3, 0.3, 0.6);
+    const leftPincer = new THREE.Mesh(pincerGeometry, bodyMaterial);
+    leftPincer.position.set(-0.65, 0.15, 0.2);
+    leftPincer.rotation.z = Math.PI / 4;
+    leftPincer.castShadow = true;
+    crab.add(leftPincer);
+    const rightPincer = new THREE.Mesh(pincerGeometry, bodyMaterial);
+    rightPincer.position.set(0.65, 0.15, 0.2);
+    rightPincer.rotation.z = -Math.PI / 4;
+    rightPincer.castShadow = true;
+    crab.add(rightPincer);
+
+    // Back legs
+    const legGeometry = new THREE.BoxGeometry(0.2, 0.3, 0.4);
+    const leftLeg = new THREE.Mesh(legGeometry, bodyMaterial);
+    leftLeg.position.set(-0.4, 0.15, -0.2);
+    leftLeg.castShadow = true;
+    crab.add(leftLeg);
+    const rightLeg = new THREE.Mesh(legGeometry, bodyMaterial);
+    rightLeg.position.set(0.4, 0.15, -0.2);
+    rightLeg.castShadow = true;
+    crab.add(rightLeg);
+
+    crab.position.set(position.x, 0, position.z);
+    crab.mesh = crab;
+    crab.enemyType = 'skittercrab';
+    crab.speed = 0.08; // Very fast
+    crab.health = 50; // Low health
+
+    return crab;
+};
+

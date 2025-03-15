@@ -9,21 +9,28 @@
  */
 
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
-import { createScene, createCamera, createRenderer, createLighting } from './rendering/scene.js';
+import { createScene, createCamera, createRenderer, createLighting, createGround } from './rendering/scene.js';
 import { createPlayer, handlePlayerMovement, createPlayerWeapon, aimPlayerWithMouse } from './gameplay/player.js';
 import { createZombie, updateZombies, createSkeletonArcher, createExploder, createZombieKing, createExplosion } from './gameplay/zombie.js';
 import { updateUI, showMessage, initUI } from './ui/ui.js';
 import { handleCollisions, checkCollision, applyPowerupEffect } from './gameplay/physics.js';
 import { createBullet, updateBullets } from './gameplay/weapons.js';
 import { logger } from './utils/logger.js';
-import { createTripleShotPowerup, createShotgunBlastPowerup, createExplosionPowerup, animatePowerup } from './gameplay/powerups.js';
+import { createRapidFirePowerup, createShotgunBlastPowerup, createExplosionPowerup, createLaserShotPowerup, createGrenadeLauncherPowerup, animatePowerup, createSmokeTrail } from './gameplay/powerups2.js';
 import { createTexturedGround, createBuilding, createRock, createDeadTree } from './rendering/environment.js';
 import { setupDismemberment, updateBloodEffects } from './gameplay/dismemberment.js';
 import { shouldSpawnPowerup, spawnPowerupBehindPlayer, cleanupOldPowerups } from './gameplay/powerupSpawner.js';
-import { initAudio, loadAudio, loadPositionalAudio, playSound, stopSound, toggleMute, setMasterVolume } from './gameplay/audio.js';
+import { initAudio, loadAudio, loadPositionalAudio, playSound, stopSound, toggleMute, setMasterVolume, debugAudioSystem, getAudioState, setAudioEnabled } from './gameplay/audio.js';
+import { createSoundSettingsUI, toggleSoundSettingsUI, isSoundSettingsVisible } from './ui/soundSettings.js';
+import { debugWebGL, fixWebGLContext, monitorRenderingPerformance, createFallbackCanvas } from './debug.js';
+import { createDevPanel } from './utils/devMode.js';
+import { runTests } from './utils/testRunner.js';
+import { testWeaponsSystem } from './utils/weaponsTester.js';
+import { safeCall } from './utils/safeAccess.js';
+import { checkAudioFiles, suggestAudioFix } from './utils/audioChecker.js';
 
-// Set log level based on debug flag
-const DEBUG_MODE = true;
+// Set log level based on environment
+const DEBUG_MODE = window.APP_ENV === 'development';
 if (DEBUG_MODE) {
     logger.setLevel(logger.levels.DEBUG);
     logger.info('Debug mode enabled - verbose logging active');
@@ -31,6 +38,10 @@ if (DEBUG_MODE) {
     logger.setLevel(logger.levels.INFO);
     logger.info('Production mode - minimal logging active');
 }
+
+// Run WebGL diagnostics
+const webglDiagnostics = debugWebGL();
+logger.info('WebGL diagnostics:', webglDiagnostics);
 
 // Game state
 const gameState = {
@@ -68,48 +79,78 @@ const gameState = {
         playerMoveSpeed: 0.15, // Base movement speed
         zombieSpawnRate: 200, // ms between zombie spawns
         powerupSpawnRate: 15000, // ms between powerup spawns
+        camera: {
+            distance: 10, // Distance from player
+            height: 10,   // Height above ground
+            tilt: 0,      // Camera tilt angle in degrees
+            defaultValues: {
+                distance: 10,
+                height: 10,
+                tilt: 0
+            }
+        }
     }
 };
 
 // Make gameState globally accessible for zombie collision detection
 window.gameState = gameState;
 
-// Initialize the scene
-const scene = createScene();
-
-// Create camera
-const camera = createCamera();
-gameState.camera = camera; // Store camera reference
-
-// Initialize audio system
-initAudio(camera);
-
-// Create renderer
-const renderer = createRenderer();
-const { ambientLight, directionalLight } = createLighting(scene);
-
-// Create textured ground
-const ground = createTexturedGround(1000);
-scene.add(ground);
-
-/**
- * Loads all game audio files
- */
-const loadGameAudio = async () => {
-  try {
-    await loadAudio('backgroundMusic', '/audio/zombie-theme.mp3', true, 0.5);
-    await loadAudio('gunshot', '/audio/gunshot.mp3', false, 0.8);
-    await loadPositionalAudio('zombieGrowl', '/audio/zombie-growl.mp3', 10, 0.7);
-    await loadPositionalAudio('explosion', '/audio/explosion.mp3', 15, 1.0);
-    await loadAudio('powerupPickup', '/audio/powerup-pickup.mp3', false, 0.6);
+// Create scene, camera, and renderer with error handling
+let scene, camera, renderer, audioListener;
+try {
+    // Create scene
+    scene = createScene();
+    if (!scene) throw new Error('Failed to create scene');
     
-    // Start playing background music
-    playSound('backgroundMusic');
-    logger.info('Game audio loaded successfully');
-  } catch (error) {
-    logger.error(`Failed to load game audio: ${error}`);
-  }
-};
+    // Create camera
+    camera = createCamera();
+    if (!camera) throw new Error('Failed to create camera');
+    
+    // Position camera
+    camera.position.set(0, 10, 10);
+    camera.lookAt(0, 0, 0);
+    
+    // Create renderer with error handling
+    renderer = createRenderer();
+    if (!renderer || !renderer.domElement) {
+        throw new Error('Failed to create renderer');
+    }
+    
+    // Initialize audio listener
+    try {
+        audioListener = initAudio(camera);
+        // Disable audio system by default until all sound files are properly set up
+        setAudioEnabled(false);
+        logger.info('Audio system initialized but disabled by default');
+    } catch (audioError) {
+        logger.error('Audio initialization failed:', audioError);
+        console.error('Audio initialization failed:', audioError);
+        // Continue without audio
+    }
+    
+    // Add lighting
+    const lights = createLighting(scene);
+    
+    // Create ground
+    const ground = createGround();
+    scene.add(ground);
+    
+    logger.info('Scene setup completed successfully');
+} catch (setupError) {
+    logger.error('Scene setup failed:', setupError);
+    console.error('Scene setup failed:', setupError);
+    
+    // Create fallback canvas with diagnostic information
+    createFallbackCanvas();
+    
+    // Throw error to prevent further execution
+    throw setupError;
+}
+
+// Try to fix WebGL context if it exists
+if (renderer) {
+    fixWebGLContext(renderer);
+}
 
 // Create player
 const player = createPlayer();
@@ -157,6 +198,86 @@ const clock = new THREE.Clock();
 // Initialize UI
 initUI(gameState);
 
+// Add sound settings button
+const soundSettingsButton = document.createElement('button');
+soundSettingsButton.textContent = '🔊 Sound Settings';
+soundSettingsButton.style.position = 'absolute';
+soundSettingsButton.style.top = '10px';
+soundSettingsButton.style.right = '10px';
+soundSettingsButton.style.padding = '8px 16px';
+soundSettingsButton.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+soundSettingsButton.style.color = 'white';
+soundSettingsButton.style.border = 'none';
+soundSettingsButton.style.borderRadius = '5px';
+soundSettingsButton.style.cursor = 'pointer';
+soundSettingsButton.style.fontSize = '16px';
+soundSettingsButton.style.zIndex = '1000';
+
+soundSettingsButton.addEventListener('click', () => {
+    // Toggle sound settings UI
+    createSoundSettingsUI();
+});
+
+document.body.appendChild(soundSettingsButton);
+
+// Add audio debug button in development mode
+if (DEBUG_MODE) {
+    const audioDebugButton = document.createElement('button');
+    audioDebugButton.textContent = '🔊 Debug Audio';
+    audioDebugButton.style.position = 'absolute';
+    audioDebugButton.style.top = '50px';
+    audioDebugButton.style.right = '10px';
+    audioDebugButton.style.padding = '8px 16px';
+    audioDebugButton.style.backgroundColor = 'rgba(255, 0, 0, 0.7)';
+    audioDebugButton.style.color = 'white';
+    audioDebugButton.style.border = 'none';
+    audioDebugButton.style.borderRadius = '5px';
+    audioDebugButton.style.cursor = 'pointer';
+    audioDebugButton.style.fontSize = '16px';
+    audioDebugButton.style.zIndex = '1000';
+
+    audioDebugButton.addEventListener('click', () => {
+        // Debug audio system
+        const debugInfo = debugAudioSystem();
+        console.log('Audio Debug Info:', debugInfo);
+        
+        // Try to play a test sound
+        try {
+            // Create a test oscillator
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.value = 440; // A4 note
+            gainNode.gain.value = 0.1;
+            
+            oscillator.start();
+            
+            // Stop after 0.5 seconds
+            setTimeout(() => {
+                oscillator.stop();
+                showMessage('Test sound played - did you hear it?', 3000);
+            }, 500);
+            
+            // Also try to resume any suspended audio contexts
+            if (audioListener?.context?.state === 'suspended') {
+                audioListener.context.resume().then(() => {
+                    showMessage('Audio context resumed', 2000);
+                });
+            }
+        } catch (error) {
+            console.error('Error playing test sound:', error);
+            showMessage('Error playing test sound', 2000);
+        }
+    });
+
+    document.body.appendChild(audioDebugButton);
+}
+
 // Setup event listeners
 document.addEventListener('keydown', (event) => {
     gameState.keys[event.key.toLowerCase()] = true;
@@ -165,6 +286,11 @@ document.addEventListener('keydown', (event) => {
     if (event.key.toLowerCase() === 'p' && gameState.debug) {
         logger.debug('Manual powerup spawn triggered');
         spawnPowerupBehindPlayer(scene, gameState, player);
+    }
+    
+    // Toggle sound settings with M key
+    if (event.key.toLowerCase() === 'm') {
+        createSoundSettingsUI();
     }
 });
 
@@ -236,7 +362,14 @@ const shootBullet = () => {
     const currentTime = Date.now();
     // Use debug gun fire rate if available
     const fireRateCooldown = gameState.debug && gameState.debug.gunFireRate ? gameState.debug.gunFireRate : 100;
-    if (currentTime - gameState.lastShotTime < fireRateCooldown) { // Use debug setting
+    
+    // Apply rapid fire powerup effect if active
+    let actualFireRate = fireRateCooldown;
+    if (gameState.player.activePowerup === 'rapidFire') {
+        actualFireRate = fireRateCooldown / 3; // 3x faster fire rate
+    }
+    
+    if (currentTime - gameState.lastShotTime < actualFireRate) {
         return; // Still in cooldown
     }
     
@@ -266,64 +399,126 @@ const shootBullet = () => {
         );
     }
     
-    const bullet = createBullet(
-        bulletPosition,
-        direction,
-        gameState.player.damage,
-        1.5 // Faster bullet speed
-    );
-    
-    // Only add mesh to scene if it's a tracer bullet
-    if (bullet.mesh) {
-        scene.add(bullet.mesh);
-    }
-    gameState.bullets.push(bullet);
-    
-    // Apply powerup effects if active
-    if (gameState.player.activePowerup === 'tripleShot') {
-        // Create two additional bullets at angles
-        const leftDirection = direction.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 12);
-        const rightDirection = direction.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 12);
-        
-        const leftBullet = createBullet(
-            bulletPosition.clone(),
-            leftDirection,
+    // Apply powerup effects
+    if (gameState.player.activePowerup === 'rapidFire') {
+        // Rapid fire is handled by reducing the cooldown above
+        // Create a single bullet with standard damage
+        const bullet = createBullet(
+            bulletPosition,
+            direction,
             gameState.player.damage,
-            1.5
+            1.8 // Faster bullet speed for rapid fire
         );
         
-        const rightBullet = createBullet(
-            bulletPosition.clone(),
-            rightDirection,
-            gameState.player.damage,
-            1.5
-        );
-        
-        // Only add meshes to scene if they're tracer bullets
-        if (leftBullet.mesh) scene.add(leftBullet.mesh);
-        if (rightBullet.mesh) scene.add(rightBullet.mesh);
-        
-        gameState.bullets.push(leftBullet);
-        gameState.bullets.push(rightBullet);
+        if (bullet.mesh) {
+            scene.add(bullet.mesh);
+        }
+        gameState.bullets.push(bullet);
     } else if (gameState.player.activePowerup === 'shotgunBlast') {
-        // Create 5 additional bullets in a spread pattern
-        for (let i = 0; i < 5; i++) {
+        // Create 8 bullets in a spread pattern
+        for (let i = 0; i < 8; i++) {
             const spreadDirection = direction.clone().applyAxisAngle(
                 new THREE.Vector3(0, 1, 0),
-                (Math.random() - 0.5) * Math.PI / 6
+                (Math.random() - 0.5) * Math.PI / 4
             );
             
             const spreadBullet = createBullet(
                 bulletPosition.clone(),
                 spreadDirection,
-                gameState.player.damage * 0.7, // Slightly less damage per pellet
+                gameState.player.damage * 0.6, // Less damage per pellet
                 1.5
             );
             
-            // Only add mesh to scene if it's a tracer bullet
-            if (spreadBullet.mesh) scene.add(spreadBullet.mesh);
+            if (spreadBullet.mesh) {
+                scene.add(spreadBullet.mesh);
+            }
             gameState.bullets.push(spreadBullet);
         }
+    } else if (gameState.player.activePowerup === 'laserShot') {
+        // Create a laser beam (long, thin bullet with high damage)
+        const laserBullet = createBullet(
+            bulletPosition,
+            direction,
+            gameState.player.damage * 2, // Double damage
+            3.0, // Very fast
+            0x00ffff // Cyan color for laser
+        );
+        
+        // Use safeCall instead of direct access to avoid null errors
+        safeCall(laserBullet, 'mesh.scale.set', [0.05, 0.05, 3.0]);
+        
+        if (laserBullet.mesh) {
+            scene.add(laserBullet.mesh);
+        }
+        gameState.bullets.push(laserBullet);
+        
+        // Add laser light effect
+        const laserLight = new THREE.PointLight(0x00ffff, 1, 5);
+        laserLight.position.copy(bulletPosition);
+        scene.add(laserLight);
+        
+        // Remove light after a short time
+        setTimeout(() => {
+            scene.remove(laserLight);
+        }, 100);
+    } else if (gameState.player.activePowerup === 'grenadeLauncher') {
+        // Create a grenade (slower moving bullet that explodes on impact)
+        const grenadeBullet = createBullet(
+            bulletPosition,
+            direction,
+            0, // No direct damage, damage is from explosion
+            0.8, // Slower speed
+            0x228b22 // Green color
+        );
+        
+        // Use safeCall instead of direct access to avoid null errors
+        safeCall(grenadeBullet, 'mesh.scale.set', [0.2, 0.2, 0.2]);
+        
+        if (grenadeBullet.mesh) {
+            scene.add(grenadeBullet.mesh);
+        }
+        
+        // Add grenade properties
+        grenadeBullet.isGrenade = true;
+        grenadeBullet.smokeTrail = [];
+        
+        gameState.bullets.push(grenadeBullet);
+    } else if (gameState.player.activePowerup === 'explosion') {
+        // Create an explosive bullet
+        const explosiveBullet = createBullet(
+            bulletPosition,
+            direction,
+            gameState.player.damage,
+            1.5
+        );
+        
+        // Use safeCall instead of direct access to avoid null errors
+        safeCall(explosiveBullet, 'mesh.scale.set', [0.15, 0.15, 0.3]);
+        
+        // Add explosive property
+        explosiveBullet.isExplosive = true;
+        
+        if (explosiveBullet.mesh) {
+            // Make it slightly larger and red-tinted
+            explosiveBullet.mesh.material.color.set(0xff6666);
+            scene.add(explosiveBullet.mesh);
+        }
+        
+        gameState.bullets.push(explosiveBullet);
+    } else {
+        // Standard bullet
+        const bullet = createBullet(
+            bulletPosition,
+            direction,
+            gameState.player.damage,
+            1.5 // Faster bullet speed
+        );
+        
+        // Only add mesh to scene if it's a tracer bullet
+        if (bullet.mesh) {
+            scene.add(bullet.mesh);
+        }
+        gameState.bullets.push(bullet);
     }
     
     // Add muzzle flash effect
@@ -484,15 +679,52 @@ gameState.handleGameOver = handleGameOver;
 // Spawn initial environment objects
 spawnEnvironmentObjects();
 
+/**
+ * Load all game audio files
+ * This function loads all sound effects and background music needed for the game
+ * @returns {Promise} A promise that resolves when all audio is loaded
+ */
+const loadGameAudio = async () => {
+    try {
+        logger.info('Loading game audio files...');
+        
+        // Load background music
+        await loadAudio('backgroundMusic', './audio/music/zombie-theme.mp3', true, 0.5, 'music');
+        
+        // Load weapon sounds
+        await loadAudio('gunshot', './audio/sfx/bullet.flac', false, 0.8);
+        
+        // Load zombie sounds
+        await loadPositionalAudio('zombieGrowl', './audio/sfx/zombie-growl.wav', 15, 0.7);
+        await loadPositionalAudio('zombieDeath', './audio/sfx/zombie-death.wav', 10, 0.8);
+        
+        // Load powerup sounds
+        await loadAudio('powerupPickup', './audio/sfx/powerup-pickup.mp3', false, 0.9);
+        
+        // Load explosion sound
+        await loadPositionalAudio('explosion', './audio/sfx/explosion.mp3', 20, 1.0);
+        
+        // Start background music
+        playSound('backgroundMusic');
+        
+        logger.info('Game audio loaded successfully');
+        return true;
+    } catch (error) {
+        logger.error('Failed to load game audio:', error);
+        showMessage('Audio failed to load. Game will continue without sound.', 3000);
+        return false;
+    }
+};
+
 // Load game audio
-loadGameAudio();
+loadGameAudio(); // Uncommented this line to load audio files
 
 // Spawn initial zombies
 for (let i = 0; i < gameState.initialSpawnCount; i++) {
     spawnEnemy(player.position);
 }
 
-// Animation loop
+// Animation loop with error handling
 function animate() {
     requestAnimationFrame(animate);
     
@@ -603,19 +835,39 @@ function animate() {
         
         // Update camera to follow player
         camera.position.x = player.position.x;
-        camera.position.z = player.position.z + 10; // Now in front of the player (flipped 180 degrees)
-        camera.position.y = 10; // Higher camera position for more overhead view (was 7)
         
-        // Calculate a target point that's:
-        // 1. At the player's x position
-        // 2. Below the player's y position (to position player higher in frame)
-        // 3. Behind the player (to look back at the player)
-        const targetPoint = new THREE.Vector3(
-            player.position.x,
-            player.position.y - 1, // Adjusted to tilt camera more overhead
-            player.position.z - 3  // Now behind the player (flipped 180 degrees)
-        );
-        camera.lookAt(targetPoint);
+        if (DEBUG_MODE) {
+            // Use debug camera settings
+            const cameraSettings = gameState.debug.camera;
+            
+            // Calculate camera position based on debug settings
+            camera.position.z = player.position.z + cameraSettings.distance;
+            camera.position.y = cameraSettings.height;
+            
+            // Calculate a target point with tilt adjustment
+            const tiltRadians = THREE.MathUtils.degToRad(cameraSettings.tilt);
+            const targetPoint = new THREE.Vector3(
+                player.position.x,
+                player.position.y - 1 + Math.sin(tiltRadians) * cameraSettings.distance * 0.5,
+                player.position.z - 3 - Math.cos(tiltRadians) * 2
+            );
+            camera.lookAt(targetPoint);
+        } else {
+            // Default camera behavior for production mode
+            camera.position.z = player.position.z + 10; // Now in front of the player (flipped 180 degrees)
+            camera.position.y = 10; // Higher camera position for more overhead view (was 7)
+            
+            // Calculate a target point that's:
+            // 1. At the player's x position
+            // 2. Below the player's y position (to position player higher in frame)
+            // 3. Behind the player (to look back at the player)
+            const targetPoint = new THREE.Vector3(
+                player.position.x,
+                player.position.y - 1, // Adjusted to tilt camera more overhead
+                player.position.z - 3  // Now behind the player (flipped 180 degrees)
+            );
+            camera.lookAt(targetPoint);
+        }
         
         // Handle continuous firing when mouse is held down - with rate limiting
         if ((gameState.mouseDown || gameState.keys[' ']) && !gameState.gameOver) {
@@ -624,6 +876,29 @@ function animate() {
         
         // Update bullets
         updateBullets(gameState.bullets, delta);
+        
+        // Handle grenade smoke trails
+        for (let i = 0; i < gameState.bullets.length; i++) {
+            const bullet = gameState.bullets[i];
+            if (bullet.isGrenade && bullet.mesh) {
+                // Create smoke trail
+                const smokeParticle = createSmokeTrail(bullet.mesh.position.clone());
+                scene.add(smokeParticle);
+                bullet.smokeTrail.push(smokeParticle);
+                
+                // Update existing smoke particles
+                for (let j = bullet.smokeTrail.length - 1; j >= 0; j--) {
+                    const smoke = bullet.smokeTrail[j];
+                    smoke.position.y += 0.01;
+                    smoke.material.opacity -= smoke.userData.fadeRate;
+                    
+                    if (smoke.material.opacity <= 0) {
+                        scene.remove(smoke);
+                        bullet.smokeTrail.splice(j, 1);
+                    }
+                }
+            }
+        }
         
         // Handle all collisions (player-powerup, bullet-powerup, player-zombie, etc.)
         handleCollisions(gameState, scene, delta);
@@ -649,6 +924,19 @@ function animate() {
                     
                     // Mark bullet for removal
                     bullet.toRemove = true;
+                    
+                    // Handle explosive bullets
+                    if (bullet.isExplosive || bullet.isGrenade) {
+                        createExplosion(
+                            scene, 
+                            bullet.position.clone(), 
+                            3, // radius
+                            50, // damage
+                            gameState.zombies, 
+                            player, 
+                            gameState
+                        );
+                    }
                     
                     // Check if zombie is dead
                     if (zombie.health <= 0) {
@@ -694,6 +982,13 @@ function animate() {
         // Remove bullets marked for removal
         for (let i = gameState.bullets.length - 1; i >= 0; i--) {
             if (gameState.bullets[i].toRemove) {
+                // Clean up smoke trail if it's a grenade
+                if (gameState.bullets[i].isGrenade && gameState.bullets[i].smokeTrail) {
+                    for (const smoke of gameState.bullets[i].smokeTrail) {
+                        scene.remove(smoke);
+                    }
+                }
+                
                 // Only remove mesh from scene if it's a tracer bullet
                 if (gameState.bullets[i].mesh) {
                     scene.remove(gameState.bullets[i].mesh);
@@ -783,10 +1078,12 @@ function animate() {
                             0x8B4513 // Brown color for arrow
                         );
                         
-                        // Make arrow longer and thinner
-                        arrow.mesh.scale.set(0.05, 0.05, 0.3);
+                        // Use safeCall instead of direct access to avoid null errors
+                        safeCall(arrow, 'mesh.scale.set', [0.05, 0.05, 0.3]);
                         
-                        scene.add(arrow.mesh);
+                        if (arrow.mesh) {
+                            scene.add(arrow.mesh);
+                        }
                         gameState.bullets.push(arrow);
                     }
                 }
@@ -901,15 +1198,21 @@ function animate() {
                 
                 // Set color based on powerup type
                 let timerColor, innerColor;
-                if (gameState.player.activePowerup === 'tripleShot') {
+                if (gameState.player.activePowerup === 'rapidFire') {
                     timerColor = 0xffa500; // Orange
                     innerColor = 0xffcc00; // Light orange
                 } else if (gameState.player.activePowerup === 'shotgunBlast') {
+                    timerColor = 0x4682b4; // Steel blue
+                    innerColor = 0x87ceeb; // Light blue
+                } else if (gameState.player.activePowerup === 'explosion') {
                     timerColor = 0xff0000; // Red
                     innerColor = 0xff6666; // Light red
-                } else if (gameState.player.activePowerup === 'explosion') {
+                } else if (gameState.player.activePowerup === 'laserShot') {
                     timerColor = 0x00ffff; // Cyan
                     innerColor = 0x99ffff; // Light cyan
+                } else if (gameState.player.activePowerup === 'grenadeLauncher') {
+                    timerColor = 0x228b22; // Forest green
+                    innerColor = 0x32cd32; // Lime green
                 }
                 
                 powerupTimerMaterial.color.set(timerColor);
@@ -956,26 +1259,44 @@ function animate() {
             updateBloodEffects(gameState.bloodParticles, scene, delta);
         }
         
-        // Render scene
-        renderer.render(scene, camera);
+        // Render scene with error handling
+        try {
+            renderer.render(scene, camera);
+        } catch (renderError) {
+            logger.error('Render error:', renderError);
+            console.error('Render error:', renderError);
+            
+            // Try to fix WebGL context
+            const fixed = fixWebGLContext(renderer);
+            
+            if (fixed) {
+                // Try rendering again with a simple scene
+                const testScene = new THREE.Scene();
+                testScene.background = new THREE.Color(0xff0000); // Red for visibility
+                renderer.render(testScene, camera);
+            }
+        }
     } catch (error) {
-        console.error("Error in animation loop:", error);
-        logger.error(`Animation loop error: ${error.message}`);
+        logger.error('Animation loop error:', error);
+        console.error('Animation loop error:', error);
     }
 }
 
-// Start animation loop
-animate();
-
-// Create debug UI if in debug mode
+// Start performance monitoring in debug mode
+let stopMonitoring;
 if (DEBUG_MODE) {
-    createDebugUI(gameState);
+    stopMonitoring = monitorRenderingPerformance(renderer, scene, camera);
+    
+    // Create dev panel for debugging
+    const devPanel = createDevPanel(renderer, scene, camera);
+    logger.info('Dev panel created');
 }
 
 // Function to create debug UI
 function createDebugUI(gameState) {
     // Create container
     const debugContainer = document.createElement('div');
+    debugContainer.id = 'debug-controls-container';
     debugContainer.style.position = 'absolute';
     debugContainer.style.top = '10px';
     debugContainer.style.left = '10px';
@@ -1036,6 +1357,37 @@ function createDebugUI(gameState) {
             onChange: (value) => {
                 gameState.debug.powerupSpawnRate = value;
             }
+        },
+        // Camera control sliders
+        {
+            name: 'Camera Distance',
+            min: 5,
+            max: 20,
+            value: gameState.debug.camera.distance,
+            step: 0.5,
+            onChange: (value) => {
+                gameState.debug.camera.distance = value;
+            }
+        },
+        {
+            name: 'Camera Height',
+            min: 5,
+            max: 20,
+            value: gameState.debug.camera.height,
+            step: 0.5,
+            onChange: (value) => {
+                gameState.debug.camera.height = value;
+            }
+        },
+        {
+            name: 'Camera Tilt',
+            min: -30,
+            max: 30,
+            value: gameState.debug.camera.tilt,
+            step: 1,
+            onChange: (value) => {
+                gameState.debug.camera.tilt = value;
+            }
         }
     ];
     
@@ -1066,6 +1418,47 @@ function createDebugUI(gameState) {
         sliderContainer.appendChild(input);
         debugContainer.appendChild(sliderContainer);
     });
+    
+    // Add reset camera button
+    const resetCameraButton = document.createElement('button');
+    resetCameraButton.textContent = 'Reset Camera';
+    resetCameraButton.style.padding = '8px 16px';
+    resetCameraButton.style.backgroundColor = '#4488ff';
+    resetCameraButton.style.color = 'white';
+    resetCameraButton.style.border = 'none';
+    resetCameraButton.style.borderRadius = '4px';
+    resetCameraButton.style.cursor = 'pointer';
+    resetCameraButton.style.width = '100%';
+    resetCameraButton.style.marginTop = '10px';
+    
+    resetCameraButton.addEventListener('click', () => {
+        // Reset camera to default values
+        gameState.debug.camera.distance = gameState.debug.camera.defaultValues.distance;
+        gameState.debug.camera.height = gameState.debug.camera.defaultValues.height;
+        gameState.debug.camera.tilt = gameState.debug.camera.defaultValues.tilt;
+        
+        // Update slider values
+        const sliders = debugContainer.querySelectorAll('input[type="range"]');
+        const labels = debugContainer.querySelectorAll('label');
+        
+        // Find camera sliders and update them
+        sliders.forEach((slider, index) => {
+            if (labels[index].textContent.includes('Camera Distance')) {
+                slider.value = gameState.debug.camera.distance;
+                labels[index].textContent = `Camera Distance: ${gameState.debug.camera.distance}`;
+            } else if (labels[index].textContent.includes('Camera Height')) {
+                slider.value = gameState.debug.camera.height;
+                labels[index].textContent = `Camera Height: ${gameState.debug.camera.height}`;
+            } else if (labels[index].textContent.includes('Camera Tilt')) {
+                slider.value = gameState.debug.camera.tilt;
+                labels[index].textContent = `Camera Tilt: ${gameState.debug.camera.tilt}`;
+            }
+        });
+        
+        showMessage('Camera reset to default', 1000);
+    });
+    
+    debugContainer.appendChild(resetCameraButton);
     
     // Add super health button
     const superHealthButton = document.createElement('button');
@@ -1106,6 +1499,111 @@ function createDebugUI(gameState) {
     
     debugContainer.appendChild(muteButton);
     
+    // Add audio system toggle button
+    const audioSystemButton = document.createElement('button');
+    audioSystemButton.textContent = 'Enable Audio System';
+    audioSystemButton.style.padding = '8px 16px';
+    audioSystemButton.style.backgroundColor = '#9933cc';
+    audioSystemButton.style.color = 'white';
+    audioSystemButton.style.border = 'none';
+    audioSystemButton.style.borderRadius = '4px';
+    audioSystemButton.style.cursor = 'pointer';
+    audioSystemButton.style.width = '100%';
+    audioSystemButton.style.marginTop = '10px';
+    
+    // Get current audio system state
+    const audioState = getAudioState();
+    const isAudioEnabled = audioState && audioState.enabled;
+    audioSystemButton.textContent = isAudioEnabled ? 'Disable Audio System' : 'Enable Audio System';
+    
+    audioSystemButton.addEventListener('click', () => {
+        // Get current state before toggling
+        const audioState = getAudioState();
+        const isCurrentlyEnabled = audioState && audioState.enabled;
+        
+        // Toggle audio system
+        const isEnabled = setAudioEnabled(!isCurrentlyEnabled);
+        
+        // Update button text
+        audioSystemButton.textContent = isEnabled ? 'Disable Audio System' : 'Enable Audio System';
+        
+        // Show message
+        showMessage(isEnabled ? 'Audio system enabled' : 'Audio system disabled', 2000);
+    });
+    
+    debugContainer.appendChild(audioSystemButton);
+    
     // Add to document
     document.body.appendChild(debugContainer);
-} 
+    
+    logger.info('Debug UI created successfully');
+    return debugContainer;
+}
+
+// Ensure debug UI is created in development mode
+const ensureDebugUI = () => {
+    if (DEBUG_MODE) {
+        // Check if debug UI already exists
+        if (!document.getElementById('debug-controls-container')) {
+            logger.info('Creating debug UI controls');
+            createDebugUI(gameState);
+        }
+    }
+};
+
+// Call ensureDebugUI after the DOM is fully loaded
+document.addEventListener('DOMContentLoaded', ensureDebugUI);
+
+// Also call it now in case the DOM is already loaded
+ensureDebugUI();
+
+// Start animation loop
+animate();
+
+// Game initialization
+const executeTests = async (scene, camera, renderer) => {
+    try {
+        // Setup is already done by this point
+        console.log('Running game component tests...');
+        
+        // Check audio files
+        console.log('Checking audio files...');
+        const audioStatus = await checkAudioFiles();
+        
+        if (!audioStatus.success) {
+            console.warn(`⚠️ Some required audio files failed to load (${audioStatus.failures.length} issues)`);
+            audioStatus.failures.forEach(failure => {
+                if (failure.file.required) {
+                    console.error(`Critical audio file missing: ${failure.file.name}`);
+                    console.error(`Suggested fix: ${suggestAudioFix(failure)}`);
+                }
+            });
+        } else {
+            console.log('✅ All required audio files loaded successfully');
+        }
+        
+        // Run Three.js and other tests
+        if (scene && camera && renderer) {
+            const testResults = await window.runTests(scene, renderer, camera);
+            await window.testWeaponsSystem();
+            
+            if (testResults && testResults.success) {
+                console.log('%cAll tests passed! Game is running.', 'color: green; font-weight: bold');
+            } else if (testResults) {
+                console.warn('%cSome tests failed. Game may have issues.', 'color: orange; font-weight: bold');
+            } else {
+                console.warn('%cTests could not be run. Check console for errors.', 'color: orange; font-weight: bold');
+            }
+        } else {
+            console.error('Cannot run tests: scene, camera, or renderer not initialized');
+        }
+    } catch (error) {
+        console.error('Test initialization error:', error);
+        logger.error('Test initialization error:', error);
+    }
+};
+
+// Delay tests a bit to ensure everything is loaded
+setTimeout(() => {
+    executeTests(scene, camera, renderer);
+}, 1000); 

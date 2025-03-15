@@ -26,72 +26,109 @@ let bulletCounter = 0;
  * @param {number} damage - Amount of damage the bullet does
  * @param {number} speed - Speed of the bullet (default: 1.0)
  * @param {number} color - Color of the bullet (default: yellow)
- * @returns {Object} The bullet object or null for non-tracer bullets
+ * @returns {Object} The bullet object
  */
 export const createBullet = (position, direction, damage = 25, speed = 1.0, color = 0xffff00) => {
+    // Ensure position and direction are valid objects
+    if (!position || !direction) {
+        console.error('Invalid position or direction provided to createBullet');
+        // Return a dummy bullet that won't cause errors
+        return {
+            mesh: null,
+            direction: new THREE.Vector3(0, 0, 1),
+            speed: speed,
+            distance: 0,
+            maxDistance: 50,
+            damage: damage,
+            position: new THREE.Vector3(),
+            toRemove: true, // Mark for immediate removal
+            isTracer: false,
+            userData: { damage: damage }
+        };
+    }
+
     // Increment bullet counter
     bulletCounter = (bulletCounter + 1) % 2;
     
     // Only create visible bullet for every 2nd shot (tracer)
     const isTracer = bulletCounter === 0;
     
-    // For non-tracer bullets, still create the bullet object but without visible mesh
+    // Clone position and direction to avoid accidental modification
+    const positionClone = position.clone();
+    const directionClone = direction.clone().normalize();
+    
+    // For non-tracer bullets, create the bullet object without visible mesh
     if (!isTracer) {
         return {
             mesh: null, // No visible mesh
-            direction: direction.clone().normalize(),
+            direction: directionClone,
             speed: speed,
             distance: 0,
             maxDistance: 50,
             damage: damage,
-            position: position.clone(), // Need to clone position since we don't have a mesh
+            position: positionClone,
             toRemove: false,
             isTracer: false,
-            userData: { damage: damage } // Ensure damage is in userData for consistency
+            userData: { damage: damage }
         };
     }
     
-    // Create elliptical bullet geometry (smaller than before)
-    const bulletGeometry = new THREE.SphereGeometry(0.15, 8, 8);
-    const bulletMaterial = new THREE.MeshBasicMaterial({ color: color });
-    const bulletMesh = new THREE.Mesh(bulletGeometry, bulletMaterial);
-    
-    // Set initial position
-    bulletMesh.position.copy(position);
-    
-    // Scale to make it elliptical in the direction of travel
-    bulletMesh.scale.set(0.5, 0.5, 2.0); // Stretched in z-direction
-    
-    // Rotate to align with direction of travel
-    const bulletDirection = direction.clone().normalize();
-    if (bulletDirection.length() > 0) {
-        // Create a rotation that aligns the bullet with its direction
-        const rotationMatrix = new THREE.Matrix4();
-        const up = new THREE.Vector3(0, 1, 0);
-        const axis = new THREE.Vector3().crossVectors(up, bulletDirection).normalize();
-        const angle = Math.acos(up.dot(bulletDirection));
+    try {
+        // Create elliptical bullet geometry
+        const bulletGeometry = new THREE.SphereGeometry(0.15, 8, 8);
+        const bulletMaterial = new THREE.MeshBasicMaterial({ color: color });
+        const bulletMesh = new THREE.Mesh(bulletGeometry, bulletMaterial);
         
-        if (axis.length() > 0) {
-            rotationMatrix.makeRotationAxis(axis, angle);
-            bulletMesh.quaternion.setFromRotationMatrix(rotationMatrix);
+        // Set initial position
+        bulletMesh.position.copy(positionClone);
+        
+        // Scale to make it elliptical in the direction of travel
+        bulletMesh.scale.set(0.5, 0.5, 2.0); // Stretched in z-direction
+        
+        // Rotate to align with direction of travel
+        if (directionClone.length() > 0) {
+            // Create a rotation that aligns the bullet with its direction
+            const rotationMatrix = new THREE.Matrix4();
+            const up = new THREE.Vector3(0, 1, 0);
+            const axis = new THREE.Vector3().crossVectors(up, directionClone).normalize();
+            const angle = Math.acos(up.dot(directionClone));
+            
+            if (axis.length() > 0) {
+                rotationMatrix.makeRotationAxis(axis, angle);
+                bulletMesh.quaternion.setFromRotationMatrix(rotationMatrix);
+            }
         }
+        
+        // Store direction and other properties on the bullet object
+        return {
+            mesh: bulletMesh,
+            direction: directionClone,
+            speed: speed,
+            distance: 0,
+            maxDistance: 50, // How far the bullet can travel before being removed
+            damage: damage,
+            position: positionClone, // Also store position separately for non-mesh bullets
+            toRemove: false,
+            isTracer: true,
+            userData: { damage: damage }
+        };
+    } catch (error) {
+        console.error('Error creating bullet mesh:', error);
+        
+        // Return a bullet with no mesh to avoid errors
+        return {
+            mesh: null,
+            direction: directionClone,
+            speed: speed,
+            distance: 0,
+            maxDistance: 50,
+            damage: damage,
+            position: positionClone,
+            toRemove: false,
+            isTracer: false,
+            userData: { damage: damage }
+        };
     }
-    
-    // Create bullet object with mesh and properties
-    const bullet = {
-        mesh: bulletMesh,
-        direction: bulletDirection,
-        speed: speed,
-        distance: 0,
-        maxDistance: 50,
-        damage: damage,
-        position: bulletMesh.position,
-        toRemove: false,
-        isTracer: true,
-        userData: { damage: damage } // Ensure damage is in userData for consistency
-    };
-    
-    return bullet;
 };
 
 /**

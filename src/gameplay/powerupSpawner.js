@@ -16,14 +16,14 @@
  */
 
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
-import { createTripleShotPowerup, createShotgunBlastPowerup, createExplosionPowerup } from './powerups.js';
+import { createRapidFirePowerup, createShotgunBlastPowerup, createExplosionPowerup, createLaserShotPowerup, createGrenadeLauncherPowerup } from './powerups2.js';
 import { logger } from '../utils/logger.js';
 
 // Constants for powerup spawning
 const POWERUP_MIN_DISTANCE = 10; // Minimum distance from player
 const POWERUP_MAX_DISTANCE = 20; // Maximum distance from player
 const POWERUP_SPAWN_CHANCE = 0.005; // Chance to spawn a powerup each frame (0.5%)
-const POWERUP_TYPES = ['tripleShot', 'shotgunBlast', 'explosion'];
+const POWERUP_TYPES = ['rapidFire', 'shotgunBlast', 'explosion', 'laserShot', 'grenadeLauncher'];
 const MULTI_POWERUP_CHANCE = 0.3; // 30% chance to spawn a second powerup
 const MIN_TIME_BETWEEN_POWERUPS = 10000; // Minimum time between powerup spawns (10 seconds)
 
@@ -112,8 +112,8 @@ export const createRandomPowerup = (scene, position, gameState) => {
     // Create the powerup based on type
     let powerupMesh;
     switch (powerupType) {
-        case 'tripleShot':
-            powerupMesh = createTripleShotPowerup(position);
+        case 'rapidFire':
+            powerupMesh = createRapidFirePowerup(position);
             break;
         case 'shotgunBlast':
             powerupMesh = createShotgunBlastPowerup(position);
@@ -121,8 +121,14 @@ export const createRandomPowerup = (scene, position, gameState) => {
         case 'explosion':
             powerupMesh = createExplosionPowerup(position);
             break;
+        case 'laserShot':
+            powerupMesh = createLaserShotPowerup(position);
+            break;
+        case 'grenadeLauncher':
+            powerupMesh = createGrenadeLauncherPowerup(position);
+            break;
         default:
-            powerupMesh = createTripleShotPowerup(position);
+            powerupMesh = createRapidFirePowerup(position);
     }
     
     // Add to scene
