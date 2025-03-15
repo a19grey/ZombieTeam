@@ -11,7 +11,7 @@
  * initAudio(camera);
  * 
  * // Load background music and sound effects
- * await loadAudio('backgroundMusic', '/audio/zombie-theme.mp3', true, 0.5);
+ * await loadAudio('backgroundMusic', '/audio/Pulse-Drive.mp3'.mp3', true, 0.5);
  * await loadAudio('gunshot', '/audio/gunshot.mp3', false, 0.8);
  * 
  * // Play sounds

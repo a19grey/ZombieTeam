@@ -199,13 +199,74 @@ export const handlePlayerMovement = (player, keys, baseSpeed, mouse) => {
     let speedX = sideSpeed;
     let speedZ = moveZ < 0 ? forwardSpeed : backwardSpeed;
     
+    let newX = player.position.x;
+    let newZ = player.position.z;
+    
     if (moveX !== 0 && moveZ !== 0) {
         const normalizer = 1 / Math.sqrt(2);
-        player.position.x += moveX * speedX * normalizer;
-        player.position.z += moveZ * speedZ * normalizer;
+        newX += moveX * speedX * normalizer;
+        newZ += moveZ * speedZ * normalizer;
     } else {
-        player.position.x += moveX * speedX;
-        player.position.z += moveZ * speedZ;
+        newX += moveX * speedX;
+        newZ += moveZ * speedZ;
+    }
+    
+    // Check collision with environment objects before applying movement
+    let canMove = true;
+    if (window.gameState && window.gameState.environmentObjects) {
+        for (const object of window.gameState.environmentObjects) {
+            if (object && object.isObstacle) {
+                const dx = newX - object.position.x;
+                const dz = newZ - object.position.z;
+                const distance = Math.sqrt(dx * dx + dz * dz);
+                
+                // If player would collide with this object, prevent movement
+                if (distance < (object.boundingRadius || 2.5) + 0.5) { // 0.5 is player radius
+                    canMove = false;
+                    
+                    // Try to slide along the obstacle instead of stopping completely
+                    // This creates a more natural movement around obstacles
+                    const pushDirection = new THREE.Vector3(dx, 0, dz).normalize();
+                    const pushDistance = (object.boundingRadius || 2.5) + 0.5 - distance + 0.1;
+                    
+                    // Try moving only in X direction
+                    if (Math.abs(moveX) > 0) {
+                        const testX = player.position.x + moveX * speedX;
+                        const testDx = testX - object.position.x;
+                        const testDistanceX = Math.sqrt(testDx * testDx + dz * dz);
+                        
+                        if (testDistanceX >= (object.boundingRadius || 2.5) + 0.5) {
+                            newX = testX;
+                            newZ = player.position.z;
+                            canMove = true;
+                        }
+                    }
+                    
+                    // Try moving only in Z direction
+                    if (!canMove && Math.abs(moveZ) > 0) {
+                        const testZ = player.position.z + moveZ * speedZ;
+                        const testDz = testZ - object.position.z;
+                        const testDistanceZ = Math.sqrt(dx * dx + testDz * testDz);
+                        
+                        if (testDistanceZ >= (object.boundingRadius || 2.5) + 0.5) {
+                            newX = player.position.x;
+                            newZ = testZ;
+                            canMove = true;
+                        }
+                    }
+                    
+                    if (!canMove) {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    
+    // Apply movement if no collision
+    if (canMove) {
+        player.position.x = newX;
+        player.position.z = newZ;
     }
     
     return {

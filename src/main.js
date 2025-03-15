@@ -29,6 +29,10 @@ import { testWeaponsSystem } from './utils/weaponsTester.js';
 import { safeCall } from './utils/safeAccess.js';
 import { checkAudioFiles, suggestAudioFix } from './utils/audioChecker.js';
 
+// Make critical functions globally available for debugging
+window.createDevPanel = createDevPanel;
+window.devMode = { createDevPanel };
+
 // Set log level based on environment
 const DEBUG_MODE = window.APP_ENV === 'development';
 if (DEBUG_MODE) {
@@ -67,8 +71,8 @@ const gameState = {
     score: 0, // Track player score
     enemySpawnRate: 200, // Time between enemy spawns in ms (reduced for more zombies)
     lastEnemySpawnTime: 0,
-    maxZombies: 100, // Maximum number of zombies allowed at once
-    initialSpawnCount: 30, // Number of zombies to spawn at start
+    maxZombies: 1000, // Maximum number of zombies allowed at once
+    initialSpawnCount: 500, // Number of zombies to spawn at start (increased from 30 to 300)
     bloodParticles: [], // Store blood particles for dismemberment effects
     lastPowerupSpawnTime: 0, // Track when the last powerup was spawned
     playerObject: null, // Store player object for access by other functions
@@ -115,6 +119,11 @@ try {
     if (!renderer || !renderer.domElement) {
         throw new Error('Failed to create renderer');
     }
+    
+    // Expose objects globally for debugging
+    window.scene = scene;
+    window.camera = camera;
+    window.renderer = renderer;
     
     // Initialize audio listener
     try {
@@ -689,14 +698,14 @@ const loadGameAudio = async () => {
         logger.info('Loading game audio files...');
         
         // Load background music
-        await loadAudio('backgroundMusic', './audio/music/zombie-theme.mp3', true, 0.5, 'music');
+        await loadAudio('backgroundMusic', './audio/music/Pulse-Drive.mp3', true, 0.5, 'music');
         
         // Load weapon sounds
         await loadAudio('gunshot', './audio/sfx/bullet.flac', false, 0.8);
         
         // Load zombie sounds
-        await loadPositionalAudio('zombieGrowl', './audio/sfx/zombie-growl.wav', 15, 0.7);
-        await loadPositionalAudio('zombieDeath', './audio/sfx/zombie-death.wav', 10, 0.8);
+        await loadPositionalAudio('zombieGrowl', './audio/sfx/zombie-growl.mp3', 15, 0.7);
+        await loadPositionalAudio('zombieDeath', './audio/sfx/zombie-death.mp3', 10, 0.8);
         
         // Load powerup sounds
         await loadAudio('powerupPickup', './audio/sfx/powerup-pickup.mp3', false, 0.9);
@@ -1282,283 +1291,81 @@ function animate() {
     }
 }
 
+// Force debug mode to true for testing (if not already enabled)
+if (!DEBUG_MODE) {
+    console.warn('DEBUG_MODE was disabled even though we expected it to be enabled. Forcing it to true.');
+    window.APP_ENV = 'development';
+    window.forcedDebugMode = true;
+}
+
 // Start performance monitoring in debug mode
 let stopMonitoring;
-if (DEBUG_MODE) {
-    stopMonitoring = monitorRenderingPerformance(renderer, scene, camera);
-    
-    // Create dev panel for debugging
-    const devPanel = createDevPanel(renderer, scene, camera);
-    logger.info('Dev panel created');
-}
+let devPanel;
 
-// Function to create debug UI
-function createDebugUI(gameState) {
-    // Create container
-    const debugContainer = document.createElement('div');
-    debugContainer.id = 'debug-controls-container';
-    debugContainer.style.position = 'absolute';
-    debugContainer.style.top = '10px';
-    debugContainer.style.left = '10px';
-    debugContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-    debugContainer.style.padding = '10px';
-    debugContainer.style.borderRadius = '5px';
-    debugContainer.style.color = 'white';
-    debugContainer.style.fontFamily = 'Arial, sans-serif';
-    debugContainer.style.zIndex = '1000';
-    debugContainer.style.width = '300px';
-    
-    // Add title
-    const title = document.createElement('h3');
-    title.textContent = 'Debug Controls';
-    title.style.margin = '0 0 10px 0';
-    debugContainer.appendChild(title);
-    
-    // Create sliders
-    const sliders = [
-        {
-            name: 'Gun Fire Rate',
-            min: 50,
-            max: 500,
-            value: gameState.debug.gunFireRate,
-            step: 10,
-            onChange: (value) => {
-                gameState.debug.gunFireRate = value;
-            }
-        },
-        {
-            name: 'Player Move Speed',
-            min: 0.05,
-            max: 0.5,
-            value: gameState.debug.playerMoveSpeed,
-            step: 0.01,
-            onChange: (value) => {
-                gameState.debug.playerMoveSpeed = value;
-                gameState.player.speed = value;
-            }
-        },
-        {
-            name: 'Zombie Spawn Rate',
-            min: 100,
-            max: 2000,
-            value: gameState.debug.zombieSpawnRate,
-            step: 100,
-            onChange: (value) => {
-                gameState.debug.zombieSpawnRate = value;
-                gameState.enemySpawnRate = value;
-            }
-        },
-        {
-            name: 'Powerup Spawn Rate',
-            min: 5000,
-            max: 30000,
-            value: gameState.debug.powerupSpawnRate,
-            step: 1000,
-            onChange: (value) => {
-                gameState.debug.powerupSpawnRate = value;
-            }
-        },
-        // Camera control sliders
-        {
-            name: 'Camera Distance',
-            min: 5,
-            max: 20,
-            value: gameState.debug.camera.distance,
-            step: 0.5,
-            onChange: (value) => {
-                gameState.debug.camera.distance = value;
-            }
-        },
-        {
-            name: 'Camera Height',
-            min: 5,
-            max: 20,
-            value: gameState.debug.camera.height,
-            step: 0.5,
-            onChange: (value) => {
-                gameState.debug.camera.height = value;
-            }
-        },
-        {
-            name: 'Camera Tilt',
-            min: -30,
-            max: 30,
-            value: gameState.debug.camera.tilt,
-            step: 1,
-            onChange: (value) => {
-                gameState.debug.camera.tilt = value;
-            }
-        }
-    ];
-    
-    // Add sliders to container
-    sliders.forEach(slider => {
-        const sliderContainer = document.createElement('div');
-        sliderContainer.style.marginBottom = '10px';
-        
-        const label = document.createElement('label');
-        label.textContent = `${slider.name}: ${slider.value}`;
-        label.style.display = 'block';
-        label.style.marginBottom = '5px';
-        
-        const input = document.createElement('input');
-        input.type = 'range';
-        input.min = slider.min;
-        input.max = slider.max;
-        input.value = slider.value;
-        input.step = slider.step;
-        input.style.width = '100%';
-        
-        input.addEventListener('input', () => {
-            slider.onChange(parseFloat(input.value));
-            label.textContent = `${slider.name}: ${input.value}`;
-        });
-        
-        sliderContainer.appendChild(label);
-        sliderContainer.appendChild(input);
-        debugContainer.appendChild(sliderContainer);
-    });
-    
-    // Add reset camera button
-    const resetCameraButton = document.createElement('button');
-    resetCameraButton.textContent = 'Reset Camera';
-    resetCameraButton.style.padding = '8px 16px';
-    resetCameraButton.style.backgroundColor = '#4488ff';
-    resetCameraButton.style.color = 'white';
-    resetCameraButton.style.border = 'none';
-    resetCameraButton.style.borderRadius = '4px';
-    resetCameraButton.style.cursor = 'pointer';
-    resetCameraButton.style.width = '100%';
-    resetCameraButton.style.marginTop = '10px';
-    
-    resetCameraButton.addEventListener('click', () => {
-        // Reset camera to default values
-        gameState.debug.camera.distance = gameState.debug.camera.defaultValues.distance;
-        gameState.debug.camera.height = gameState.debug.camera.defaultValues.height;
-        gameState.debug.camera.tilt = gameState.debug.camera.defaultValues.tilt;
-        
-        // Update slider values
-        const sliders = debugContainer.querySelectorAll('input[type="range"]');
-        const labels = debugContainer.querySelectorAll('label');
-        
-        // Find camera sliders and update them
-        sliders.forEach((slider, index) => {
-            if (labels[index].textContent.includes('Camera Distance')) {
-                slider.value = gameState.debug.camera.distance;
-                labels[index].textContent = `Camera Distance: ${gameState.debug.camera.distance}`;
-            } else if (labels[index].textContent.includes('Camera Height')) {
-                slider.value = gameState.debug.camera.height;
-                labels[index].textContent = `Camera Height: ${gameState.debug.camera.height}`;
-            } else if (labels[index].textContent.includes('Camera Tilt')) {
-                slider.value = gameState.debug.camera.tilt;
-                labels[index].textContent = `Camera Tilt: ${gameState.debug.camera.tilt}`;
-            }
-        });
-        
-        showMessage('Camera reset to default', 1000);
-    });
-    
-    debugContainer.appendChild(resetCameraButton);
-    
-    // Add super health button
-    const superHealthButton = document.createElement('button');
-    superHealthButton.textContent = 'Give 100x Health';
-    superHealthButton.style.padding = '8px 16px';
-    superHealthButton.style.backgroundColor = '#4CAF50';
-    superHealthButton.style.color = 'white';
-    superHealthButton.style.border = 'none';
-    superHealthButton.style.borderRadius = '4px';
-    superHealthButton.style.cursor = 'pointer';
-    superHealthButton.style.width = '100%';
-    superHealthButton.style.marginTop = '10px';
-    
-    superHealthButton.addEventListener('click', () => {
-        gameState.player.health = 10000;
-        showMessage('Super health activated!', 2000);
-    });
-    
-    debugContainer.appendChild(superHealthButton);
-    
-    // Add mute toggle button
-    const muteButton = document.createElement('button');
-    muteButton.textContent = 'Toggle Mute';
-    muteButton.style.padding = '8px 16px';
-    muteButton.style.backgroundColor = '#ff4444';
-    muteButton.style.color = 'white';
-    muteButton.style.border = 'none';
-    muteButton.style.borderRadius = '4px';
-    muteButton.style.cursor = 'pointer';
-    muteButton.style.width = '100%';
-    muteButton.style.marginTop = '10px';
-    
-    muteButton.addEventListener('click', () => {
-        const isMuted = toggleMute();
-        muteButton.textContent = isMuted ? 'Unmute' : 'Toggle Mute';
-        showMessage(isMuted ? 'Audio muted' : 'Audio unmuted', 1000);
-    });
-    
-    debugContainer.appendChild(muteButton);
-    
-    // Add audio system toggle button
-    const audioSystemButton = document.createElement('button');
-    audioSystemButton.textContent = 'Enable Audio System';
-    audioSystemButton.style.padding = '8px 16px';
-    audioSystemButton.style.backgroundColor = '#9933cc';
-    audioSystemButton.style.color = 'white';
-    audioSystemButton.style.border = 'none';
-    audioSystemButton.style.borderRadius = '4px';
-    audioSystemButton.style.cursor = 'pointer';
-    audioSystemButton.style.width = '100%';
-    audioSystemButton.style.marginTop = '10px';
-    
-    // Get current audio system state
-    const audioState = getAudioState();
-    const isAudioEnabled = audioState && audioState.enabled;
-    audioSystemButton.textContent = isAudioEnabled ? 'Disable Audio System' : 'Enable Audio System';
-    
-    audioSystemButton.addEventListener('click', () => {
-        // Get current state before toggling
-        const audioState = getAudioState();
-        const isCurrentlyEnabled = audioState && audioState.enabled;
-        
-        // Toggle audio system
-        const isEnabled = setAudioEnabled(!isCurrentlyEnabled);
-        
-        // Update button text
-        audioSystemButton.textContent = isEnabled ? 'Disable Audio System' : 'Enable Audio System';
-        
-        // Show message
-        showMessage(isEnabled ? 'Audio system enabled' : 'Audio system disabled', 2000);
-    });
-    
-    debugContainer.appendChild(audioSystemButton);
-    
-    // Add to document
-    document.body.appendChild(debugContainer);
-    
-    logger.info('Debug UI created successfully');
-    return debugContainer;
-}
-
-// Ensure debug UI is created in development mode
-const ensureDebugUI = () => {
-    if (DEBUG_MODE) {
-        // Check if debug UI already exists
-        if (!document.getElementById('debug-controls-container')) {
-            logger.info('Creating debug UI controls');
-            createDebugUI(gameState);
-        }
+// Create dev panel immediately
+console.log('Attempting to create dev panel...');
+if (renderer && scene && camera) {
+    try {
+        devPanel = createDevPanel(renderer, scene, camera);
+        logger.info('Dev panel created');
+        console.log('Dev panel created successfully!');
+    } catch (error) {
+        logger.error('Failed to create dev panel:', error);
+        console.error('Failed to create dev panel:', error);
     }
-};
+}
 
-// Call ensureDebugUI after the DOM is fully loaded
-document.addEventListener('DOMContentLoaded', ensureDebugUI);
+// Add a debug button that's always visible to force create the dev panel
+const forceDebugButton = document.createElement('button');
+forceDebugButton.textContent = '🛠️ Debug Panel';
+forceDebugButton.style.position = 'absolute';
+forceDebugButton.style.top = '90px';
+forceDebugButton.style.right = '10px';
+forceDebugButton.style.padding = '8px 16px';
+forceDebugButton.style.backgroundColor = 'rgba(0, 0, 255, 0.7)';
+forceDebugButton.style.color = 'white';
+forceDebugButton.style.border = 'none';
+forceDebugButton.style.borderRadius = '5px';
+forceDebugButton.style.cursor = 'pointer';
+forceDebugButton.style.fontSize = '16px';
+forceDebugButton.style.zIndex = '1000';
 
-// Also call it now in case the DOM is already loaded
-ensureDebugUI();
+forceDebugButton.addEventListener('click', () => {
+    try {
+        if (typeof createDevPanel === 'function' && renderer && scene && camera) {
+            const panel = createDevPanel(renderer, scene, camera);
+            console.log('Dev panel created manually!', panel);
+            showMessage('Dev panel created', 2000);
+        } else {
+            console.error('Cannot create dev panel: Missing objects', { 
+                renderer: !!renderer, 
+                scene: !!scene, 
+                camera: !!camera,
+                createDevPanel: typeof createDevPanel
+            });
+            showMessage('Failed to create dev panel', 2000);
+        }
+    } catch (error) {
+        console.error('Error creating dev panel:', error);
+        showMessage(`Error: ${error.message}`, 2000);
+    }
+});
+
+document.body.appendChild(forceDebugButton);
 
 // Start animation loop
 animate();
+
+// Spawn initial environment objects
+spawnEnvironmentObjects();
+
+// Load game audio
+loadGameAudio();
+
+// Spawn initial zombies
+for (let i = 0; i < gameState.initialSpawnCount; i++) {
+    spawnEnemy(player.position);
+}
 
 // Game initialization
 const executeTests = async (scene, camera, renderer) => {

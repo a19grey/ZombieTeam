@@ -36,7 +36,48 @@
         #message {
             display: none;
         }
+        #debug-button {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 255, 0.8);
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            font-size: 14px;
+            cursor: pointer;
+            z-index: 1000;
+        }
     </style>
+    <script type="module" src="./src/debugCheck.js"></script>
+    <script type="module" src="./src/envCheck.js"></script>
+    <script>
+        // Add a persistent debug button to the UI
+        window.addEventListener('DOMContentLoaded', () => {
+            const debugButton = document.createElement('button');
+            debugButton.id = 'debug-button';
+            debugButton.textContent = '🛠️ Debug Panel';
+            
+            debugButton.addEventListener('click', () => {
+                // Attempt to create the debug panel
+                if (window.createDevPanel) {
+                    try {
+                        window.createDevPanel(window.renderer, window.scene, window.camera);
+                        console.log('Debug panel created via button click');
+                    } catch (error) {
+                        console.error('Error creating debug panel:', error);
+                        alert('Error creating debug panel: ' + error.message);
+                    }
+                } else {
+                    console.error('createDevPanel function not available');
+                    alert('Debug function not available. Please check console for details.');
+                }
+            });
+            
+            document.body.appendChild(debugButton);
+        });
+    </script>
 </head>
 <body>
     <div id="ui">

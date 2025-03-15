@@ -332,14 +332,6 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60) => {
     const DAMAGE_PER_SECOND = 20;
     const ZOMBIE_COLLISION_DISTANCE = 0.8; // Distance to maintain between zombies
     
-    // Calculate player velocity for leading behavior
-    const playerVelocity = new THREE.Vector3();
-    if (window.previousPlayerPosition) {
-        playerVelocity.subVectors(playerPosition, window.previousPlayerPosition);
-        playerVelocity.multiplyScalar(1 / delta);
-    }
-    window.previousPlayerPosition = playerPosition.clone();
-    
     // First, update zombie king speeds
     zombies.forEach(zombie => {
         if (zombie.type === 'zombieKing') {
@@ -367,38 +359,74 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60) => {
     const gridSize = 5;
     const grid = {};
     
+    // Add zombies to spatial grid
     zombies.forEach((zombie, index) => {
         if (!zombie || !zombie.mesh || !zombie.mesh.position) return;
-        const cellX = Math.floor(zombie.mesh.position.x / gridSize);
-        const cellZ = Math.floor(zombie.mesh.position.z / gridSize);
-        const cellKey = `${cellX},${cellZ}`;
-        if (!grid[cellKey]) grid[cellKey] = [];
-        grid[cellKey].push(index);
+        
+        const gridX = Math.floor(zombie.mesh.position.x / gridSize);
+        const gridZ = Math.floor(zombie.mesh.position.z / gridSize);
+        const key = `${gridX},${gridZ}`;
+        
+        if (!grid[key]) {
+            grid[key] = [];
+        }
+        
+        grid[key].push(index);
     });
     
-    const getNearbyZombies = (position, index) => {
-        const cellX = Math.floor(position.x / gridSize);
-        const cellZ = Math.floor(position.z / gridSize);
+    // Get nearby zombies from spatial grid
+    const getNearbyZombies = (position, excludeIndex) => {
+        const gridX = Math.floor(position.x / gridSize);
+        const gridZ = Math.floor(position.z / gridSize);
         const nearby = [];
-        for (let x = cellX - 1; x <= cellX + 1; x++) {
-            for (let z = cellZ - 1; z <= cellZ + 1; z++) {
-                const cellKey = `${x},${z}`;
-                if (grid[cellKey]) {
-                    grid[cellKey].forEach(otherIndex => {
-                        if (otherIndex !== index) nearby.push(otherIndex);
+        
+        // Check 3x3 grid cells around the zombie
+        for (let x = gridX - 1; x <= gridX + 1; x++) {
+            for (let z = gridZ - 1; z <= gridZ + 1; z++) {
+                const key = `${x},${z}`;
+                if (grid[key]) {
+                    grid[key].forEach(index => {
+                        if (index !== excludeIndex) {
+                            nearby.push(index);
+                        }
                     });
                 }
             }
         }
+        
         return nearby;
     };
     
-    // Randomize zombie update order
-    const updateOrder = zombies.map((_, index) => index);
-    for (let i = updateOrder.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [updateOrder[i], updateOrder[j]] = [updateOrder[j], updateOrder[i]];
-    }
+    // Function to push object away from another
+    const pushAway = (position, fromPosition, minDistance) => {
+        const dx = position.x - fromPosition.x;
+        const dz = position.z - fromPosition.z;
+        const distanceSquared = dx * dx + dz * dz;
+        
+        if (distanceSquared < 0.0001) {
+            // Objects are too close, push in random direction
+            const angle = Math.random() * Math.PI * 2;
+            return {
+                x: fromPosition.x + Math.cos(angle) * minDistance,
+                z: fromPosition.z + Math.sin(angle) * minDistance
+            };
+        }
+        
+        const distance = Math.sqrt(distanceSquared);
+        if (distance < minDistance) {
+            const factor = minDistance / distance;
+            return {
+                x: fromPosition.x + dx * factor,
+                z: fromPosition.z + dz * factor
+            };
+        }
+        
+        return { x: position.x, z: position.z };
+    };
+    
+    // Create a random but stable update order to prevent bias
+    const updateOrder = Array.from({ length: zombies.length }, (_, i) => i);
+    updateOrder.sort(() => Math.random() - 0.5);
     
     // Update zombies in random order
     updateOrder.forEach(index => {
@@ -406,7 +434,7 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60) => {
         if (!zombie || !zombie.mesh || !zombie.mesh.position) return;
         
         try {
-            // Calculate base direction to player
+            // Calculate direct direction to player (no prediction/leading)
             const direction = new THREE.Vector3(
                 playerPosition.x - zombie.mesh.position.x,
                 0,
@@ -415,34 +443,23 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60) => {
             
             const distance = direction.length();
             
-            // Calculate leading target position
-            const leadingFactor = 1.0;
-            const leadingPosition = new THREE.Vector3().copy(playerPosition);
-            if (playerVelocity.length() > 0.1 && distance > 5) {
-                const leadTime = Math.min(distance * 0.1, 2.0);
-                leadingPosition.add(playerVelocity.clone().multiplyScalar(leadTime * leadingFactor));
-            }
+            // Normalize direction
+            const finalDirection = direction.clone().normalize();
             
-            const leadingDirection = new THREE.Vector3(
-                leadingPosition.x - zombie.mesh.position.x,
-                0,
-                leadingPosition.z - zombie.mesh.position.z
-            ).normalize();
-            
-            // Add randomness to movement
-            const randomFactor = Math.min(0.3, distance * 0.01);
+            // Add slight randomness to movement (much less than before)
+            const randomFactor = Math.min(0.1, distance * 0.005);
             const randomAngle = (Math.random() - 0.5) * Math.PI * randomFactor;
-            const randomDirection = leadingDirection.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), randomAngle);
+            finalDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), randomAngle);
             
             // Handle special enemy behaviors
             switch (zombie.mesh.enemyType) {
                 case 'skeletonArcher':
                     if (distance < 8) {
-                        leadingDirection.negate();
+                        finalDirection.negate(); // Run away when close
                     } else if (distance > 15) {
                         // Move toward player
                     } else {
-                        return;
+                        return; // Stand still and shoot
                     }
                     break;
                     
@@ -476,85 +493,9 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60) => {
                 case 'zombieKing':
                     zombie.mesh.summonCooldown -= delta;
                     break;
-                    
-                case 'plagueTitan':
-                    zombie.mesh.slamCooldown = zombie.mesh.slamCooldown || 5;
-                    zombie.mesh.slamCooldown -= delta;
-                    if (zombie.mesh.slamCooldown <= 0 && distance < 5) {
-                        zombie.mesh.slamCooldown = 5;
-                        createExplosion(
-                            scene,
-                            zombie.mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0)),
-                            4,
-                            50,
-                            zombies,
-                            gameState.playerObject,
-                            gameState
-                        );
-                    }
-                    break;
-                    
-                case 'necrofiend':
-                    zombie.mesh.spawnCooldown = zombie.mesh.spawnCooldown || 3;
-                    zombie.mesh.spawnCooldown -= delta;
-                    if (zombie.mesh.spawnCooldown <= 0 && distance < 10) {
-                        zombie.mesh.spawnCooldown = 3;
-                        const minion = createZombie({
-                            x: zombie.mesh.position.x + (Math.random() - 0.5) * 2,
-                            z: zombie.mesh.position.z + (Math.random() - 0.5) * 2
-                        });
-                        minion.health = 50;
-                        zombies.push(minion);
-                        scene.add(minion);
-                    }
-                    break;
-                    
-                case 'rotBehemoth':
-                    zombie.mesh.shootCooldown = zombie.mesh.shootCooldown || 2;
-                    zombie.mesh.shootCooldown -= delta;
-                    if (zombie.mesh.shootCooldown <= 0 && distance < 15) {
-                        zombie.mesh.shootCooldown = 2;
-                        const projectile = new THREE.Mesh(
-                            new THREE.SphereGeometry(0.5, 8, 8),
-                            new THREE.MeshStandardMaterial({ 
-                                color: 0x00ff00, 
-                                emissive: 0x00ff00, 
-                                emissiveIntensity: 0.5 
-                            })
-                        );
-                        projectile.position.copy(zombie.mesh.position).add(new THREE.Vector3(0, 5, 0));
-                        scene.add(projectile);
-
-                        const direction = playerPosition.clone().sub(projectile.position).normalize();
-                        const moveProjectile = () => {
-                            projectile.position.addScaledVector(direction, 0.2);
-                            if (projectile.position.distanceTo(playerPosition) < 1) {
-                                createExplosion(scene, projectile.position, 2, 30, zombies, gameState.playerObject, gameState);
-                                scene.remove(projectile);
-                            } else if (projectile.position.y < 0) {
-                                scene.remove(projectile);
-                            } else {
-                                requestAnimationFrame(moveProjectile);
-                            }
-                        };
-                        moveProjectile();
-                    }
-                    break;
-                    
-                case 'skittercrab':
-                    if (distance < 2) {
-                        zombie.mesh.position.addScaledVector(leadingDirection, zombie.speed * delta * 60 * 2);
-                    }
-                    break;
             }
             
             if (distance > 0) {
-                const directPathFactor = Math.min(0.9, 0.5 + (15 - Math.min(distance, 15)) / 15 * 0.4);
-                const finalDirection = new THREE.Vector3()
-                    .addScaledVector(leadingDirection, directPathFactor)
-                    .addScaledVector(randomDirection, 1 - directPathFactor)
-                    .normalize();
-                
                 const moveDistance = zombie.speed * delta * 60;
                 const intendedPosition = new THREE.Vector3()
                     .copy(zombie.mesh.position)
@@ -612,14 +553,14 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60) => {
                 if (window.gameState && window.gameState.environmentObjects) {
                     for (const object of window.gameState.environmentObjects) {
                         if (object && object.isObstacle) {
-                            const dx = zombie.mesh.position.x - object.position.x;
-                            const dz = zombie.mesh.position.z - object.position.z;
+                            const dx = intendedPosition.x - object.position.x;
+                            const dz = intendedPosition.z - object.position.z;
                             const distance = Math.sqrt(dx * dx + dz * dz);
                             if (distance < (object.boundingRadius || 2.5)) {
                                 const pushDirection = new THREE.Vector3(dx, 0, dz).normalize();
                                 const pushDistance = (object.boundingRadius || 2.5) - distance + 0.1;
-                                zombie.mesh.position.x += pushDirection.x * pushDistance;
-                                zombie.mesh.position.z += pushDirection.z * pushDistance;
+                                intendedPosition.x += pushDirection.x * pushDistance;
+                                intendedPosition.z += pushDirection.z * pushDistance;
                                 break;
                             }
                         }
