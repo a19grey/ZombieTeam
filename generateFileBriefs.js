@@ -104,17 +104,22 @@ function scanDirectory(dir, basePath = '', result = {}) {
                     const content = fs.readFileSync(itemPath, 'utf8');
                     const description = getDescription(content, relativePath);
                     
+                    // Count the number of lines in the file
+                    const lineCount = content.split('\n').length;
+                    
                     result.files.push({
                         name: item,
                         path: relativePath,
-                        description: description
+                        description: description,
+                        lineCount: lineCount
                     });
                 } catch (error) {
                     console.error(`Error reading file ${itemPath}:`, error.message);
                     result.files.push({
                         name: item,
                         path: relativePath,
-                        description: `Error reading file: ${error.message}`
+                        description: `Error reading file: ${error.message}`,
+                        lineCount: 0
                     });
                 }
             }
@@ -131,7 +136,8 @@ function generateMarkdown(structure, level = 0) {
     
     // Add files first
     for (const file of structure.files) {
-        markdown += `${indent}- 📄 **${file.name}**:  \n`;
+        // Add line count to the file name
+        markdown += `${indent}- 📄 **${file.name}** (${file.lineCount} lines):  \n`;
         // Indent the description
         const descriptionLines = file.description.split('\n');
         const indentedDescription = descriptionLines.map(line => `${indent}  ${line}`).join('\n');
@@ -171,4 +177,4 @@ function main() {
 }
 
 // Run the script
-main(); 
+main();

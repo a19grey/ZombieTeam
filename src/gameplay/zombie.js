@@ -740,7 +740,7 @@ export const createExplosion = (scene, position, radius = 3, damage = 100, zombi
             const playerDistance = player.position.distanceTo(position);
             if (playerDistance < radius) {
                 // Calculate damage based on distance (more damage closer to center)
-                const playerDamage = damage * (1 - playerDistance / radius);
+                const playerDamage = Math.round(damage * (1 - playerDistance / radius));
                 console.log("Player in explosion radius, dealing", playerDamage, "damage");
                 try {
                     damagePlayer(gameState, playerDamage);
@@ -760,7 +760,7 @@ export const createExplosion = (scene, position, radius = 3, damage = 100, zombi
                     const zombieDistance = zombie.mesh.position.distanceTo(position);
                     if (zombieDistance < radius) {
                         // Calculate damage based on distance
-                        const zombieDamage = damage * (1 - zombieDistance / radius);
+                        const zombieDamage = Math.round(damage * (1 - zombieDistance / radius));
                         console.log("Zombie in explosion radius, dealing", zombieDamage, "damage");
                         zombiesToDamage.push({ zombie, damage: zombieDamage });
                     }

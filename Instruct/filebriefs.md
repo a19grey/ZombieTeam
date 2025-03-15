@@ -1,12 +1,12 @@
 # Project File Structure
 
-> Generated on 3/15/2025, 12:01:31 PM
+> Generated on 3/15/2025, 3:37:33 PM
 
 This document provides a detailed overview of the project's file structure with descriptions extracted from file documentation.
 
 ## /src Directory
 
-- 📄 **debug.js**:  
+- 📄 **debug.js** (216 lines):  
   Debug Utility for WebGL and Three.js  
   This script provides debugging tools for WebGL and Three.js rendering issues.  
   It can be included in the main HTML file to help diagnose rendering problems.  
@@ -14,20 +14,40 @@ This document provides a detailed overview of the project's file structure with 
   import { debugWebGL, fixWebGLContext, monitorRenderingPerformance } from './debug.js';  
   /
 
-- 📄 **debugCheck.js**:  
+- 📄 **debugCheck.js** (31 lines):  
   Debug Check Utility  
   This script verifies if debug mode is correctly set up and displays information  
   about the environment variables in the browser console and DOM.  
   /
 
-- 📄 **envCheck.js**:  
+- 📄 **envCheck.js** (145 lines):  
   Environment Check Utility  
   This script helps debug environment-related issues by displaying the current  
   environment variables and settings in a visible overlay on the page.  
+  The overlay appears for 2 seconds and then collapses to a small wrench icon  
+  that can be clicked to expand it again.  
   Example usage: Import this module in your HTML to see environment information.  
   /
 
-- 📄 **main.js**:  
+- 📄 **gameSetup.js** (257 lines):  
+  Game Setup Module - Initializes Three.js components and game objects  
+  This file handles all initialization for the game including:  
+  - Scene, camera, and renderer setup  
+  - Player creation and configuration  
+  - Audio system initialization  
+  - UI initialization  
+  Example usage: Import and call initializeGame() to set up all game components  
+  /
+
+- 📄 **gameState.js** (109 lines):  
+  Game State Module - Defines and manages the game state  
+  This file contains the central gameState object that tracks all game variables  
+  including player stats, enemies, bullets, and game settings. It also includes  
+  functions for managing game state like handling game over.  
+  Example usage: Import gameState to access or modify game variables  
+  /
+
+- 📄 **main.js** (1360 lines):  
   Zombie Survival Game - Main Entry Point  
   This file initializes the game, sets up the Three.js scene, and coordinates  
   the game loop. It imports functionality from other modules to maintain a  
@@ -36,7 +56,7 @@ This document provides a detailed overview of the project's file structure with 
   /
 
 - 📁 **gameplay/**
-  - 📄 **audio.js**:  
+  - 📄 **audio.js** (385 lines):  
     Audio Module - Handles audio loading, playback, and state management  
     This module provides functionality for loading and playing both global and positional  
     audio in the game. It supports background music, sound effects, and spatial audio.  
@@ -52,7 +72,7 @@ This document provides a detailed overview of the project's file structure with 
     playSound('gunshot'); // Play gunshot sound  
     /
 
-  - 📄 **dismemberment.js**:  
+  - 📄 **dismemberment.js** (401 lines):  
     Dismemberment Module - Handles zombie limb loss based on damage  
     This module contains functions for managing the dismemberment of zombies  
     as they take damage. It provides a scalable system where zombies lose limbs  
@@ -64,7 +84,7 @@ This document provides a detailed overview of the project's file structure with 
     processDismemberment(zombie, damagePercent);  
     /
 
-  - 📄 **physics.js**:  
+  - 📄 **physics.js** (657 lines):  
     Physics Module - Handles collision detection  
     This module contains functions for detecting and handling collisions  
     between game entities (player, zombies, bullets).  
@@ -73,13 +93,13 @@ This document provides a detailed overview of the project's file structure with 
     handleCollisions(gameState, scene);  
     /
 
-  - 📄 **player.js**:  
+  - 📄 **player.js** (302 lines):  
     Player Module - Handles player creation and controls  
     This module contains functions for creating a Minecraft-style low-poly player character,  
     handling player movement based on keyboard input, and creating the player's weapon.  
     /
 
-  - 📄 **powerupSpawner.js**:  
+  - 📄 **powerupSpawner.js** (217 lines):  
     Powerup Spawner Module - Handles spawning of powerups in the game  
     This module contains functions for spawning powerups behind the player,  
     just out of view. It ensures powerups spawn within a reasonable distance  
@@ -94,17 +114,17 @@ This document provides a detailed overview of the project's file structure with 
     ```  
     /
 
-  - 📄 **powerups.js**:  
+  - 📄 **powerups.js** (150 lines):  
     Powerup Module - Defines powerup assets for the game  
     This module contains functions to create low-poly, Minecraft-style powerups  
     that the player can shoot or walk over to collect. Logic for effects is not implemented.  
     /
 
-  - 📄 **powerups2.js**:  
+  - 📄 **powerups2.js** (338 lines):  
     Powerup Module - Defines enhanced powerup assets for the game  
     /
 
-  - 📄 **weapons.js**:  
+  - 📄 **weapons.js** (163 lines):  
     Weapons Module - Handles bullet creation and movement  
     This module contains functions for creating bullets and updating their  
     positions as they travel through the scene.  
@@ -114,18 +134,18 @@ This document provides a detailed overview of the project's file structure with 
     updateBullets(bullets, scene);  
     /
 
-  - 📄 **world.js**:  
+  - 📄 **world.js** (179 lines):  
     World Module - Manages infinite procedural world and multiplayer elements  
     /
 
-  - 📄 **zombie.js**:  
+  - 📄 **zombie.js** (1104 lines):  
     Zombie Module - Handles zombie creation and AI behavior  
     This module contains functions for creating Minecraft-style low-poly zombies and updating their  
     positions to chase the player.  
     /
 
 - 📁 **rendering/**
-  - 📄 **environment.js**:  
+  - 📄 **environment.js** (302 lines):  
     Environment Module - Handles creation of environmental objects  
     This module contains functions for creating various environmental objects  
     like buildings, rocks, trees, and textured ground to enhance the game world.  
@@ -135,7 +155,7 @@ This document provides a detailed overview of the project's file structure with 
     scene.add(building);  
     /
 
-  - 📄 **scene.js**:  
+  - 📄 **scene.js** (217 lines):  
     Scene Module - Handles Three.js scene setup  
     This module contains pure functions for creating and managing the 3D scene,  
     including the camera, renderer, lighting, and ground plane.  
@@ -147,7 +167,7 @@ This document provides a detailed overview of the project's file structure with 
     /
 
 - 📁 **ui/**
-  - 📄 **soundSettings.js**:  
+  - 📄 **soundSettings.js** (189 lines):  
     Sound Settings UI Module  
     This module provides a user interface for controlling game audio settings,  
     including music volume, sound effects volume, and mute toggle.  
@@ -157,7 +177,7 @@ This document provides a detailed overview of the project's file structure with 
     createSoundSettingsUI();  
     /
 
-  - 📄 **ui.js**:  
+  - 📄 **ui.js** (225 lines):  
     UI Module - Handles user interface updates  
     This module contains functions for updating the UI elements  
     that display player stats like health and EXP.  
@@ -168,7 +188,7 @@ This document provides a detailed overview of the project's file structure with 
     /
 
 - 📁 **utils/**
-  - 📄 **audioChecker.js**:  
+  - 📄 **audioChecker.js** (161 lines):  
     audioChecker.js  
     Utility for checking audio files at game startup to ensure they exist and can be loaded.  
     Provides detailed error reporting for missing or corrupt audio files.  
@@ -181,7 +201,7 @@ This document provides a detailed overview of the project's file structure with 
     }  
     /
 
-  - 📄 **devMode.js**:  
+  - 📄 **devMode.js** (77 lines):  
     Development Mode Utilities  
     This module provides tools for debugging and development without UI panels.  
     The dev panel implementation has been removed for simplicity.  
@@ -189,7 +209,7 @@ This document provides a detailed overview of the project's file structure with 
     import { toggleFeature, isFeatureEnabled } from './utils/devMode.js';  
     /
 
-  - 📄 **logger.js**:  
+  - 📄 **logger.js** (161 lines):  
     Logger Module - Provides logging functionality with different levels  
     This module contains functions for logging messages at different levels  
     (debug, info, warn, error) and can be configured to show only logs  
@@ -202,7 +222,7 @@ This document provides a detailed overview of the project's file structure with 
     logger.error('Error that needs immediate attention');  
     /
 
-  - 📄 **safeAccess.js**:  
+  - 📄 **safeAccess.js** (127 lines):  
     safeAccess.js  
     Utility functions for safely accessing properties of objects that might be null or undefined.  
     Helps prevent "Cannot read property 'x' of null/undefined" errors.  
@@ -214,7 +234,7 @@ This document provides a detailed overview of the project's file structure with 
     // Use: const health = safeGet(zombie, 'userData.health', 100); // 100 is default value  
     /
 
-  - 📄 **testRunner.js**:  
+  - 📄 **testRunner.js** (206 lines):  
     testRunner.js  
     A testing framework for the Zombie WebGL Co-Op game.  
     This file contains functions to test individual components of the game  
@@ -225,7 +245,7 @@ This document provides a detailed overview of the project's file structure with 
     runTests();  
     /
 
-  - 📄 **weaponsTester.js**:  
+  - 📄 **weaponsTester.js** (137 lines):  
     weaponsTester.js  
     A test suite specifically for the weapons system in the game.  
     Tests bullet creation, bullet updates, and ensures no null pointer errors.  

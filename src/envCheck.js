@@ -138,7 +138,7 @@ window.addEventListener('DOMContentLoaded', () => {
   setTimeout(() => {
     container.style.display = 'none';
     collapsedContainer.style.display = 'block';
-  }, 2000);
+  }, AUTO_COLLAPSE_DELAY);
 });
 
 // Export for module support
