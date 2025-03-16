@@ -1,9 +1,11 @@
 -- Fix UI elements for main game 
 -- Implement working audio
+-- basespeed is correctly updated and used in the game
 -- Adapt the generated world.js to work with our assets and zombies and use it as the procedurally generated world
 -- zombie.js needs to be broken up to smaller chunks
 -- Powerups should spawn in pairs behind players in same horizontal position abit far apart left and right so there is a choice and only time to grab one, once grabbed the rest disappear
 -- Tune zombie and gun rates and power up rates, camera angle
+-- Player should not be damaged by grenade launcher explosion - Player in explosion radius, dealing 40 damage
 -- Flocking behavior works - hordeflocking.md has notes here
 -- Add use the bigger badder bosses zombies that are new in zombies.js
 -- zombie archer works
