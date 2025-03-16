@@ -14,7 +14,7 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.m
 import { createScene, createCamera, createRenderer, createLighting, createGround } from './rendering/scene.js';
 import { createPlayer, createPlayerWeapon } from './gameplay/player.js';
 import { updateUI, initUI } from './ui/ui.js';
-import { initAudio, loadAudio, loadPositionalAudio, playSound } from './gameplay/audio.js';
+import { initAudio, loadAudio, loadPositionalAudio, playSound, stopSound, toggleMute, setMasterVolume, debugAudioSystem, getAudioState, setAudioEnabled } from './gameplay/audio.js';
 import { createSoundSettingsUI } from './ui/soundSettings.js';
 import { debugWebGL, fixWebGLContext, createFallbackCanvas } from './debug.js';
 import { logger } from './utils/logger.js';
@@ -24,7 +24,7 @@ import { gameState } from './gameState.js';
  * Initializes all game components and returns references to key objects
  * @returns {Object} Object containing scene, camera, renderer, player, clock, and audioListener
  */
-export function initializeGame() {
+export function initializeGame(gameState) {
     // Create scene, camera, and renderer with error handling
     let scene, camera, renderer, audioListener;
     try {
@@ -253,5 +253,5 @@ export function initializeGame() {
     // Load game audio
     loadGameAudio();
 
-    return { scene, camera, renderer, player, clock, audioListener };
+    return { scene, camera, renderer, player, clock, audioListener, powerupTimer,innerCircle,powerupTimerMaterial,powerupTimerGeometry,innerCircleGeometry,innerCircleMaterial };
 } 

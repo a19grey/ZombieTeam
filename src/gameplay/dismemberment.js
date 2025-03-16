@@ -23,11 +23,24 @@ const DISMEMBERMENT_THRESHOLDS = {
     HEAD: 30      // 30% damage for head loss (was 40%)
 };
 
-// Blood particle material (for dismemberment effects)
-const bloodMaterial = new THREE.MeshBasicMaterial({ 
-    color: 0x8B0000, 
+// Rainbow particle palette (for playful dismemberment effects)
+const RAINBOW_COLORS = [
+    0xFF5555, // Red
+    0xFF9955, // Orange
+    0xFFFF55, // Yellow
+    0x55FF55, // Green
+    0x55FFFF, // Cyan
+    0x5555FF, // Blue
+    0xFF55FF, // Magenta
+    0xFFAAFF, // Pink
+    0xAAFFAA, // Light green
+    0xAAFFFF  // Light blue
+];
+
+// Base particle material template
+const particleMaterialTemplate = new THREE.MeshBasicMaterial({ 
     transparent: true,
-    opacity: 0.8
+    opacity: 0.4
 });
 
 /**
@@ -199,18 +212,25 @@ export const setupDismemberment = (zombie) => {
 };
 
 /**
- * Creates a blood particle effect at the dismemberment location
+ * Creates a colorful particle effect at the dismemberment location
  * @param {THREE.Scene} scene - The scene to add the effect to
  * @param {THREE.Vector3} position - The position of the dismemberment
+ * @returns {Array} Array of particle meshes created
  */
-export const createBloodEffect = (scene, position) => {
-    const particleCount = 10 + Math.floor(Math.random() * 10);
+export const createParticleEffect = (scene, position) => {
+    const particleCount = 5 + Math.floor(Math.random() * 10);
     const particles = [];
     
     for (let i = 0; i < particleCount; i++) {
         const size = 0.05 + Math.random() * 0.1;
         const geometry = new THREE.SphereGeometry(size, 4, 4);
-        const particle = new THREE.Mesh(geometry, bloodMaterial.clone());
+        
+        // Create a new material with a random color from our palette
+        const material = particleMaterialTemplate.clone();
+        const colorIndex = Math.floor(Math.random() * RAINBOW_COLORS.length);
+        material.color = new THREE.Color(RAINBOW_COLORS[colorIndex]);
+        
+        const particle = new THREE.Mesh(geometry, material);
         
         // Position at dismemberment location with slight randomness
         particle.position.copy(position);
@@ -241,12 +261,12 @@ export const createBloodEffect = (scene, position) => {
 };
 
 /**
- * Updates blood particle effects
+ * Updates particle effects
  * @param {Array} particles - Array of particle meshes
  * @param {THREE.Scene} scene - The scene to remove particles from
  * @param {number} delta - Time delta for frame-rate independent movement
  */
-export const updateBloodEffects = (particles, scene, delta = 1/60) => {
+export const updateParticleEffects = (particles, scene, delta = 1/60) => {
     for (let i = particles.length - 1; i >= 0; i--) {
         const particle = particles[i];
         
@@ -258,11 +278,10 @@ export const updateBloodEffects = (particles, scene, delta = 1/60) => {
         
         // Update age
         particle.userData.age += delta;
-        
+       
         // Fade out based on age
         const fadeRatio = 1 - (particle.userData.age / particle.userData.lifetime);
-        particle.material.opacity = fadeRatio * 0.8;
-        
+        particle.material.opacity *= fadeRatio;
         // Remove if lifetime exceeded
         if (particle.userData.age >= particle.userData.lifetime) {
             scene.remove(particle);
@@ -278,7 +297,7 @@ export const updateBloodEffects = (particles, scene, delta = 1/60) => {
  * @param {Object} zombie - The zombie object to process
  * @param {number} newDamage - The new damage amount to apply
  * @param {THREE.Scene} scene - The scene to add effects to
- * @returns {Array} Array of blood particle effects created
+ * @returns {Array} Array of particle effects created
  */
 export const processDismemberment = (zombie, newDamage, scene) => {
     if (!zombie || !zombie.dismemberment || !zombie.mesh) return [];
@@ -291,8 +310,8 @@ export const processDismemberment = (zombie, newDamage, scene) => {
     // Debug logging
     logger.debug(`Zombie type: ${zombie.type}, Health: ${zombie.health}, Max Health: ${zombie.dismemberment.maxHealth}, Damage %: ${damagePercent.toFixed(1)}%`);
     
-    // Track blood particles created
-    const bloodParticles = [];
+    // Track particles created
+    const particles = [];
     
     // Check if we've crossed any dismemberment thresholds
     const thresholdsCrossed = [];
@@ -347,9 +366,9 @@ export const processDismemberment = (zombie, newDamage, scene) => {
             // Hide the part (remove from scene)
             part.visible = false;
             
-            // Create blood effect at dismemberment location
-            const particles = createBloodEffect(scene, originalPosition);
-            bloodParticles.push(...particles);
+            // Create particle effect at dismemberment location
+            const newParticles = createParticleEffect(scene, originalPosition);
+            particles.push(...newParticles);
             
             // Apply gameplay effects based on part lost
             applyDismembermentEffects(zombie, partName);
@@ -360,7 +379,7 @@ export const processDismemberment = (zombie, newDamage, scene) => {
         }
     });
     
-    return bloodParticles;
+    return particles;
 };
 
 /**

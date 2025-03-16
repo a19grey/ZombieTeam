@@ -12,6 +12,8 @@
  * runTests();
  */
 
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+
 // Store test results
 const testResults = {
     passed: [],

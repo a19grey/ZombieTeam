@@ -20,29 +20,16 @@ console.log('cat man dog GAMESTATE.JS: DEBUG_MODE =', DEBUG_MODE);
 // Game state
 const gameState = {
     player: {
-        health: 100,
-        exp: 0,
-        damage: 40,
-        speed: 0.15,
-        activePowerup: null,
-        powerupDuration: 0
+        health: 100, exp: 0, damage: 40, speed: 0.15, activePowerup: null, powerupDuration: 0
     },
-    zombies: [],
-    bullets: [],
-    keys: {},
-    mouse: { x: 0, y: 0 },
+    zombies: [],bullets: [],keys: {},mouse: { x: 0, y: 0 },
     mouseDown: false, // Track if mouse button is held down
-    gameOver: false,
-    debug: DEBUG_MODE, // Enable debug mode
-    camera: null, // Added for camera reference
-    powerups: [],
-    lastShotTime: 0,
-    environmentObjects: [], // Store environment objects
+    gameOver: false, debug: DEBUG_MODE, /* Enable debug mode*/ camera: null, // Added for camera reference
+    powerups: [], lastShotTime: 0, environmentObjects: [], // Store environment objects
     enemySpawnRate: 200, // Time between enemy spawns in ms (reduced for more zombies)
-    lastEnemySpawnTime: 0,
-    maxZombies: 1000, // Maximum number of zombies allowed at once
+    lastEnemySpawnTime: 0, maxZombies: 1000, // Maximum number of zombies allowed at once
     initialSpawnCount: 10, // Number of zombies to spawn at start (increased from 30 to 300)
-    bloodParticles: [], // Store blood particles for dismemberment effects
+    dismembermentParticles: [], // Store colorful particles for dismemberment effects
     lastPowerupSpawnTime: 0, // Track when the last powerup was spawned
     playerObject: null, // Store player object for access by other functions
     // Debug settings

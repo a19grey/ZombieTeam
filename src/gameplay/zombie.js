@@ -654,18 +654,18 @@ export const damageZombie = (zombie, damage, scene) => {
     // Process dismemberment if we have the scene and the system is set up
     if (scene && zombie.dismemberment) {
         // Process dismemberment based on new damage
-        const bloodParticles = processDismemberment(updatedZombie, damage, scene);
+        const particles = processDismemberment(updatedZombie, damage, scene);
         
-        // Add blood particles to game state for animation
-        if (bloodParticles.length > 0 && zombie.gameState) {
-            if (!zombie.gameState.bloodParticles) {
-                zombie.gameState.bloodParticles = [];
+        // Add particles to game state for animation
+        if (particles.length > 0 && zombie.gameState) {
+            if (!zombie.gameState.dismembermentParticles) {
+                zombie.gameState.dismembermentParticles = [];
             }
-            zombie.gameState.bloodParticles.push(...bloodParticles);
+            zombie.gameState.dismembermentParticles.push(...particles);
             try {
-                logger.debug(`Added ${bloodParticles.length} blood particles`);
+                logger.debug(`Added ${particles.length} colorful particles`);
             } catch (error) {
-                console.log(`Added ${bloodParticles.length} blood particles`);
+                console.log(`Added ${particles.length} colorful particles`);
             }
         }
     } else if (!zombie.dismemberment) {
