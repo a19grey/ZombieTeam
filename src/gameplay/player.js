@@ -192,8 +192,8 @@ export const handlePlayerMovement = (player, keys, baseSpeed, mouse) => {
     
     // Use the baseSpeed parameter instead of hardcoded values
     // Apply slight modifiers for different directions
-    const forwardSpeed = baseSpeed * 1.9;
-    const backwardSpeed = baseSpeed * 0.95;
+    const forwardSpeed = baseSpeed * 1.03;
+    const backwardSpeed = baseSpeed * 0.97;
     const sideSpeed = baseSpeed;
     
     let speedX = sideSpeed;

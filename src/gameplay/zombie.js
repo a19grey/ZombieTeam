@@ -14,9 +14,10 @@ import { logger } from '../utils/logger.js'; // Import logger for debugging
 /**
  * Creates a Minecraft-style low-poly zombie character
  * @param {Object} position - The initial position of the zombie
+ * @param {number} baseSpeed - Base movement speed (zombie will move at exactly this speed)
  * @returns {THREE.Group} The zombie object
  */
-export const createZombie = (position) => {
+export const createZombie = (position, baseSpeed) => {
     const zombie = new THREE.Group();
 
     // Head (cube with "scary" offset eyes)
@@ -100,6 +101,9 @@ export const createZombie = (position) => {
     
     // Set enemy type for special behavior
     zombie.enemyType = 'zombie';
+    
+    // Set speed to exactly baseSpeed (standard zombie is the baseline)
+    zombie.speed = baseSpeed;
 
     return zombie;
 };
@@ -107,9 +111,10 @@ export const createZombie = (position) => {
 /**
  * Creates a skeleton archer enemy (mid-level ranged enemy)
  * @param {Object} position - The initial position of the skeleton
+ * @param {number} baseSpeed - Base movement speed
  * @returns {THREE.Group} The skeleton object
  */
-export const createSkeletonArcher = (position) => {
+export const createSkeletonArcher = (position, baseSpeed) => {
     const skeleton = new THREE.Group();
 
     // Head with hollow eyes
@@ -175,15 +180,19 @@ export const createSkeletonArcher = (position) => {
     skeleton.enemyType = 'skeletonArcher';
     skeleton.lastShotTime = 0; // For tracking when the skeleton last shot an arrow
     
+    // Set speed relative to baseSpeed (faster than standard zombie)
+    skeleton.speed = baseSpeed * 1.1; // 110% of base speed
+    
     return skeleton;
 };
 
 /**
  * Creates a creeper-inspired explosive enemy (mid-level)
  * @param {Object} position - The initial position of the exploder
+ * @param {number} baseSpeed - Base movement speed
  * @returns {THREE.Group} The exploder object
  */
-export const createExploder = (position) => {
+export const createExploder = (position, baseSpeed ) => {
     const exploder = new THREE.Group();
 
     // Blocky head/body combo
@@ -228,15 +237,19 @@ export const createExploder = (position) => {
     exploder.isExploding = false;
     exploder.explosionTimer = 0;
     
+    // Set speed relative to baseSpeed (slightly slower than standard zombie)
+    exploder.speed = baseSpeed * 0.9; // 90% of base speed
+    
     return exploder;
 };
 
 /**
  * Creates a zombie king boss enemy
  * @param {Object} position - The initial position of the zombie king
+ * @param {number} baseSpeed - Base movement speed
  * @returns {THREE.Group} The zombie king object
  */
-export const createZombieKing = (position) => {
+export const createZombieKing = (position, baseSpeed) => {
     const king = new THREE.Group();
 
     // Larger head with crown
@@ -312,6 +325,9 @@ export const createZombieKing = (position) => {
     king.enemyType = 'zombieKing';
     king.summonCooldown = 0; // For tracking when the king can summon minions
     
+    // Set initial speed relative to baseSpeed (slower than standard zombie, but will increase over time)
+    king.speed = baseSpeed * 0.7; // 70% of base speed initially
+    
     return king;
 };
 
@@ -320,8 +336,9 @@ export const createZombieKing = (position) => {
  * @param {Array} zombies - Array of zombie objects
  * @param {THREE.Vector3} playerPosition - The player's current position
  * @param {number} delta - Time delta between frames
+ * @param {number} baseSpeed - Base movement speed (optional, for runtime speed adjustments)
  */
-export const updateZombies = (zombies, playerPosition, delta = 1/60) => {
+export const updateZombies = (zombies, playerPosition, delta = 1/60, baseSpeed) => {
     if (!zombies || !playerPosition) {
         console.warn("Missing required parameters for updateZombies");
         return;
@@ -332,11 +349,23 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60) => {
     const DAMAGE_PER_SECOND = 20;
     const ZOMBIE_COLLISION_DISTANCE = 0.8; // Distance to maintain between zombies
     
-    // First, update zombie king speeds
+    // Update zombie king speeds - now relative to baseSpeed if provided
     zombies.forEach(zombie => {
-        if (zombie.type === 'zombieKing') {
-            const maxSpeed = 0.03;
+        if (zombie.mesh && zombie.mesh.enemyType === 'zombieKing') {
+            // If baseSpeed is provided, we're doing a runtime adjustment
+            if (baseSpeed !== null) {
+                // Recalculate speed based on the new baseSpeed while maintaining relative speed
+                const currentSpeedRatio = zombie.speed / (zombie.originalBaseSpeed || baseSpeed);
+                zombie.speed = baseSpeed * currentSpeedRatio;
+                zombie.originalBaseSpeed = baseSpeed;
+            }
+            
+            // Continue with normal zombie king speed increase logic
+            const maxSpeedFactor = 1.2; // Cap at 120% of their base speed
+            const currentBaseSpeed = baseSpeed || (zombie.originalBaseSpeed);
+            const maxSpeed = baseSpeed * maxSpeedFactor;
             const speedIncreaseFactor = 0.0001;
+            
             zombie.speed = Math.min(maxSpeed, zombie.speed + speedIncreaseFactor * delta * 60);
         }
     });
@@ -344,11 +373,11 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60) => {
     // Calculate zombie sizes for pushing mechanics
     const zombieSizes = {};
     zombies.forEach((zombie, index) => {
-        if (zombie.type === 'zombieKing') {
+        if (zombie.mesh && zombie.mesh.enemyType === 'zombieKing') {
             zombieSizes[index] = 2.0;
-        } else if (zombie.type === 'exploder') {
+        } else if (zombie.mesh && zombie.mesh.enemyType === 'exploder') {
             zombieSizes[index] = 1.2;
-        } else if (zombie.type === 'skeletonArcher') {
+        } else if (zombie.mesh && zombie.mesh.enemyType === 'skeletonArcher') {
             zombieSizes[index] = 0.8;
         } else {
             zombieSizes[index] = 1.0;
@@ -827,9 +856,10 @@ export const createExplosion = (scene, position, radius = 3, damage = 100, zombi
 /**
  * Creates a Plague Titan boss - a colossal zombie that slams the ground
  * @param {Object} position - The initial position of the titan
+ * @param {number} baseSpeed - Base movement speed
  * @returns {THREE.Group} The Plague Titan object
  */
-export const createPlagueTitan = (position) => {
+export const createPlagueTitan = (position, baseSpeed) => {
     const titan = new THREE.Group();
 
     // Massive body
@@ -895,7 +925,10 @@ export const createPlagueTitan = (position) => {
     titan.position.set(position.x, 0, position.z);
     titan.mesh = titan;
     titan.enemyType = 'plagueTitan';
-    titan.speed = 0.015; // Slow movement
+    
+    // Set speed relative to baseSpeed (much slower than standard zombie)
+    titan.speed = baseSpeed * 0.3; // 30% of base speed
+    
     titan.health = 500; // High health
     titan.slamCooldown = 0; // For ground slam timing
 
@@ -905,9 +938,10 @@ export const createPlagueTitan = (position) => {
 /**
  * Creates a Necrofiend boss - a tall zombie that spawns minions
  * @param {Object} position - The initial position of the necrofiend
+ * @param {number} baseSpeed - Base movement speed
  * @returns {THREE.Group} The Necrofiend object
  */
-export const createNecrofiend = (position) => {
+export const createNecrofiend = (position, baseSpeed) => {
     const necro = new THREE.Group();
 
     // Elongated body
@@ -965,7 +999,10 @@ export const createNecrofiend = (position) => {
     necro.position.set(position.x, 0, position.z);
     necro.mesh = necro;
     necro.enemyType = 'necrofiend';
-    necro.speed = 0.04; // Faster than regular zombies
+    
+    // Set speed relative to baseSpeed (slightly slower than standard zombie)
+    necro.speed = baseSpeed * 0.8; // 80% of base speed
+    
     necro.health = 300; // Moderate health
     necro.spawnCooldown = 0; // For minion spawning
 
@@ -975,9 +1012,10 @@ export const createNecrofiend = (position) => {
 /**
  * Creates a Rot Behemoth boss - a bloated zombie with toxic projectiles
  * @param {Object} position - The initial position of the behemoth
+ * @param {number} baseSpeed - Base movement speed
  * @returns {THREE.Group} The Rot Behemoth object
  */
-export const createRotBehemoth = (position) => {
+export const createRotBehemoth = (position, baseSpeed) => {
     const behemoth = new THREE.Group();
 
     // Bloated body
@@ -1029,7 +1067,10 @@ export const createRotBehemoth = (position) => {
     behemoth.position.set(position.x, 0, position.z);
     behemoth.mesh = behemoth;
     behemoth.enemyType = 'rotBehemoth';
-    behemoth.speed = 0.02; // Slow movement
+    
+    // Set speed relative to baseSpeed (slower than standard zombie)
+    behemoth.speed = baseSpeed * 0.4; // 40% of base speed
+    
     behemoth.health = 400; // High health
     behemoth.shootCooldown = 0; // For projectile timing
 
@@ -1039,9 +1080,10 @@ export const createRotBehemoth = (position) => {
 /**
  * Creates a Skittercrab - a small, fast crab-like zombie
  * @param {Object} position - The initial position of the skittercrab
+ * @param {number} baseSpeed - Base movement speed
  * @returns {THREE.Group} The Skittercrab object
  */
-export const createSkittercrab = (position) => {
+export const createSkittercrab = (position, baseSpeed) => {
     const crab = new THREE.Group();
 
     // Low, wide body
@@ -1095,7 +1137,10 @@ export const createSkittercrab = (position) => {
     crab.position.set(position.x, 0, position.z);
     crab.mesh = crab;
     crab.enemyType = 'skittercrab';
-    crab.speed = 0.08; // Very fast
+    
+    // Set speed relative to baseSpeed (much faster than standard zombie)
+    crab.speed = baseSpeed * 1.6; // 160% of base speed
+    
     crab.health = 50; // Low health
 
     return crab;

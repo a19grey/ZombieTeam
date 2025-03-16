@@ -14,8 +14,8 @@ import { showMessage } from './ui/ui.js';
 
 // Set log level based on environment
 const DEBUG_MODE = window.NODE_ENV === 'development';
-console.log('i am here GAMESTATE.JS: NODE_ENV = ', window.NODE_ENV);
-console.log('cat man dog GAMESTATE.JS: DEBUG_MODE =', DEBUG_MODE);
+console.log('GAMESTATE.JS: NODE_ENV = ', window.NODE_ENV);
+console.log('GAMESTATE.JS: DEBUG_MODE =', DEBUG_MODE);
 
 // Game state
 const gameState = {
