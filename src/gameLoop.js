@@ -1,5 +1,7 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
 
+import { gameState, handleGameOver } from './gameState.js';
+
 import { createScene, createCamera, createRenderer, createLighting, createGround } from './rendering/scene.js';
 import { createPlayer, handlePlayerMovement, createPlayerWeapon, aimPlayerWithMouse } from './gameplay/player.js';
 import { createZombie, updateZombies, createSkeletonArcher, createExploder, createZombieKing, createExplosion } from './gameplay/zombie.js';
@@ -18,10 +20,12 @@ import { runTests } from './utils/testRunner.js';
 import { testWeaponsSystem } from './utils/weaponsTester.js';
 import { safeCall } from './utils/safeAccess.js';
 import { checkAudioFiles, suggestAudioFix } from './utils/audioChecker.js';
+import { spawnEnvironmentObjects, spawnEnemy } from './gameplay/entitySpawners.js';
+import { shootBullet, handleCombatCollisions } from './gameplay/combat.js';
 
 // Animation loop with error handling
-function animate() {
-    requestAnimationFrame(animate);
+function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTimerGeometry, innerCircle, powerupTimerMaterial, innerCircleGeometry, innerCircleMaterial) {
+    requestAnimationFrame(() => animate(scene, camera, renderer, player, clock, powerupTimer, powerupTimerGeometry, innerCircle, powerupTimerMaterial, innerCircleGeometry, innerCircleMaterial));
     
     try {
         const delta = clock.getDelta();
@@ -131,7 +135,7 @@ function animate() {
         // Update camera to follow player
         camera.position.x = player.position.x;
         
-        if (DEBUG_MODE) {
+        if (gameState.debug.enabled) {
             // Use debug camera settings
             const cameraSettings = gameState.debug.camera;
             
@@ -166,131 +170,17 @@ function animate() {
         
         // Handle continuous firing when mouse is held down - with rate limiting
         if ((gameState.mouseDown || gameState.keys[' ']) && !gameState.gameOver) {
-            shootBullet();
+            shootBullet(scene, player, gameState);
         }
         
         // Update bullets
         updateBullets(gameState.bullets, delta);
         
-        // Handle grenade smoke trails
-        for (let i = 0; i < gameState.bullets.length; i++) {
-            const bullet = gameState.bullets[i];
-            if (bullet.isGrenade && bullet.mesh) {
-                // Create smoke trail
-                const smokeParticle = createSmokeTrail(bullet.mesh.position.clone());
-                scene.add(smokeParticle);
-                bullet.smokeTrail.push(smokeParticle);
-                
-                // Update existing smoke particles
-                for (let j = bullet.smokeTrail.length - 1; j >= 0; j--) {
-                    const smoke = bullet.smokeTrail[j];
-                    smoke.position.y += 0.01;
-                    smoke.material.opacity -= smoke.userData.fadeRate;
-                    
-                    if (smoke.material.opacity <= 0) {
-                        scene.remove(smoke);
-                        bullet.smokeTrail.splice(j, 1);
-                    }
-                }
-            }
-        }
+        // Handle combat-related collisions (bullet-zombie, etc.)
+        handleCombatCollisions(scene, player, gameState, delta);
         
         // Handle all collisions (player-powerup, bullet-powerup, player-zombie, etc.)
         handleCollisions(gameState, scene, delta);
-        
-        // Check for bullet collisions with zombies
-        for (let i = gameState.bullets.length - 1; i >= 0; i--) {
-            const bullet = gameState.bullets[i];
-            
-            // Skip if bullet is already marked for removal
-            if (bullet.toRemove) continue;
-            
-            for (let j = gameState.zombies.length - 1; j >= 0; j--) {
-                const zombie = gameState.zombies[j];
-                
-                // Skip if zombie is already dead
-                if (zombie.health <= 0) continue;
-                
-                // Use bullet.position for both tracer and non-tracer bullets
-                // Increased collision threshold from 1.0 to 1.5 to better detect nearby enemies
-                if (checkCollision(bullet.position, zombie.mesh.position, 1.5)) {
-                    // Apply damage to zombie
-                    zombie.health -= bullet.damage;
-                    
-                    // Mark bullet for removal
-                    bullet.toRemove = true;
-                    
-                    // Handle explosive bullets
-                    if (bullet.isExplosive || bullet.isGrenade) {
-                        createExplosion(
-                            scene, 
-                            bullet.position.clone(), 
-                            3, // radius
-                            50, // damage
-                            gameState.zombies, 
-                            player, 
-                            gameState
-                        );
-                    }
-                    
-                    // Check if zombie is dead
-                    if (zombie.health <= 0) {
-                        // Award points based on enemy type
-                        let pointsAwarded = 10; // Base points for regular zombie
-                        
-                        if (zombie.type === 'skeletonArcher') {
-                            pointsAwarded = 20;
-                        } else if (zombie.type === 'exploder') {
-                            pointsAwarded = 25;
-                            
-                            // Only create explosion if the exploder was already in explosion sequence
-                            // NOT when it's shot and killed directly
-                            if (zombie.mesh.isExploding) {
-                                createExplosion(
-                                    scene, 
-                                    zombie.mesh.position.clone(), 
-                                    3, // radius
-                                    50, // damage
-                                    gameState.zombies, 
-                                    player, 
-                                    gameState
-                                );
-                            }
-                        } else if (zombie.type === 'zombieKing') {
-                            pointsAwarded = 200;
-                        }
-                        
-                        gameState.score += pointsAwarded;
-                        
-                        // Remove zombie from scene
-                        scene.remove(zombie.mesh);
-                        
-                        // Remove zombie from array
-                        gameState.zombies.splice(j, 1);
-                    }
-                    
-                    break; // Bullet can only hit one zombie
-                }
-            }
-        }
-        
-        // Remove bullets marked for removal
-        for (let i = gameState.bullets.length - 1; i >= 0; i--) {
-            if (gameState.bullets[i].toRemove) {
-                // Clean up smoke trail if it's a grenade
-                if (gameState.bullets[i].isGrenade && gameState.bullets[i].smokeTrail) {
-                    for (const smoke of gameState.bullets[i].smokeTrail) {
-                        scene.remove(smoke);
-                    }
-                }
-                
-                // Only remove mesh from scene if it's a tracer bullet
-                if (gameState.bullets[i].mesh) {
-                    scene.remove(gameState.bullets[i].mesh);
-                }
-                gameState.bullets.splice(i, 1);
-            }
-        }
         
         // Update zombies
         updateZombies(gameState.zombies, player.position, delta);
@@ -461,7 +351,7 @@ function animate() {
             const spawnCount = Math.min(5, gameState.maxZombies - gameState.zombies.length);
             
             for (let i = 0; i < spawnCount; i++) {
-                spawnEnemy(player.position);
+                spawnEnemy(player.position, scene, gameState);
             }
             
             gameState.lastEnemySpawnTime = currentTime;
