@@ -72,55 +72,6 @@ export const initUI = (gameState) => {
         powerupBar.style.backgroundColor = 'blue';
         powerupBarContainer.appendChild(powerupBar);
         
-        // Create enemy type legend
-        const legendContainer = document.createElement('div');
-        legendContainer.id = 'enemy-legend';
-        legendContainer.style.position = 'absolute';
-        legendContainer.style.top = '10px';
-        legendContainer.style.right = '10px';
-        legendContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-        legendContainer.style.padding = '10px';
-        legendContainer.style.borderRadius = '5px';
-        legendContainer.style.color = 'white';
-        legendContainer.style.fontFamily = 'Arial, sans-serif';
-        legendContainer.style.fontSize = '14px';
-        document.body.appendChild(legendContainer);
-        
-        // Add legend title
-        const legendTitle = document.createElement('div');
-        legendTitle.textContent = 'Enemy Types:';
-        legendTitle.style.fontWeight = 'bold';
-        legendTitle.style.marginBottom = '5px';
-        legendContainer.appendChild(legendTitle);
-        
-        // Add enemy types to legend
-        const enemyTypes = [
-            { name: 'Zombie', color: '#2e8b57' },
-            { name: 'Skeleton Archer', color: '#dcdcdc' },
-            { name: 'Exploder', color: '#00cc00' },
-            { name: 'Zombie King (Boss)', color: '#ffd700' }
-        ];
-        
-        enemyTypes.forEach(enemy => {
-            const enemyRow = document.createElement('div');
-            enemyRow.style.display = 'flex';
-            enemyRow.style.alignItems = 'center';
-            enemyRow.style.marginBottom = '3px';
-            
-            const colorBox = document.createElement('div');
-            colorBox.style.width = '12px';
-            colorBox.style.height = '12px';
-            colorBox.style.backgroundColor = enemy.color;
-            colorBox.style.marginRight = '5px';
-            
-            const nameText = document.createElement('div');
-            nameText.textContent = enemy.name;
-            
-            enemyRow.appendChild(colorBox);
-            enemyRow.appendChild(nameText);
-            legendContainer.appendChild(enemyRow);
-        });
-        
         // Show welcome message
         showMessage("Survive the zombie horde!", 3000);
     }

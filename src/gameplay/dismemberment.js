@@ -40,7 +40,7 @@ const RAINBOW_COLORS = [
 // Base particle material template
 const particleMaterialTemplate = new THREE.MeshBasicMaterial({ 
     transparent: true,
-    opacity: 0.4
+    opacity: 0.55
 });
 
 /**

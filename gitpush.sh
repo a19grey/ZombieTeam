@@ -15,9 +15,10 @@
 
 # Function to display usage information
 usage() {
-    echo "Usage: $0 \"commit message\" --name repo-name"
+    echo "Usage: $0 \"commit message\" [--name repo-name]"
     echo "  commit message: The message for your git commit"
     echo "  --name: The name of the GitHub repository (will be created if it doesn't exist)"
+    echo "          Default: ZombieTeam"
     exit 1
 }
 
@@ -285,11 +286,12 @@ commit_and_push() {
 check_gh_cli
 
 # Parse command line arguments
-if [ $# -lt 3 ]; then
+if [ $# -lt 1 ]; then
     usage
 fi
 
 COMMIT_MESSAGE=$1
+REPO_NAME="ZombieTeam"  # Default repository name
 shift
 
 while [ $# -gt 0 ]; do
@@ -306,9 +308,14 @@ while [ $# -gt 0 ]; do
 done
 
 # Validate required parameters
-if [ -z "$COMMIT_MESSAGE" ] || [ -z "$REPO_NAME" ]; then
-    echo "Error: Both commit message and repository name are required."
+if [ -z "$COMMIT_MESSAGE" ]; then
+    echo "Error: Commit message is required."
     usage
+fi
+
+# Display repository name information
+if [ "$REPO_NAME" = "ZombieTeam" ]; then
+    echo "No name provided - using ZombieTeam"
 fi
 
 # Check authentication and ensure correct user

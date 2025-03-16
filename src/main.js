@@ -13,27 +13,30 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.m
 import { gameState } from './gameState.js';
 import { initializeGame } from './gameSetup.js';
 import { animate } from './gameLoop.js';
+import { initMenuSystem, addSubMenu } from './ui/menu.js';
+import { createControlsMenu } from './ui/controlsMenu.js';
+import { createSoundSettingsUI } from './ui/soundSettings.js';
 
-import { createScene, createCamera, createRenderer, createLighting, createGround } from './rendering/scene.js';
-import { createPlayer, handlePlayerMovement, createPlayerWeapon, aimPlayerWithMouse } from './gameplay/player.js';
-import { createZombie, updateZombies, createSkeletonArcher, createExploder, createZombieKing, createExplosion } from './gameplay/zombie.js';
-import { updateUI, showMessage, initUI } from './ui/ui.js';
-import { handleCollisions, checkCollision, applyPowerupEffect } from './gameplay/physics.js';
-import { createBullet, updateBullets } from './gameplay/weapons.js';
+// import { createScene, createCamera, createRenderer, createLighting, createGround } from './rendering/scene.js';
+// import { createPlayer, handlePlayerMovement, createPlayerWeapon, aimPlayerWithMouse } from './gameplay/player.js';
+// import { createZombie, updateZombies, createSkeletonArcher, createExploder, createZombieKing, createExplosion } from './gameplay/zombie.js';
+// import { updateUI, showMessage, initUI } from './ui/ui.js';
+// import { handleCollisions, checkCollision, applyPowerupEffect } from './gameplay/physics.js';
+// import { createBullet, updateBullets } from './gameplay/weapons.js';
 import { logger } from './utils/logger.js';
-import { createRapidFirePowerup, createShotgunBlastPowerup, createExplosionPowerup, createLaserShotPowerup, createGrenadeLauncherPowerup, animatePowerup, createSmokeTrail } from './gameplay/powerups2.js';
-import { createTexturedGround, createBuilding, createRock, createDeadTree } from './rendering/environment.js';
-import { setupDismemberment, updateParticleEffects } from './gameplay/dismemberment.js';
-import { shouldSpawnPowerup, spawnPowerupBehindPlayer, cleanupOldPowerups } from './gameplay/powerupSpawner.js';
-import { initAudio, loadAudio, loadPositionalAudio, playSound, stopSound, toggleMute, setMasterVolume, debugAudioSystem, getAudioState, setAudioEnabled } from './gameplay/audio.js';
-import { createSoundSettingsUI, toggleSoundSettingsUI, isSoundSettingsVisible } from './ui/soundSettings.js';
+// import { createRapidFirePowerup, createShotgunBlastPowerup, createExplosionPowerup, createLaserShotPowerup, createGrenadeLauncherPowerup, animatePowerup, createSmokeTrail } from './gameplay/powerups2.js';
+// import { createTexturedGround, createBuilding, createRock, createDeadTree } from './rendering/environment.js';
+// import { setupDismemberment, updateParticleEffects } from './gameplay/dismemberment.js';
+// import { shouldSpawnPowerup, spawnPowerupBehindPlayer, cleanupOldPowerups } from './gameplay/powerupSpawner.js';
+// import { initAudio, loadAudio, loadPositionalAudio, playSound, stopSound, toggleMute, setMasterVolume, debugAudioSystem, getAudioState, setAudioEnabled } from './gameplay/audio.js';
+// import { createSoundSettingsUI, toggleSoundSettingsUI, isSoundSettingsVisible } from './ui/soundSettings.js';
 import { debugWebGL, fixWebGLContext, monitorRenderingPerformance, createFallbackCanvas } from './debug.js';
-import { runTests } from './utils/testRunner.js';
-import { testWeaponsSystem } from './utils/weaponsTester.js';
-import { safeCall } from './utils/safeAccess.js';
+// import { runTests } from './utils/testRunner.js';
+// import { testWeaponsSystem } from './utils/weaponsTester.js';
+// import { safeCall } from './utils/safeAccess.js';
 import { checkAudioFiles, suggestAudioFix } from './utils/audioChecker.js';
 import { spawnEnvironmentObjects, spawnEnemy } from './gameplay/entitySpawners.js';
-import { shootBullet } from './gameplay/combat.js';
+// import { shootBullet } from './gameplay/combat.js';
 import { setupEventListeners } from './eventHandlers.js';
 
 // Set log level based on environment
@@ -52,6 +55,46 @@ if (DEBUG_MODE) {
 const { scene, camera, renderer, player, clock, audioListener, powerupTimer,innerCircle,powerupTimerMaterial,powerupTimerGeometry,innerCircleGeometry,innerCircleMaterial } = initializeGame(gameState);
 
 setupEventListeners(player, scene, camera, renderer);
+
+// Initialize menu system with error handling
+try {
+    initMenuSystem();
+    // Add controls menu
+    addSubMenu('controls', 'Game Controls', createControlsMenu());
+    
+    // Add sound settings menu
+    addSubMenu('sound', 'Sound Settings', createSoundSettingsUI());
+    
+    // Example: We could add more menus here
+    // addSubMenu('display', 'Display Options', createDisplayOptionsMenu());
+    
+    logger.info('Menu system initialized successfully');
+} catch (error) {
+    logger.error('Failed to initialize menu system:', error);
+    // Create a fallback controls display if the menu system fails
+    try {
+        const fallbackControls = document.createElement('div');
+        fallbackControls.innerHTML = `
+            <div>WASD: Move (slower when moving south)</div>
+            <div>Mouse: Aim weapon</div>
+            <div>Hold Left Mouse Button: Continuous fire</div>
+        `;
+        Object.assign(fallbackControls.style, {
+            position: 'absolute',
+            bottom: '10px',
+            left: '10px',
+            color: 'white',
+            fontSize: '14px',
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            padding: '10px',
+            borderRadius: '5px'
+        });
+        document.body.appendChild(fallbackControls);
+        logger.info('Fallback controls display created');
+    } catch (fallbackError) {
+        logger.error('Could not create fallback controls:', fallbackError);
+    }
+}
 
 // Run WebGL diagnostics
 const webglDiagnostics = debugWebGL();

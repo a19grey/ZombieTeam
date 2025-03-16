@@ -790,7 +790,7 @@ export const createExplosion = (scene, position, radius = 3, damage = 100, zombi
                     if (zombieDistance < radius) {
                         // Calculate damage based on distance
                         const zombieDamage = Math.round(damage * (1 - zombieDistance / radius));
-                        console.log("Zombie in explosion radius, dealing", zombieDamage, "damage");
+                        logger.debug("Zombie in explosion radius, dealing", zombieDamage, "damage");
                         zombiesToDamage.push({ zombie, damage: zombieDamage });
                     }
                 }

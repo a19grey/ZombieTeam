@@ -133,28 +133,6 @@ export function initializeGame(gameState) {
     // Initialize UI
     initUI(gameState);
 
-    // Add sound settings button
-    const soundSettingsButton = document.createElement('button');
-    soundSettingsButton.textContent = '🔊 Sound Settings';
-    soundSettingsButton.style.position = 'absolute';
-    soundSettingsButton.style.top = '10px';
-    soundSettingsButton.style.right = '10px';
-    soundSettingsButton.style.padding = '8px 16px';
-    soundSettingsButton.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-    soundSettingsButton.style.color = 'white';
-    soundSettingsButton.style.border = 'none';
-    soundSettingsButton.style.borderRadius = '5px';
-    soundSettingsButton.style.cursor = 'pointer';
-    soundSettingsButton.style.fontSize = '16px';
-    soundSettingsButton.style.zIndex = '1000';
-
-    soundSettingsButton.addEventListener('click', () => {
-        // Toggle sound settings UI
-        createSoundSettingsUI();
-    });
-
-    document.body.appendChild(soundSettingsButton);
-
     // Add audio debug button in development mode
     if (gameState.debug.enabled) {
         const audioDebugButton = document.createElement('button');

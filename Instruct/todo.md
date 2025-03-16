@@ -1,11 +1,13 @@
--- Fix UI elements for main game
--- Impelement working audio
--- Adapt the generated world.js to work with our assets and zombies and use it as the procedurally generated world 
-4. Powerups should spawn in pairs behind players in same horizontal position abit far apart left and right so there is a choice and only time to grab one, once grabbed the rest disappear
-7. Tune zombie and gun rates and power up rates, camera angle
-5. Flocking behavior works - hordeflocking.md has notes here
---  Add use the bigger badder bosses zombies that are new in 
---  Multiplayer with not websockets but that other thing - Socket.io webrtc UDP
--- experience --> Score
--- Save mutliplayer top scores
--- Implement zustand for better global state 
+-- Fix UI elements for main game 
+-- Implement working audio
+-- Adapt the generated world.js to work with our assets and zombies and use it as the procedurally generated world
+-- zombie.js needs to be broken up to smaller chunks
+-- Powerups should spawn in pairs behind players in same horizontal position abit far apart left and right so there is a choice and only time to grab one, once grabbed the rest disappear
+-- Tune zombie and gun rates and power up rates, camera angle
+-- Flocking behavior works - hordeflocking.md has notes here
+-- Add use the bigger badder bosses zombies that are new in zombies.js
+-- zombie archer works
+-- Zombie percent selection is better more scalable method
+-- Multiplayer with not websockets but that other thing - Socket.io webrtc UDP
+-- experience value and  time of game and game length saved to some tiny DB
+-- Implement zustand for better global state
