@@ -103,22 +103,28 @@ export const updateUI = (gameState) => {
     if (zombieCountElement && gameState.zombies) {
         zombieCountElement.textContent = `Enemies: ${gameState.zombies.length}`;
         
-        // Count enemy types
-        const enemyCounts = gameState.zombies.reduce((counts, zombie) => {
-            const type = zombie.type || 'zombie';
-            counts[type] = (counts[type] || 0) + 1;
-            return counts;
-        }, {});
+        // Check if we're in development mode
+        const DEBUG_MODE = window.NODE_ENV === 'development';
         
-        // Add enemy type breakdown
-        let enemyBreakdown = '';
-        if (enemyCounts.zombie) enemyBreakdown += ` Zombies: ${enemyCounts.zombie}`;
-        if (enemyCounts.skeletonArcher) enemyBreakdown += ` Archers: ${enemyCounts.skeletonArcher}`;
-        if (enemyCounts.exploder) enemyBreakdown += ` Exploders: ${enemyCounts.exploder}`;
-        if (enemyCounts.zombieKing) enemyBreakdown += ` Kings: ${enemyCounts.zombieKing}`;
-        
-        if (enemyBreakdown) {
-            zombieCountElement.textContent += ` (${enemyBreakdown.trim()})`;
+        // Only show enemy breakdown in development mode
+        if (DEBUG_MODE) {
+            // Count enemy types
+            const enemyCounts = gameState.zombies.reduce((counts, zombie) => {
+                const type = zombie.type || 'zombie';
+                counts[type] = (counts[type] || 0) + 1;
+                return counts;
+            }, {});
+            
+            // Add enemy type breakdown
+            let enemyBreakdown = '';
+            if (enemyCounts.zombie) enemyBreakdown += ` Zombies: ${enemyCounts.zombie}`;
+            if (enemyCounts.skeletonArcher) enemyBreakdown += ` Archers: ${enemyCounts.skeletonArcher}`;
+            if (enemyCounts.exploder) enemyBreakdown += ` Exploders: ${enemyCounts.exploder}`;
+            if (enemyCounts.zombieKing) enemyBreakdown += ` Kings: ${enemyCounts.zombieKing}`;
+            
+            if (enemyBreakdown) {
+                zombieCountElement.textContent += ` (${enemyBreakdown.trim()})`;
+            }
         }
     }
     

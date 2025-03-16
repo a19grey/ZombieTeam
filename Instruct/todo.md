@@ -11,3 +11,4 @@
 -- Multiplayer with not websockets but that other thing - Socket.io webrtc UDP
 -- experience value and  time of game and game length saved to some tiny DB
 -- Implement zustand for better global state
+-- Users score is displayed as a line overlaid on a 'mountain' shape of the score distribution flipped to be rarest up high
