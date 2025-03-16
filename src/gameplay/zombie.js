@@ -2,7 +2,7 @@
  * Zombie Module - Handles zombie creation and AI behavior
  * 
  * This module contains functions for creating Minecraft-style low-poly zombies and updating their
- * positions to chase the player.
+ * positions to chase the player. g 
  */
 
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';

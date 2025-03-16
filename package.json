@@ -4,14 +4,15 @@
   "description": "A 3D browser-based cooperative multiplayer zombie survival game using Three.js",
   "main": "src/main.js",
   "scripts": {
-    "": "NODE_ENV=production node server.js",
-    "start": "./run-prod.sh",
-    "run": "./run-prod.sh",
-    "prod": "./run-prod.sh",
-    "dev": "./run-dev.sh",
-    "serve": "serve .",
-    "check-env": "./check-env.sh",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "": "NODE_ENV=production node server.js"
+    ,"start": "./run-prod.sh"
+    ,"run": "./run-prod.sh"
+    ,"prod": "./run-prod.sh"
+    ,"dev": "./run-dev.sh"
+    ,"serve": "serve ."
+    ,"check-env": "./check-env.sh"
+    ,"test": "echo \"Error: no test specified\" && exit 1"
+    ,"lint": "eslint . --config eslint.config.mjs"
   },
   "keywords": [
     "three.js",
@@ -26,5 +27,7 @@
     "express": "^4.18.2",
     "serve": "^14.2.0"
   },
-  "devDependencies": {}
-} 
+  "devDependencies": {
+    "eslint": "^9.22.0"
+  }
+}
