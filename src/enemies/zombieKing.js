@@ -106,5 +106,129 @@ export const createZombieKing = (position, baseSpeed) => {
     // Set mass for physics calculations - zombieKing is heavy
     king.mass = 2.0;
     
+    // Set default health - zombie king has high health
+    king.health = 350;
+    
+    /**
+     * Updates the zombie king's position and behavior
+     * @param {Object} context - The update context containing all necessary information
+     */
+    king.update = (context) => {
+        const { 
+            playerPosition, 
+            delta, 
+            collisionSettings,
+            environmentObjects,
+            nearbyZombies,
+            zombieSizes,
+            gameState,
+            checkCollision,
+            pushAway,
+            damagePlayer
+        } = context;
+        
+        // Special zombie king behavior - can summon minions
+        king.summonCooldown -= delta;
+        
+        // Summon minions logic would go here if cooldown reached zero
+        // Example:
+        // if (king.summonCooldown <= 0 && gameState && typeof gameState.spawnMinion === 'function') {
+        //     gameState.spawnMinion(king.position, 3); // Spawn 3 minions
+        //     king.summonCooldown = 15; // Reset cooldown to 15 seconds
+        // }
+        
+        // Calculate direction to player
+        const direction = new THREE.Vector3(
+            playerPosition.x - king.position.x,
+            0,
+            playerPosition.z - king.position.z
+        );
+        
+        const distance = direction.length();
+        const finalDirection = direction.clone().normalize();
+        
+        // Add slight randomness to movement (less than normal zombies)
+        const randomFactor = Math.min(0.05, distance * 0.003); // Kings are more focused
+        const randomAngle = (Math.random() - 0.5) * Math.PI * randomFactor;
+        finalDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), randomAngle);
+        
+        // Calculate intended position
+        const moveDistance = king.speed * delta * 60;
+        const intendedPosition = new THREE.Vector3()
+            .copy(king.position)
+            .addScaledVector(finalDirection, moveDistance);
+        
+        // Player collision
+        const { COLLISION_DISTANCE, DAMAGE_DISTANCE, DAMAGE_PER_SECOND, ZOMBIE_COLLISION_DISTANCE } = collisionSettings;
+        
+        if (checkCollision(intendedPosition, playerPosition, COLLISION_DISTANCE)) {
+            const newPosition = pushAway(intendedPosition, playerPosition, COLLISION_DISTANCE);
+            intendedPosition.x = newPosition.x;
+            intendedPosition.z = newPosition.z;
+            
+            if (checkCollision(intendedPosition, playerPosition, DAMAGE_DISTANCE)) {
+                // Zombie King deals double damage
+                const damageAmount = DAMAGE_PER_SECOND * delta * 2;
+                if (gameState) damagePlayer(gameState, damageAmount);
+            }
+        }
+        
+        // Zombie collisions - Kings push other zombies away
+        for (let i = 0; i < nearbyZombies.length; i++) {
+            const otherZombie = nearbyZombies[i];
+            if (!otherZombie || !otherZombie.mesh || otherZombie.mesh.isExploding) continue;
+            
+            if (checkCollision(intendedPosition, otherZombie.mesh.position, ZOMBIE_COLLISION_DISTANCE)) {
+                const thisSize = king.mass || 2.0;
+                const otherSize = otherZombie.mesh.mass || 1.0;
+                
+                // Zombie King is stronger and pushes others away more forcefully
+                if (thisSize > otherSize * 1.3) {
+                    const pushDirection = new THREE.Vector3()
+                        .subVectors(otherZombie.mesh.position, intendedPosition)
+                        .normalize();
+                    otherZombie.mesh.position.addScaledVector(pushDirection, moveDistance * 0.5);
+                    const avoidancePosition = pushAway(
+                        intendedPosition, 
+                        otherZombie.mesh.position, 
+                        ZOMBIE_COLLISION_DISTANCE * 0.5
+                    );
+                    intendedPosition.x = (intendedPosition.x * 0.8 + avoidancePosition.x * 0.2);
+                    intendedPosition.z = (intendedPosition.z * 0.8 + avoidancePosition.z * 0.2);
+                } else {
+                    const avoidancePosition = pushAway(
+                        intendedPosition, 
+                        otherZombie.mesh.position, 
+                        ZOMBIE_COLLISION_DISTANCE
+                    );
+                    intendedPosition.x = (intendedPosition.x + avoidancePosition.x) * 0.5;
+                    intendedPosition.z = (intendedPosition.z + avoidancePosition.z) * 0.5;
+                }
+            }
+        }
+        
+        // Environment collisions
+        if (environmentObjects) {
+            for (const object of environmentObjects) {
+                if (object && object.isObstacle) {
+                    const dx = intendedPosition.x - object.position.x;
+                    const dz = intendedPosition.z - object.position.z;
+                    const distance = Math.sqrt(dx * dx + dz * dz);
+                    if (distance < (object.boundingRadius || 2.5)) {
+                        const pushDirection = new THREE.Vector3(dx, 0, dz).normalize();
+                        const pushDistance = (object.boundingRadius || 2.5) - distance + 0.1;
+                        intendedPosition.x += pushDirection.x * pushDistance;
+                        intendedPosition.z += pushDirection.z * pushDistance;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // Apply final position and rotation
+        king.position.copy(intendedPosition);
+        king.rotation.y = Math.atan2(finalDirection.x, finalDirection.z);
+    };
+    
     return king;
 };

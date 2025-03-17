@@ -113,17 +113,103 @@ export const createbaseZombie = (position, baseSpeed) => {
     
     // Set mass for physics calculations
     basezombie.mass = 1.0;
+    
+    // Set default health
+    basezombie.health = 100;
 
-    // Update method
-    basezombie.update = (playerPosition, delta, nearbyZombies) => {
+    /**
+     * Updates the zombie's position and behavior
+     * @param {Object} context - The update context containing all necessary information
+     */
+    basezombie.update = (context) => {
+        const { 
+            playerPosition, 
+            delta, 
+            collisionSettings,
+            environmentObjects,
+            nearbyZombies,
+            zombieSizes,
+            gameState,
+            checkCollision,
+            pushAway,
+            damagePlayer
+        } = context;
+        
+        // Calculate direction to player
         const direction = new THREE.Vector3(
             playerPosition.x - basezombie.position.x,
             0,
             playerPosition.z - basezombie.position.z
-        ).normalize();
+        );
+        
+        const distance = direction.length();
+        const finalDirection = direction.clone().normalize();
+        
+        // Add slight randomness to movement
+        const randomFactor = Math.min(0.1, distance * 0.005);
+        const randomAngle = (Math.random() - 0.5) * Math.PI * randomFactor;
+        finalDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), randomAngle);
+        
+        // Calculate intended position
         const moveDistance = basezombie.speed * delta * 60;
-        basezombie.position.addScaledVector(direction, moveDistance);
-        basezombie.rotation.y = Math.atan2(direction.x, direction.z);
+        const intendedPosition = new THREE.Vector3()
+            .copy(basezombie.position)
+            .addScaledVector(finalDirection, moveDistance);
+        
+        // Player collision
+        const { COLLISION_DISTANCE, DAMAGE_DISTANCE, DAMAGE_PER_SECOND, ZOMBIE_COLLISION_DISTANCE } = collisionSettings;
+        
+        if (checkCollision(intendedPosition, playerPosition, COLLISION_DISTANCE)) {
+            const newPosition = pushAway(intendedPosition, playerPosition, COLLISION_DISTANCE);
+            intendedPosition.x = newPosition.x;
+            intendedPosition.z = newPosition.z;
+            
+            if (checkCollision(intendedPosition, playerPosition, DAMAGE_DISTANCE)) {
+                const damageAmount = DAMAGE_PER_SECOND * delta;
+                if (gameState) damagePlayer(gameState, damageAmount);
+            }
+        }
+        
+        // Zombie collisions
+        for (let i = 0; i < nearbyZombies.length; i++) {
+            const otherZombie = nearbyZombies[i];
+            if (!otherZombie || !otherZombie.mesh || otherZombie.mesh.isExploding) continue;
+            
+            if (checkCollision(intendedPosition, otherZombie.mesh.position, ZOMBIE_COLLISION_DISTANCE)) {
+                const thisSize = basezombie.mass || 1.0;
+                const otherSize = otherZombie.mesh.mass || 1.0;
+                
+                const avoidancePosition = pushAway(
+                    intendedPosition, 
+                    otherZombie.mesh.position, 
+                    ZOMBIE_COLLISION_DISTANCE
+                );
+                intendedPosition.x = (intendedPosition.x + avoidancePosition.x) * 0.5;
+                intendedPosition.z = (intendedPosition.z + avoidancePosition.z) * 0.5;
+            }
+        }
+        
+        // Environment collisions
+        if (environmentObjects) {
+            for (const object of environmentObjects) {
+                if (object && object.isObstacle) {
+                    const dx = intendedPosition.x - object.position.x;
+                    const dz = intendedPosition.z - object.position.z;
+                    const distance = Math.sqrt(dx * dx + dz * dz);
+                    if (distance < (object.boundingRadius || 2.5)) {
+                        const pushDirection = new THREE.Vector3(dx, 0, dz).normalize();
+                        const pushDistance = (object.boundingRadius || 2.5) - distance + 0.1;
+                        intendedPosition.x += pushDirection.x * pushDistance;
+                        intendedPosition.z += pushDirection.z * pushDistance;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // Apply final position and rotation
+        basezombie.position.copy(intendedPosition);
+        basezombie.rotation.y = Math.atan2(finalDirection.x, finalDirection.z);
     };
 
     return basezombie;
