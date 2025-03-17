@@ -118,7 +118,7 @@ export const createShotgunBlastPowerup = (position) => {
 
 /**
  * Creates an Explosion powerup
- * - Effect: Area explosion
+ * - Effect: Area explosion that damages zombies but not the player
  */
 export const createExplosionPowerup = (position) => {
     const powerup = new THREE.Group();
@@ -308,6 +308,174 @@ export const animatePowerup = (powerup, time) => {
             tip.scale.setScalar(1 + Math.sin(time * 5) * 0.05);
         }
     }
+};
+
+/**
+ * Creates a grenade explosion effect (player-sourced)
+ * This function is intended to be called when a player's grenade explodes
+ * It creates an explosion that damages zombies but not the player
+ * 
+ * @param {Object} gameState - The current game state
+ * @param {THREE.Vector3} position - The position where the explosion should occur
+ * @param {number} radius - The radius of the explosion (default: 4)
+ * @param {number} damage - The base damage of the explosion (default: 150)
+ */
+export const createPlayerExplosion = (gameState, position, radius = 4, damage = 150) => {
+    if (!gameState || !gameState.scene) {
+        console.error("Cannot create player explosion: gameState or scene is undefined");
+        return;
+    }
+    
+    // Import the explosion function dynamically to avoid circular dependencies
+    import('../gameplay/zombieUtils.js').then(({ createExplosion }) => {
+        createExplosion(
+            gameState.scene,
+            position,
+            radius,
+            damage,
+            gameState.zombies || [],
+            gameState.playerObject,
+            gameState,
+            'player' // Set source as player so it won't damage the player
+        );
+    }).catch(error => {
+        console.error("Failed to import createExplosion:", error);
+    });
+};
+
+/**
+ * Creates a projectile that explodes on impact
+ * This function should be called when a player uses the grenade launcher
+ * 
+ * @param {THREE.Scene} scene - The scene to add the projectile to
+ * @param {THREE.Vector3} startPosition - The starting position of the projectile
+ * @param {THREE.Vector3} direction - The direction the projectile should travel
+ * @param {Object} gameState - The current game state
+ * @param {number} speed - The speed of the projectile (default: 0.5)
+ * @param {number} gravity - The gravity effect on the projectile (default: 0.01)
+ */
+export const createGrenadeProjectile = (scene, startPosition, direction, gameState, speed = 0.5, gravity = 0.01) => {
+    // Create grenade mesh
+    const grenadeGeometry = new THREE.SphereGeometry(0.15, 8, 8);
+    const grenadeMaterial = new THREE.MeshStandardMaterial({
+        color: 0x333333,
+        roughness: 0.7
+    });
+    const grenade = new THREE.Mesh(grenadeGeometry, grenadeMaterial);
+    grenade.position.copy(startPosition);
+    grenade.castShadow = true;
+    scene.add(grenade);
+    
+    // Add pin detail
+    const pinGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.1, 6);
+    const pinMaterial = new THREE.MeshStandardMaterial({ color: 0xffff00 });
+    const pin = new THREE.Mesh(pinGeometry, pinMaterial);
+    pin.position.y = 0.12;
+    grenade.add(pin);
+    
+    // Projectile properties
+    const velocity = direction.clone().normalize().multiplyScalar(speed);
+    let lifetime = 0;
+    const maxLifetime = 100; // Auto-explode after this many frames
+    
+    // Smoke trail particles
+    const smokeParticles = [];
+    
+    // Update function to be called each frame
+    grenade.userData.update = () => {
+        // Update position with velocity
+        grenade.position.add(velocity);
+        
+        // Apply gravity
+        velocity.y -= gravity;
+        
+        // Create smoke particle every few frames
+        if (lifetime % 3 === 0) {
+            const smoke = createSmokeTrail(grenade.position.clone());
+            scene.add(smoke);
+            smokeParticles.push(smoke);
+        }
+        
+        // Update smoke particles
+        for (let i = smokeParticles.length - 1; i >= 0; i--) {
+            const smoke = smokeParticles[i];
+            smoke.material.opacity -= 0.02;
+            smoke.position.y += 0.01;
+            
+            if (smoke.material.opacity <= 0) {
+                scene.remove(smoke);
+                smoke.geometry.dispose();
+                smoke.material.dispose();
+                smokeParticles.splice(i, 1);
+            }
+        }
+        
+        // Check for collisions with ground
+        if (grenade.position.y <= 0.15) {
+            grenade.position.y = 0.15;
+            velocity.y = Math.abs(velocity.y) * 0.5; // Bounce with dampening
+            
+            // If moving very slowly after bounce, explode
+            if (velocity.length() < 0.1) {
+                explodeGrenade();
+                return false; // Stop updating
+            }
+        }
+        
+        // Check for collisions with zombies
+        if (gameState && gameState.zombies) {
+            for (const zombie of gameState.zombies) {
+                if (zombie && zombie.mesh && zombie.mesh.position) {
+                    const distance = grenade.position.distanceTo(zombie.mesh.position);
+                    if (distance < 1) { // Hit a zombie
+                        explodeGrenade();
+                        return false; // Stop updating
+                    }
+                }
+            }
+        }
+        
+        // Auto-explode after maxLifetime
+        lifetime++;
+        if (lifetime >= maxLifetime) {
+            explodeGrenade();
+            return false; // Stop updating
+        }
+        
+        // Rotate grenade as it flies
+        grenade.rotation.x += 0.1;
+        grenade.rotation.z += 0.1;
+        
+        return true; // Continue updating
+    };
+    
+    // Function to handle explosion
+    function explodeGrenade() {
+        // Create explosion effect
+        createPlayerExplosion(gameState, grenade.position.clone());
+        
+        // Clean up grenade and particles
+        scene.remove(grenade);
+        grenade.geometry.dispose();
+        grenade.material.dispose();
+        
+        smokeParticles.forEach(smoke => {
+            scene.remove(smoke);
+            smoke.geometry.dispose();
+            smoke.material.dispose();
+        });
+        smokeParticles.length = 0;
+    }
+    
+    // Add to gameState for updating
+    if (gameState) {
+        if (!gameState.projectiles) {
+            gameState.projectiles = [];
+        }
+        gameState.projectiles.push(grenade);
+    }
+    
+    return grenade;
 };
 
 /**

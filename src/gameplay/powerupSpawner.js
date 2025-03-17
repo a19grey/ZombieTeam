@@ -2,9 +2,10 @@
  * Powerup Spawner Module - Handles spawning of powerups in the game
  * 
  * This module contains functions for spawning powerups behind the player,
- * just out of view. It ensures powerups spawn within a reasonable distance
- * from the player to create interesting gameplay choices between pursuing
- * powerups or focusing on zombies.
+ * just out of view. It ensures powerups spawn in pairs to create strategic
+ * gameplay choices between different powerup types. When one powerup is
+ * collected, all others will disappear, encouraging team coordination in
+ * multiplayer.
  * 
  * Example usage:
  * ```
@@ -24,7 +25,6 @@ const POWERUP_MIN_DISTANCE = 10; // Minimum distance from player
 const POWERUP_MAX_DISTANCE = 20; // Maximum distance from player
 const POWERUP_SPAWN_CHANCE = 0.005; // Chance to spawn a powerup each frame (0.5%)
 const POWERUP_TYPES = ['rapidFire', 'shotgunBlast', 'explosion', 'laserShot', 'grenadeLauncher'];
-const MULTI_POWERUP_CHANCE = 0.3; // 30% chance to spawn a second powerup
 const MIN_TIME_BETWEEN_POWERUPS = 10000; // Minimum time between powerup spawns (10 seconds)
 
 /**
@@ -34,14 +34,19 @@ const MIN_TIME_BETWEEN_POWERUPS = 10000; // Minimum time between powerup spawns 
  * @returns {boolean} Whether a powerup should spawn
  */
 export const shouldSpawnPowerup = (gameState, currentTime) => {
-    // Get spawn rate from debug settings if available
-    const spawnRate = gameState.debug && gameState.debug.powerupSpawnRate 
-        ? gameState.debug.powerupSpawnRate 
-        : MIN_TIME_BETWEEN_POWERUPS;
+    // Use the main gameState.powerupSpawnRate or fallback to debug settings or constant
+    const spawnRate = gameState.powerupSpawnRate || 
+        (gameState.debug && gameState.debug.powerupSpawnRate) || 
+        MIN_TIME_BETWEEN_POWERUPS;
+    
+    // Initialize lastPowerupSpawnTime if it doesn't exist
+    if (!gameState.lastPowerupSpawnTime) {
+        gameState.lastPowerupSpawnTime = currentTime - spawnRate;
+        return false;
+    }
     
     // Don't spawn if we've spawned recently
-    if (gameState.lastPowerupSpawnTime && 
-        currentTime - gameState.lastPowerupSpawnTime < spawnRate) {
+    if (currentTime - gameState.lastPowerupSpawnTime < spawnRate) {
         return false;
     }
     
@@ -55,42 +60,27 @@ export const shouldSpawnPowerup = (gameState, currentTime) => {
 };
 
 /**
- * Gets a position behind the player, just out of view
+ * Gets a position behind the player in absolute world coordinates (negative Z direction)
  * @param {THREE.Object3D} player - The player object
- * @param {number} minDistance - Minimum distance from player
- * @param {number} maxDistance - Maximum distance from player
- * @param {boolean} isSecondPowerup - Whether this is a second powerup being spawned
+ * @param {number} zDistance - Exact distance from player in Z direction
+ * @param {boolean} isRightSide - Whether to position on right side (positive X) or left side (negative X)
  * @returns {THREE.Vector3} The spawn position
  */
-export const getPositionBehindPlayer = (player, minDistance, maxDistance, isSecondPowerup = false) => {
-    // Get player's forward direction (negative Z in our coordinate system)
-    const playerDirection = new THREE.Vector3(0, 0, -1);
-    playerDirection.applyQuaternion(player.quaternion);
+export const getPositionBehindPlayer = (player, zDistance, isRightSide = false) => {
+    // Fixed X offset for horizontal positioning
+    const xOffset = 2.5; // Distance from center in X direction
     
-    // Reverse the direction to get "behind" the player
-    const behindDirection = playerDirection.clone().negate();
-    
-    // Add some randomness to the angle (within a 90-degree arc behind player)
-    const angleOffset = (Math.random() - 0.5) * Math.PI / 2; // -45 to +45 degrees
-    
-    // Create a rotation matrix for the angle offset
-    const rotationMatrix = new THREE.Matrix4().makeRotationY(angleOffset);
-    behindDirection.applyMatrix4(rotationMatrix);
-    
-    // If this is a second powerup, add more angle to separate them
-    if (isSecondPowerup) {
-        const secondPowerupAngle = Math.random() > 0.5 ? Math.PI / 4 : -Math.PI / 4; // 45 degrees left or right
-        const secondRotationMatrix = new THREE.Matrix4().makeRotationY(secondPowerupAngle);
-        behindDirection.applyMatrix4(secondRotationMatrix);
-    }
-    
-    // Calculate random distance within range
-    const distance = minDistance + Math.random() * (maxDistance - minDistance);
-    
-    // Calculate final position
+    // Create the spawn position in absolute world coordinates
     const spawnPosition = new THREE.Vector3();
+    
+    // Start at player's position
     spawnPosition.copy(player.position);
-    spawnPosition.add(behindDirection.multiplyScalar(distance));
+    
+    // Move south (negative Z) by the specified distance
+    spawnPosition.z = zDistance;
+    
+    // Apply X offset based on left/right side
+    spawnPosition.x += isRightSide ? xOffset : -xOffset;
     
     // Ensure y-coordinate is at ground level
     spawnPosition.y = 0;
@@ -99,16 +89,14 @@ export const getPositionBehindPlayer = (player, minDistance, maxDistance, isSeco
 };
 
 /**
- * Creates a powerup of random type
+ * Creates a powerup of specified type
  * @param {THREE.Scene} scene - The Three.js scene
  * @param {THREE.Vector3} position - Position to spawn the powerup
  * @param {Object} gameState - The current game state
+ * @param {string} powerupType - The type of powerup to create
  * @returns {Object} The created powerup object
  */
-export const createRandomPowerup = (scene, position, gameState) => {
-    // Select random powerup type
-    const powerupType = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
-    
+export const createPowerup = (scene, position, gameState, powerupType) => {
     // Create the powerup based on type
     let powerupMesh;
     switch (powerupType) {
@@ -139,7 +127,8 @@ export const createRandomPowerup = (scene, position, gameState) => {
         mesh: powerupMesh,
         type: powerupType,
         active: true,
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        spawnGroup: gameState.currentPowerupGroup || Date.now() // Group identifier
     };
     
     // Add to gameState
@@ -152,7 +141,7 @@ export const createRandomPowerup = (scene, position, gameState) => {
 };
 
 /**
- * Spawns a powerup behind the player, just out of view
+ * Spawns a pair of different powerups behind the player, to the left and right sides
  * @param {THREE.Scene} scene - The Three.js scene
  * @param {Object} gameState - The current game state
  * @param {THREE.Object3D} player - The player object
@@ -161,28 +150,122 @@ export const spawnPowerupBehindPlayer = (scene, gameState, player) => {
     // Update last spawn time
     gameState.lastPowerupSpawnTime = Date.now();
     
-    // Get position behind player
-    const position = getPositionBehindPlayer(
+    // Create a unique group ID for this spawn event
+    const spawnGroupId = Date.now();
+    gameState.currentPowerupGroup = spawnGroupId;
+    
+    // Get two different random powerup types
+    const availableTypes = [...POWERUP_TYPES];
+    
+    // First powerup type
+    const firstTypeIndex = Math.floor(Math.random() * availableTypes.length);
+    const firstType = availableTypes[firstTypeIndex];
+    availableTypes.splice(firstTypeIndex, 1); // Remove this type from available options
+    
+    // Second powerup type
+    const secondTypeIndex = Math.floor(Math.random() * availableTypes.length);
+    const secondType = availableTypes[secondTypeIndex];
+    
+    // Calculate a single random distance for both powerups to ensure they're on the same Z plane
+    const zDistance = POWERUP_MIN_DISTANCE + Math.random() * (POWERUP_MAX_DISTANCE - POWERUP_MIN_DISTANCE);
+    
+    // Get positions behind player on the left and right sides (using the same Z distance)
+    const leftPosition = getPositionBehindPlayer(
         player, 
-        POWERUP_MIN_DISTANCE, 
-        POWERUP_MAX_DISTANCE
+        zDistance,
+        false // Left side
     );
     
-    // Create first powerup
-    createRandomPowerup(scene, position, gameState);
+    const rightPosition = getPositionBehindPlayer(
+        player, 
+        zDistance,
+        true // Right side
+    );
     
-    // Chance to spawn a second powerup
-    if (Math.random() < MULTI_POWERUP_CHANCE) {
-        const secondPosition = getPositionBehindPlayer(
-            player, 
-            POWERUP_MIN_DISTANCE, 
-            POWERUP_MAX_DISTANCE,
-            true // This is a second powerup
-        );
-        
-        createRandomPowerup(scene, secondPosition, gameState);
-        logger.debug('Spawned a second powerup to create player choice');
+    // Create powerups
+    createPowerup(scene, leftPosition, gameState, firstType);
+    createPowerup(scene, rightPosition, gameState, secondType);
+    
+    logger.debug(`Spawned powerup pair: ${firstType} and ${secondType} at Z-distance ${zDistance.toFixed(2)} with group ID ${spawnGroupId}`);
+};
+
+/**
+ * Removes all powerups from the same spawn group except the collected one
+ * @param {THREE.Scene} scene - The Three.js scene
+ * @param {Object} gameState - The current game state
+ * @param {Object} collectedPowerup - The powerup that was collected
+ */
+export const removeOtherPowerups = (scene, gameState, collectedPowerup) => {
+    const groupId = collectedPowerup.spawnGroup;
+    logger.debug(`Attempting to remove powerups from group ${groupId}`);
+    
+    // Find all powerups from the same group that need to be removed
+    const powerupsToRemove = gameState.powerups.filter(powerup => 
+        powerup !== collectedPowerup && 
+        powerup.spawnGroup === groupId &&
+        powerup.active
+    );
+    
+    if (powerupsToRemove.length === 0) {
+        logger.debug('No other powerups found in the same group');
+        return;
     }
+    
+    logger.debug(`Found ${powerupsToRemove.length} other powerups to remove from group ${groupId}`);
+    
+    // Process each powerup to remove
+    powerupsToRemove.forEach(powerup => {
+        // Mark as inactive immediately to prevent collecting during fade-out
+        powerup.active = false;
+        
+        // Ensure the mesh has material and can be faded
+        if (powerup.mesh && powerup.mesh.material) {
+            // Force material to be transparent
+            powerup.mesh.material.transparent = true;
+            let opacity = 1.0;
+            
+            // Use a separate function for the fade effect
+            const fadeOut = () => {
+                if (!powerup.mesh || !scene.children.includes(powerup.mesh)) return;
+                
+                opacity -= 0.1;
+                powerup.mesh.material.opacity = opacity;
+                powerup.mesh.scale.multiplyScalar(0.9);
+                
+                if (opacity > 0) {
+                    // Continue fading
+                    requestAnimationFrame(fadeOut);
+                } else {
+                    // Complete removal
+                    scene.remove(powerup.mesh);
+                    
+                    // Find and remove from the gameState array
+                    const index = gameState.powerups.indexOf(powerup);
+                    if (index !== -1) {
+                        gameState.powerups.splice(index, 1);
+                    }
+                    
+                    logger.debug(`Completed removal of ${powerup.type} powerup from group ${groupId}`);
+                }
+            };
+            
+            // Start the fade out effect
+            fadeOut();
+        } else {
+            // If no mesh or material, remove immediately
+            if (powerup.mesh) {
+                scene.remove(powerup.mesh);
+            }
+            
+            // Remove from the gameState array
+            const index = gameState.powerups.indexOf(powerup);
+            if (index !== -1) {
+                gameState.powerups.splice(index, 1);
+            }
+            
+            logger.debug(`Immediately removed ${powerup.type} powerup without mesh/material from group ${groupId}`);
+        }
+    });
 };
 
 /**

@@ -15,6 +15,7 @@ import { damageZombie, isZombieDead } from './zombie.js';
 import { logger } from '../utils/logger.js';
 import { showMessage } from '../ui/ui.js';
 import { playSound } from './audio.js'; // Import audio system
+import { removeOtherPowerups } from './powerupSpawner.js';
 
 // Create audio for damage sound
 let damageSound = null;
@@ -231,7 +232,10 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
                 // Activate powerup
                 activatePowerup(gameState, powerup.type, 'walk');
                 
-                // Remove powerup from scene
+                // Remove all other powerups from the same spawn group
+                removeOtherPowerups(scene, gameState, powerup);
+                
+                // Remove collected powerup from scene
                 scene.remove(powerup.mesh);
                 powerup.active = false;
                 
@@ -376,7 +380,10 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
                     }
                     bullets.splice(i, 1);
                     
-                    // Remove powerup from scene
+                    // Remove all other powerups from the same spawn group
+                    removeOtherPowerups(scene, gameState, powerup);
+                    
+                    // Remove collected powerup from scene
                     scene.remove(powerup.mesh);
                     powerup.active = false;
                     

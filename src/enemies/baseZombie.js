@@ -181,7 +181,7 @@ export const createbaseZombie = (position, baseSpeed) => {
             .addScaledVector(finalDirection, moveDistance);
         
         // Debug log position change
-        if (isDev) {
+        if (0) {
             console.log(`[DEBUG] Base zombie moving from ${basezombie.position.x.toFixed(2)},${basezombie.position.z.toFixed(2)} to ${intendedPosition.x.toFixed(2)},${intendedPosition.z.toFixed(2)}`);
         }
         

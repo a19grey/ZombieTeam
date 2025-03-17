@@ -27,6 +27,7 @@ const gameState = {
     gameOver: false, debug: DEBUG_MODE, /* Enable debug mode*/ camera: null, // Added for camera reference
     powerups: [], lastShotTime: 0, environmentObjects: [], // Store environment objects
     enemySpawnRate: 200, // Time between enemy spawns in ms (reduced for more zombies)
+    powerupSpawnRate: 15000, // ms between powerup spawns
     lastEnemySpawnTime: 0, maxZombies: 1000, // Maximum number of zombies allowed at once
     initialSpawnCount: 300, // Number of zombies to spawn at start (increased from 30 to 300)
     dismembermentParticles: [], // Store colorful particles for dismemberment effects

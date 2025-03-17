@@ -170,7 +170,8 @@ export const createExploder = (position, baseSpeed ) => {
                         120, // Explosion damage
                         gameState.zombies || [], 
                         gameState.playerObject,
-                        gameState
+                        gameState,
+                        'zombie' // Explicitly set source as zombie
                     );
                     
                     // Remove the exploder

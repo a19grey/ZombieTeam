@@ -130,11 +130,12 @@ export const isZombieDead = (zombie) => {
  * @param {Array} zombies - Array of zombies to check for damage
  * @param {THREE.Object3D} player - The player object
  * @param {Object} gameState - The game state
+ * @param {string} source - Source of the explosion ('zombie' or 'player')
  */
-export const createExplosion = (scene, position, radius = 3, damage = 100, zombies = [], player, gameState) => {
+export const createExplosion = (scene, position, radius = 3, damage = 100, zombies = [], player, gameState, source = 'zombie') => {
     try {
         if (gameState.debug.enabled) {
-        console.log("Creating explosion at", position, "with radius", radius, "and damage", damage);
+        console.log("Creating explosion at", position, "with radius", radius, "and damage", damage, "from source:", source);
         }
         // Safety check for required parameters
         if (!scene) {
@@ -171,8 +172,8 @@ export const createExplosion = (scene, position, radius = 3, damage = 100, zombi
         light.position.copy(position);
         scene.add(light);
         
-        // Check for player in explosion radius
-        if (player && player.position) {
+        // Check for player in explosion radius - only if source is 'zombie'
+        if (source === 'zombie' && player && player.position) {
             const playerDistance = player.position.distanceTo(position);
             if (playerDistance < radius) {
                 // Calculate damage based on distance (more damage closer to center)

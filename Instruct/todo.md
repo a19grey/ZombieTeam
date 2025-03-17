@@ -1,19 +1,21 @@
 -- Fix UI elements for main game -- Done 3/16/2025
 -- impleement working game music -- Done 3/16/2025
--- zombie.js needs to be broken up to smaller chunks
-    -- Ongoing I moved all create functions to their own blocksin /enemy and loaded with /enemy/enemyindex.js next is to... run it, and see what breaks, then .updates then utils move
--- Implement working SFX
+-- zombie.js needs to be broken up to smaller chunks -- Done 3.17.2025
+-- Powerups should spawn in pairs behind players in same horizontal position abit far apart left and right so there is a choice and only time to grab one, once grabbed the rest disappear -- done 3/16/2025
+-- Fix spawn rates so more than one spawns in teh game
 -- basespeed is correctly updated and used in the game
+-- Implement working SFX 
 -- Adapt the generated world.js to work with our assets and zombies and use it as the procedurally generated world
-
--- Powerups should spawn in pairs behind players in same horizontal position abit far apart left and right so there is a choice and only time to grab one, once grabbed the rest disappear
 -- Tune zombie and gun rates and power up rates, camera angle
 -- Player should not be damaged by grenade launcher explosion - Player in explosion radius, dealing 40 damage
--- Flocking behavior works - hordeflocking.md has notes here
 -- Add use the bigger badder bosses zombies that are new in zombies.js
 -- zombie archer works
 -- Zombie spawn selection is better more scalable method - if have boss new boss less likely
 -- Multiplayer with not websockets but that other thing - Socket.io webrtc UDP
 -- experience value and  time of game and game length saved to some tiny DB
+-- Launch game
 -- Implement zustand for better global state
 -- Users score is displayed as a line overlaid on a 'mountain' shape of the score distribution flipped to be rarest up high
+-- Flocking behavior works - hordeflocking.md has notes here
+-- player's gun takes on the powerup gun form
+-- more powerups for more players
