@@ -64,5 +64,8 @@ export const createExploder = (position, baseSpeed ) => {
     // Set speed relative to baseSpeed (slightly slower than standard zombie)
     exploder.speed = baseSpeed * 0.9; // 90% of base speed
     
+    // Set mass for physics calculations - exploder is medium-weight
+    exploder.mass = 1.2;
+    
     return exploder;
 };

@@ -70,8 +70,11 @@ export const createRotBehemoth = (position, baseSpeed) => {
     behemoth.mesh = behemoth;
     behemoth.enemyType = 'rotBehemoth';
     
-    // Set speed relative to baseSpeed (slower than standard zombie)
+    // Set speed relative to baseSpeed (much slower than standard zombie due to size)
     behemoth.speed = baseSpeed * 0.4; // 40% of base speed
+    
+    // Set mass for physics calculations - behemoth is extremely heavy
+    behemoth.mass = 3.0;
     
     behemoth.health = 400; // High health
     behemoth.shootCooldown = 0; // For projectile timing

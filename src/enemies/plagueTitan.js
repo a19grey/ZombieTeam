@@ -82,8 +82,11 @@ export const createPlagueTitan = (position, baseSpeed) => {
     titan.mesh = titan;
     titan.enemyType = 'plagueTitan';
     
-    // Set speed relative to baseSpeed (much slower than standard zombie)
-    titan.speed = baseSpeed * 0.3; // 30% of base speed
+    // Set speed relative to baseSpeed (slower than standard zombie due to size)
+    titan.speed = baseSpeed * 0.75; // 75% of base speed
+    
+    // Set mass for physics calculations - titan is very heavy
+    titan.mass = 2.5;
     
     titan.health = 500; // High health
     titan.slamCooldown = 0; // For ground slam timing

@@ -75,8 +75,11 @@ export const createNecrofiend = (position, baseSpeed) => {
     necro.mesh = necro;
     necro.enemyType = 'necrofiend';
     
-    // Set speed relative to baseSpeed (slightly slower than standard zombie)
-    necro.speed = baseSpeed * 0.8; // 80% of base speed
+    // Set speed relative to baseSpeed (slightly faster than standard zombie)
+    necro.speed = baseSpeed * 1.2; // 120% of base speed
+    
+    // Set mass for physics calculations - necrofiend is medium-weight
+    necro.mass = 1.3;
     
     necro.health = 300; // Moderate health
     necro.spawnCooldown = 0; // For minion spawning

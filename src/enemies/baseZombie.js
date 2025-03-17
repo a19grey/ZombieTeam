@@ -110,6 +110,9 @@ export const createbaseZombie = (position, baseSpeed) => {
     
     // Set speed to exactly baseSpeed (standard zombie is the baseline)
     basezombie.speed = baseSpeed;
+    
+    // Set mass for physics calculations
+    basezombie.mass = 1.0;
 
     // Update method
     basezombie.update = (playerPosition, delta, nearbyZombies) => {

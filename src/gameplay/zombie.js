@@ -51,15 +51,12 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60, baseSpeed) 
         }
     });
     
-    // Calculate zombie sizes for pushing mechanics
+    // Calculate zombie sizes for pushing mechanics based on mass
     const zombieSizes = {};
     zombies.forEach((zombie, index) => {
-        if (zombie.mesh && zombie.mesh.enemyType === 'zombieKing') {
-            zombieSizes[index] = 2.0;
-        } else if (zombie.mesh && zombie.mesh.enemyType === 'exploder') {
-            zombieSizes[index] = 1.2;
-        } else if (zombie.mesh && zombie.mesh.enemyType === 'skeletonArcher') {
-            zombieSizes[index] = 0.8;
+        if (zombie && zombie.mesh) {
+            // Use the mass property if available, otherwise default to 1.0
+            zombieSizes[index] = zombie.mesh.mass;
         } else {
             zombieSizes[index] = 1.0;
         }

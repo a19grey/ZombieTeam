@@ -86,5 +86,8 @@ export const createSkeletonArcher = (position, baseSpeed) => {
     // Set speed relative to baseSpeed (faster than standard zombie)
     skeleton.speed = baseSpeed * 1.1; // 110% of base speed
     
+    // Set mass for physics calculations - archers are lighter
+    skeleton.mass = 0.8;
+    
     return skeleton;
 };

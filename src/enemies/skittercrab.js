@@ -82,7 +82,10 @@ export const createSkittercrab = (position, baseSpeed) => {
     crab.enemyType = 'skittercrab';
     
     // Set speed relative to baseSpeed (much faster than standard zombie)
-    crab.speed = baseSpeed * 1.6; // 160% of base speed
+    crab.speed = baseSpeed * 1.4; // 140% of base speed
+    
+    // Set mass for physics calculations - skittercrab is very light
+    crab.mass = 0.6;
     
     crab.health = 50; // Low health
 
