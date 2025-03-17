@@ -117,47 +117,51 @@ const spawnEnemy = (playerPos, scene, gameState) => {
     
     if (enemyTypeRoll < 0.6) {
         // Regular zombie (60% chance)
-        const zombie = createbaseZombie(position);
+        const baseSpeed = 0.03 + Math.random() * 0.02;
+        const zombie = createbaseZombie(position, baseSpeed);
         enemyObj = {
             mesh: zombie,
             health: 50,
-            speed: 0.03 + Math.random() * 0.02,
+            speed: baseSpeed,
             gameState: gameState,
-            baseSpeed: 0.03 + Math.random() * 0.02,
+            baseSpeed: baseSpeed,
             type: 'zombie'
         };
     } else if (enemyTypeRoll < 0.8) {
         // Skeleton Archer (20% chance)
-        const skeletonArcher = createSkeletonArcher(position);
+        const baseSpeed = 0.04;
+        const skeletonArcher = createSkeletonArcher(position, baseSpeed);
         enemyObj = {
             mesh: skeletonArcher,
             health: 40, // Less health than zombie
-            speed: 0.04, // Faster but keeps distance
+            speed: baseSpeed, // Faster but keeps distance
             gameState: gameState,
-            baseSpeed: 0.04,
+            baseSpeed: baseSpeed,
             type: 'skeletonArcher',
             lastShotTime: 0
         };
     } else if (enemyTypeRoll < 0.95) {
         // Exploder (15% chance)
-        const exploder = createExploder(position);
+        const baseSpeed = 0.05;
+        const exploder = createExploder(position, baseSpeed);
         enemyObj = {
             mesh: exploder,
             health: 30, // Less health
-            speed: 0.05, // Faster to get close to player
+            speed: baseSpeed, // Faster to get close to player
             gameState: gameState,
-            baseSpeed: 0.05,
+            baseSpeed: baseSpeed,
             type: 'exploder'
         };
     } else {
         // Zombie King (5% chance - rare but powerful)
-        const zombieKing = createZombieKing(position);
+        const baseSpeed = 0.02;
+        const zombieKing = createZombieKing(position, baseSpeed);
         enemyObj = {
             mesh: zombieKing,
             health: 200, // Reduced from 500 to make dismemberment more visible
-            speed: 0.02, // Slower but powerful
+            speed: baseSpeed, // Slower but powerful
             gameState: gameState,
-            baseSpeed: 0.02,
+            baseSpeed: baseSpeed,
             type: 'zombieKing'
         };
     }

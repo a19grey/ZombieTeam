@@ -17,6 +17,9 @@
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
 import { createExplosion } from '../gameplay/zombieUtils.js'; // Import explosion utility
 
+// Check if we're in development mode
+const isDev = window.NODE_ENV !== 'production';
+
 export const createExploder = (position, baseSpeed ) => {
     const exploder = new THREE.Group();
 
@@ -55,6 +58,12 @@ export const createExploder = (position, baseSpeed ) => {
     exploder.add(rightLeg);
 
     exploder.position.set(position.x, 0, position.z);
+    
+    // Debug log for exploder creation
+    if (isDev) {
+        console.log(`[DEBUG] Creating exploder at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
+    }
+    
     exploder.mesh = exploder;
     
     // Set enemy type for special behavior
@@ -76,6 +85,11 @@ export const createExploder = (position, baseSpeed ) => {
      * @param {Object} context - The update context containing all necessary information
      */
     exploder.update = (context) => {
+        // Debug log update call
+        if (isDev) {
+            console.log(`[DEBUG] Exploder update method called (at ${exploder.position.x.toFixed(2)},${exploder.position.z.toFixed(2)}), isExploding: ${exploder.isExploding}`);
+        }
+        
         const { 
             playerPosition, 
             delta, 
@@ -98,8 +112,17 @@ export const createExploder = (position, baseSpeed ) => {
         
         const distance = direction.length();
         
+        // Debug distance to player
+        if (isDev) {
+            console.log(`[DEBUG] Exploder distance to player: ${distance.toFixed(2)}`);
+        }
+        
         // Exploder specific behavior - start exploding when close to player
         if (distance < 3 && !exploder.isExploding) {
+            if (isDev) {
+                console.log(`[DEBUG] Exploder starting explosion sequence`);
+            }
+            
             exploder.isExploding = true;
             exploder.explosionTimer = 1.5; // Time before exploding
             
@@ -118,6 +141,11 @@ export const createExploder = (position, baseSpeed ) => {
         } else if (exploder.isExploding) {
             // Update explosion timer and flashing effect
             exploder.explosionTimer -= delta;
+            
+            if (isDev) {
+                console.log(`[DEBUG] Exploder explosion timer: ${exploder.explosionTimer.toFixed(2)}`);
+            }
+            
             const flashSpeed = Math.max(0.1, exploder.explosionTimer / 3);
             const flashIntensity = Math.sin(Date.now() * 0.01 / flashSpeed) * 0.5 + 0.5;
             
@@ -129,6 +157,10 @@ export const createExploder = (position, baseSpeed ) => {
             
             // Create explosion when timer reaches zero
             if (exploder.explosionTimer <= 0) {
+                if (isDev) {
+                    console.log(`[DEBUG] Exploder detonating!`);
+                }
+                
                 // Create explosion at exploder's position
                 if (gameState && gameState.scene) {
                     createExplosion(
@@ -217,6 +249,11 @@ export const createExploder = (position, baseSpeed ) => {
                     }
                 }
             }
+        }
+        
+        // Debug position update
+        if (isDev && !exploder.isExploding) {
+            console.log(`[DEBUG] Exploder moving from ${exploder.position.x.toFixed(2)},${exploder.position.z.toFixed(2)} to ${intendedPosition.x.toFixed(2)},${intendedPosition.z.toFixed(2)}`);
         }
         
         // Apply final position and rotation

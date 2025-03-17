@@ -24,6 +24,9 @@
 // src/enemies/zombie.js
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
 
+// Check if we're in development mode
+const isDev = window.NODE_ENV !== 'production';
+
 export const createZombieKing = (position, baseSpeed) => {
     const king = new THREE.Group();
 
