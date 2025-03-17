@@ -171,8 +171,8 @@ const spawnEnemy = (playerPos, scene, gameState) => {
     gameState.zombies.push(enemyObj);
     scene.add(enemyObj.mesh);
     
-    // Play zombie growl sound at the zombie's position
-    playSound('zombieGrowl', enemyObj.mesh.position);
+    // Play zombie growl sound at the zombie's position given by the enemyObj
+    playSound('zombie-growl', enemyObj.mesh.position);
     
     logger.debug(`New ${enemyObj.type} spawned`, { position });
     

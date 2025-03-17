@@ -94,7 +94,7 @@ export const loadAudio = (name, url, isLooping = false, volume = 1.0, type = 'sf
 };
 
 /**
- * Load a positional audio file (e.g., zombie growl, explosion)
+ * Load a positional audio file (e.g. explosion)
  * @param {string} name - Unique identifier for the sound
  * @param {string} url - Path to the audio file
  * @param {number} refDistance - Distance at which the volume is reduced by half
@@ -155,6 +155,9 @@ export const playSound = (name, position = null) => {
   const soundData = audioState.sounds.get(name);
   if (!soundData) {
     logger.warn(`Sound not found: ${name}`);
+    // List available sounds to help debugging
+    const availableSounds = Array.from(audioState.sounds.keys()).join(', ');
+    logger.warn(`Sound not found: "${name}". Available sounds: ${availableSounds || 'none'}`);
     return false;
   }
 
@@ -173,7 +176,7 @@ export const playSound = (name, position = null) => {
   // For positional audio, we need to attach it to an object at the specified position
   if (isPositional && position) {
     // If the audio is already attached to an object, we need to detach it first
-    if (audio.parent !== audioState.listener) {
+    if (audio.parent !== audioState.listener && audio.parent !== null) {
       audio.parent.remove(audio);
     }
     
@@ -403,9 +406,10 @@ export const loadMusicTracks = async (directory = './audio/music/') => {
       'Night Circuit.mp3',
       'Night of the Undead1.mp3',
       'Pulse Control.mp3',
-      'Pulse Drive (1).mp3',
+      'Pulse Drive_deux.mp3',
       'Pulse-Drive.mp3',
       'Pulse of the Shadows.mp3',
+      'Pulse of the Shadows_deux.mp3',
       'Pulse of the Undead.mp3',
       'Pulse of the Undead_Chill.mp3',
       'Zombie Shuffle.mp3'
@@ -416,12 +420,15 @@ export const loadMusicTracks = async (directory = './audio/music/') => {
     // Clear existing music tracks
     musicTracks.length = 0;
     
-    // Load each music track
+    // Load each music track with sanitized file name as the track name
     for (const file of musicFiles) {
-      const trackName = `music_${musicTracks.length}`;
-      await loadAudio(trackName, `${directory}${file}`, true, 0.5, 'music');
-      musicTracks.push(trackName);
-      logger.debug(`Loaded music track: ${file} as ${trackName}`);
+      // Remove file extension and sanitize name (replace spaces with dashes)
+      const baseName = file.replace('.mp3', '');
+      const sanitizedName = baseName.replace(/\s+/g, '-').replace(/[()]/g, '');
+      
+      await loadAudio(sanitizedName, `${directory}${file}`, true, 0.5, 'music');
+      musicTracks.push(sanitizedName);
+      logger.debug(`Loaded music track: ${file} as ${sanitizedName}`);
     }
     
     logger.info(`Successfully loaded ${musicTracks.length} music tracks`);

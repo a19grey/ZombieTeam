@@ -1,5 +1,6 @@
 -- Fix UI elements for main game -- Done 3/16/2025
--- Implement working audio 
+-- impleement working game music -- Done 3/16/2025
+-- Implement working SFX
 -- basespeed is correctly updated and used in the game
 -- Adapt the generated world.js to work with our assets and zombies and use it as the procedurally generated world
 -- zombie.js needs to be broken up to smaller chunks

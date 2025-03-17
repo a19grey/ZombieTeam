@@ -55,7 +55,7 @@ const shootBullet = (scene, player, gameState) => {
     
     gameState.lastShotTime = currentTime;
     
-    // Play gunshot sound
+    // Play gunshot 
     playSound('gunshot');
     
     // Get player's forward direction - now using positive Z as forward

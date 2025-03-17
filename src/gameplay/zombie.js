@@ -727,8 +727,9 @@ export const isZombieDead = (zombie) => {
  */
 export const createExplosion = (scene, position, radius = 3, damage = 100, zombies = [], player, gameState) => {
     try {
+        if (gameState.debug.enabled) {
         console.log("Creating explosion at", position, "with radius", radius, "and damage", damage);
-        
+        }
         // Safety check for required parameters
         if (!scene) {
             console.error("Explosion creation failed: scene is undefined");

@@ -204,7 +204,7 @@ export function initializeGame(gameState) {
             await loadMusicTracks();
             
             // Load weapon sounds
-            await loadAudio('gunshot', './audio/sfx/bullet.mp3', false, 0.8);
+            await loadAudio('gunshot', './audio/sfx/gunshot.mp3', false, 0.8);
             
             // Load zombie sounds
             await loadPositionalAudio('zombie-growl', './audio/sfx/zombie-growl.mp3', 15, 0.7);
