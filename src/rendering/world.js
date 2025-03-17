@@ -3,7 +3,7 @@
  */
 
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
-import { createBuilding, createRock, createTexturedGround, createDeadTree, createZombie } from '../rendering/environment.js';
+import { createBuilding, createRock, createTexturedGround, createDeadTree } from './environment.js';
 
 const CHUNK_SIZE = 50; // Size of each terrain chunk
 const VIEW_DISTANCE = 3; // Chunks visible in each direction
@@ -138,7 +138,7 @@ export class World {
 
         const spawnZ = avgPos.z + 50; // Spawn ahead of players
         const spawnX = avgPos.x + (Math.random() - 0.5) * CHUNK_SIZE;
-        const zombie = createZombie({ x: spawnX, z: spawnZ });
+        const zombie = createbaseZombie({ x: spawnX, z: spawnZ });
         this.zombies.push(zombie);
         this.scene.add(zombie);
     }

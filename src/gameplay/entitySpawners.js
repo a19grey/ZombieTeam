@@ -16,7 +16,7 @@
  */
 
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
-import { createZombie, createSkeletonArcher, createExploder, createZombieKing } from './zombie.js';
+import { createbaseZombie, createSkeletonArcher, createExploder, createZombieKing } from '../enemies/enemyindex.js';
 import { createBuilding, createRock, createDeadTree } from '../rendering/environment.js';
 import { setupDismemberment } from './dismemberment.js';
 import { playSound } from './audio.js';
@@ -117,7 +117,7 @@ const spawnEnemy = (playerPos, scene, gameState) => {
     
     if (enemyTypeRoll < 0.6) {
         // Regular zombie (60% chance)
-        const zombie = createZombie(position);
+        const zombie = createbaseZombie(position);
         enemyObj = {
             mesh: zombie,
             health: 50,

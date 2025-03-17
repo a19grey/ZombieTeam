@@ -1,0 +1,90 @@
+/**
+ * Skeleton Archer Module - Creates a ranged skeleton enemy
+ * 
+ * This module contains the function to create a skeleton archer, a mid-level
+ * ranged enemy that fires arrows at the player from a distance. The skeleton
+ * has a bone-white appearance with black hollow eyes and carries a bow.
+ * It moves faster than the standard zombie but maintains distance from the player.
+ * 
+ * Example usage:
+ *   import { createSkeletonArcher } from './enemies/skeletonArcher.js';
+ *   
+ *   // Create a skeleton archer at position (20, 0, 15) with speed 0.05
+ *   const archer = createSkeletonArcher({x: 20, z: 15}, 0.05);
+ *   scene.add(archer);
+ */
+
+// src/enemies/zombie.js
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+
+export const createSkeletonArcher = (position, baseSpeed) => {
+    const skeleton = new THREE.Group();
+
+    // Head with hollow eyes
+    const headGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+    const boneMaterial = new THREE.MeshStandardMaterial({
+        color: 0xdcdcdc, // Bone white
+        roughness: 0.8
+    });
+    const head = new THREE.Mesh(headGeometry, boneMaterial);
+    head.position.y = 1.5;
+    head.castShadow = true;
+    skeleton.add(head);
+
+    // Black eye sockets
+    const eyeGeometry = new THREE.BoxGeometry(0.15, 0.15, 0.1);
+    const eyeMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
+    const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+    leftEye.position.set(-0.15, 1.55, 0.25);
+    skeleton.add(leftEye);
+    const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+    rightEye.position.set(0.15, 1.55, 0.25);
+    skeleton.add(rightEye);
+
+    // Body (thinner than zombie)
+    const bodyGeometry = new THREE.BoxGeometry(0.4, 0.75, 0.2);
+    const body = new THREE.Mesh(bodyGeometry, boneMaterial);
+    body.position.y = 0.75;
+    body.castShadow = true;
+    skeleton.add(body);
+
+    // Bow (simple representation)
+    const bowGeometry = new THREE.BoxGeometry(0.1, 0.8, 0.1);
+    const bowMaterial = new THREE.MeshStandardMaterial({ color: 0x8b4513 });
+    const bow = new THREE.Mesh(bowGeometry, bowMaterial);
+    bow.position.set(0.3, 0.75, 0.2);
+    bow.rotation.x = Math.PI / 4;
+    skeleton.add(bow);
+
+    // Arms and legs similar to zombie but thinner
+    const limbGeometry = new THREE.BoxGeometry(0.2, 0.75, 0.2);
+    const leftArm = new THREE.Mesh(limbGeometry, boneMaterial);
+    leftArm.position.set(-0.3, 0.75, 0);
+    leftArm.rotation.x = Math.PI / 6;
+    skeleton.add(leftArm);
+    
+    const rightArm = new THREE.Mesh(limbGeometry, boneMaterial);
+    rightArm.position.set(0.3, 0.75, 0);
+    rightArm.rotation.x = -Math.PI / 6; // Bow-holding position
+    skeleton.add(rightArm);
+
+    const legGeometry = new THREE.BoxGeometry(0.2, 0.5, 0.2);
+    const leftLeg = new THREE.Mesh(legGeometry, boneMaterial);
+    leftLeg.position.set(-0.1, 0.25, 0);
+    skeleton.add(leftLeg);
+    const rightLeg = new THREE.Mesh(legGeometry, boneMaterial);
+    rightLeg.position.set(0.1, 0.25, 0);
+    skeleton.add(rightLeg);
+
+    skeleton.position.set(position.x, 0, position.z);
+    skeleton.mesh = skeleton;
+    
+    // Set enemy type for special behavior
+    skeleton.enemyType = 'skeletonArcher';
+    skeleton.lastShotTime = 0; // For tracking when the skeleton last shot an arrow
+    
+    // Set speed relative to baseSpeed (faster than standard zombie)
+    skeleton.speed = baseSpeed * 1.1; // 110% of base speed
+    
+    return skeleton;
+};

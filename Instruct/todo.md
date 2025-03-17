@@ -1,9 +1,11 @@
 -- Fix UI elements for main game -- Done 3/16/2025
 -- impleement working game music -- Done 3/16/2025
+-- zombie.js needs to be broken up to smaller chunks
+    -- Ongoing I moved all create functions to their own blocksin /enemy and loaded with /enemy/enemyindex.js next is to... run it, and see what breaks, then .updates then utils move
 -- Implement working SFX
 -- basespeed is correctly updated and used in the game
 -- Adapt the generated world.js to work with our assets and zombies and use it as the procedurally generated world
--- zombie.js needs to be broken up to smaller chunks
+
 -- Powerups should spawn in pairs behind players in same horizontal position abit far apart left and right so there is a choice and only time to grab one, once grabbed the rest disappear
 -- Tune zombie and gun rates and power up rates, camera angle
 -- Player should not be damaged by grenade launcher explosion - Player in explosion radius, dealing 40 damage

@@ -4,7 +4,8 @@ import { gameState, handleGameOver } from './gameState.js';
 
 // import { createScene, createCamera, createRenderer, createLighting, createGround } from './rendering/scene.js';
 import { createPlayer, handlePlayerMovement, createPlayerWeapon, aimPlayerWithMouse } from './gameplay/player.js';
-import { createZombie, updateZombies, createSkeletonArcher, createExploder, createZombieKing, createExplosion } from './gameplay/zombie.js';
+import { updateZombies, createExplosion } from './gameplay/zombie.js';
+import { createbaseZombie,createExploder,createSkeletonArcher,createZombieKing,createPlagueTitan,createNecrofiend,createRotBehemoth,createSkittercrab } from './enemies/enemyindex.js';
 import { updateUI, showMessage, initUI } from './ui/ui.js';
 import { handleCollisions, checkCollision, applyPowerupEffect } from './gameplay/physics.js';
 import { createBullet, updateBullets } from './gameplay/weapons.js';
@@ -295,7 +296,7 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTi
                         z: zombie.mesh.position.z + Math.cos(angle) * distance
                     };
                     
-                    const minion = createZombie(position);
+                    const minion = createbaseZombie(position);
                     const minionObj = {
                         mesh: minion,
                         health: 30, // Weaker than regular zombies

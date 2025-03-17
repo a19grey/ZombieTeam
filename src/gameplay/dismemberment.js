@@ -7,7 +7,7 @@
  * 
  * Example usage:
  * import { setupDismemberment, processDismemberment } from './gameplay/dismemberment.js';
- * const zombie = createZombie(position);
+ * const zombie = createbaseZombieposition);
  * setupDismemberment(zombie);
  * processDismemberment(zombie, damagePercent);
  */
