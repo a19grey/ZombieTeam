@@ -39,10 +39,10 @@ const logTest = (component, test, passed, error = null) => {
 // Audio test function
 const testAudio = () => {
     const audioFiles = [
-        { src: './audio/gunshot.mp3', name: 'Gunshot' },
-        { src: './audio/zombie-growl.mp3', name: 'Zombie Growl' },
-        { src: './audio/player-hit.mp3', name: 'Player Hit' },
-        { src: './audio/powerup.mp3', name: 'Powerup' }
+        { src: './audio/sfx/gunshot.mp3', name: 'Gunshot' },
+        { src: './audio/sfx/zombie-growl.mp3', name: 'Zombie Growl' },
+        { src: './audio/sfx/player-hit.mp3', name: 'Player Hit' },
+        { src: './audio/sfx/powerup-pickup.mp3', name: 'Powerup' }
     ];
     
     let pendingTests = audioFiles.length;

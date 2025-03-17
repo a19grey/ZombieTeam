@@ -11,7 +11,7 @@
  * createSoundSettingsUI();
  */
 
-import { setMasterVolume, toggleMute, getAudioState, setMusicVolume, setSfxVolume } from '../gameplay/audio.js';
+import { setMasterVolume, toggleMute, getAudioState, setMusicVolume, setSfxVolume, setAudioEnabled, setRandomMusicEnabled } from '../gameplay/audio.js';
 import { showMessage } from './ui.js';
 
 let soundSettingsElement = null;
@@ -118,6 +118,35 @@ export function createSoundSettingsUI() {
     muteContainer.appendChild(muteLabel);
     muteContainer.appendChild(muteToggle);
     soundSettingsElement.appendChild(muteContainer);
+    
+    // Add random music toggle
+    const randomMusicContainer = document.createElement('div');
+    randomMusicContainer.style.marginTop = '15px';
+    
+    const randomMusicLabel = document.createElement('label');
+    randomMusicLabel.setAttribute('for', 'random-music-toggle');
+    randomMusicLabel.textContent = 'Random Music Playback';
+    randomMusicLabel.style.marginRight = '10px';
+    
+    const randomMusicToggle = document.createElement('input');
+    randomMusicToggle.type = 'checkbox';
+    randomMusicToggle.id = 'random-music-toggle';
+    randomMusicToggle.checked = true; // Default to enabled
+    
+    // Add random music toggle handler
+    randomMusicToggle.addEventListener('change', (e) => {
+        const isEnabled = e.target.checked;
+        if (setRandomMusicEnabled) {
+            setRandomMusicEnabled(isEnabled);
+            showFeedback(isEnabled ? 'Random music enabled' : 'Random music disabled');
+        } else {
+            console.log('Random music toggled:', isEnabled);
+        }
+    });
+    
+    randomMusicContainer.appendChild(randomMusicLabel);
+    randomMusicContainer.appendChild(randomMusicToggle);
+    soundSettingsElement.appendChild(randomMusicContainer);
     
     // Add status text for feedback
     const statusText = document.createElement('div');

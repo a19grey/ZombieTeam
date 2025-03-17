@@ -2,7 +2,7 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.m
 
 import { gameState, handleGameOver } from './gameState.js';
 
-import { createScene, createCamera, createRenderer, createLighting, createGround } from './rendering/scene.js';
+// import { createScene, createCamera, createRenderer, createLighting, createGround } from './rendering/scene.js';
 import { createPlayer, handlePlayerMovement, createPlayerWeapon, aimPlayerWithMouse } from './gameplay/player.js';
 import { createZombie, updateZombies, createSkeletonArcher, createExploder, createZombieKing, createExplosion } from './gameplay/zombie.js';
 import { updateUI, showMessage, initUI } from './ui/ui.js';
@@ -13,13 +13,13 @@ import { createRapidFirePowerup, createShotgunBlastPowerup, createExplosionPower
 import { createTexturedGround, createBuilding, createRock, createDeadTree } from './rendering/environment.js';
 import { setupDismemberment, updateParticleEffects } from './gameplay/dismemberment.js';
 import { shouldSpawnPowerup, spawnPowerupBehindPlayer, cleanupOldPowerups } from './gameplay/powerupSpawner.js';
-import { initAudio, loadAudio, loadPositionalAudio, playSound, stopSound, toggleMute, setMasterVolume, debugAudioSystem, getAudioState, setAudioEnabled } from './gameplay/audio.js';
-import { createSoundSettingsUI, toggleSoundSettingsUI, isSoundSettingsVisible } from './ui/soundSettings.js';
+//import { initAudio, loadAudio, loadPositionalAudio, playSound, stopSound, toggleMute, setMasterVolume, debugAudioSystem, getAudioState, setAudioEnabled } from './gameplay/audio.js';
+//import { createSoundSettingsUI, toggleSoundSettingsUI, isSoundSettingsVisible } from './ui/soundSettings.js';
 import { debugWebGL, fixWebGLContext, monitorRenderingPerformance, createFallbackCanvas } from './debug.js';
-import { runTests } from './utils/testRunner.js';
-import { testWeaponsSystem } from './utils/weaponsTester.js';
+//import { runTests } from './utils/testRunner.js';
+// import { testWeaponsSystem } from './utils/weaponsTester.js';
 import { safeCall } from './utils/safeAccess.js';
-import { checkAudioFiles, suggestAudioFix } from './utils/audioChecker.js';
+// import { checkAudioFiles, suggestAudioFix } from './utils/audioChecker.js';
 import { spawnEnvironmentObjects, spawnEnemy } from './gameplay/entitySpawners.js';
 import { shootBullet, handleCombatCollisions } from './gameplay/combat.js';
 

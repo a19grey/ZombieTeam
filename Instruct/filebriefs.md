@@ -1,6 +1,6 @@
 # Project File Structure
 
-> Generated on 3/15/2025, 3:37:33 PM
+> Generated on 3/16/2025, 5:15:21 PM
 
 This document provides a detailed overview of the project's file structure with descriptions extracted from file documentation.
 
@@ -29,7 +29,13 @@ This document provides a detailed overview of the project's file structure with 
   Example usage: Import this module in your HTML to see environment information.  
   /
 
-- 📄 **gameSetup.js** (257 lines):  
+- 📄 **eventHandlers.js** (47 lines):  
+  Setup event listeners
+
+- 📄 **gameLoop.js** (470 lines):  
+  import { createScene, createCamera, createRenderer, createLighting, createGround } from './rendering/scene.js';
+
+- 📄 **gameSetup.js** (235 lines):  
   Game Setup Module - Initializes Three.js components and game objects  
   This file handles all initialization for the game including:  
   - Scene, camera, and renderer setup  
@@ -39,7 +45,7 @@ This document provides a detailed overview of the project's file structure with 
   Example usage: Import and call initializeGame() to set up all game components  
   /
 
-- 📄 **gameState.js** (109 lines):  
+- 📄 **gameState.js** (96 lines):  
   Game State Module - Defines and manages the game state  
   This file contains the central gameState object that tracks all game variables  
   including player stats, enemies, bullets, and game settings. It also includes  
@@ -47,7 +53,7 @@ This document provides a detailed overview of the project's file structure with 
   Example usage: Import gameState to access or modify game variables  
   /
 
-- 📄 **main.js** (1360 lines):  
+- 📄 **main.js** (157 lines):  
   Zombie Survival Game - Main Entry Point  
   This file initializes the game, sets up the Three.js scene, and coordinates  
   the game loop. It imports functionality from other modules to maintain a  
@@ -72,7 +78,22 @@ This document provides a detailed overview of the project's file structure with 
     playSound('gunshot'); // Play gunshot sound  
     /
 
-  - 📄 **dismemberment.js** (401 lines):  
+  - 📄 **combat.js** (352 lines):  
+    Combat Module - Handles shooting and combat-related collision detection  
+    This module contains functions for shooting bullets and handling combat-related  
+    collisions between bullets, zombies, and the player. It centralizes combat logic  
+    to keep the main game loop clean and focused.  
+    Example usage:  
+    import { shootBullet, handleCombatCollisions } from './gameplay/combat.js';  
+    // Handle player shooting  
+    if (gameState.mouseDown) {  
+    shootBullet(scene, player, gameState);  
+    }  
+    // Handle combat collisions in game loop  
+    handleCombatCollisions(scene, player, gameState, delta);  
+    /
+
+  - 📄 **dismemberment.js** (420 lines):  
     Dismemberment Module - Handles zombie limb loss based on damage  
     This module contains functions for managing the dismemberment of zombies  
     as they take damage. It provides a scalable system where zombies lose limbs  
@@ -82,6 +103,19 @@ This document provides a detailed overview of the project's file structure with 
     const zombie = createZombie(position);  
     setupDismemberment(zombie);  
     processDismemberment(zombie, damagePercent);  
+    /
+
+  - 📄 **entitySpawners.js** (182 lines):  
+    Entity Spawner Module - Handles spawning of game entities  
+    This module contains functions for spawning various entities in the game world,  
+    including environment objects (buildings, rocks, trees) and enemies (zombies, archers, etc.).  
+    It centralizes entity creation logic to keep the main game loop and initialization clean.  
+    Example usage:  
+    import { spawnEnvironmentObjects, spawnEnemy } from './gameplay/entitySpawners.js';  
+    // Spawn initial environment  
+    spawnEnvironmentObjects(scene, gameState);  
+    // Spawn a new enemy  
+    spawnEnemy(player.position, scene, gameState);  
     /
 
   - 📄 **physics.js** (657 lines):  
@@ -138,13 +172,17 @@ This document provides a detailed overview of the project's file structure with 
     World Module - Manages infinite procedural world and multiplayer elements  
     /
 
-  - 📄 **zombie.js** (1104 lines):  
+  - 📄 **zombie.js** (1149 lines):  
     Zombie Module - Handles zombie creation and AI behavior  
     This module contains functions for creating Minecraft-style low-poly zombies and updating their  
-    positions to chase the player.  
+    positions to chase the player. g  
     /
 
 - 📁 **rendering/**
+  - 📄 **cliffworld.js** (182 lines):  
+    World Module - Manages infinite procedural cliff world geometry  
+    /
+
   - 📄 **environment.js** (302 lines):  
     Environment Module - Handles creation of environmental objects  
     This module contains functions for creating various environmental objects  
@@ -167,7 +205,34 @@ This document provides a detailed overview of the project's file structure with 
     /
 
 - 📁 **ui/**
-  - 📄 **soundSettings.js** (189 lines):  
+  - 📄 **controlsMenu.js** (97 lines):  
+    Controls Menu Module - Handles display of game controls  
+    This module provides functionality for creating and managing the game controls  
+    information panel. It generates DOM elements for displaying control instructions.  
+    Example usage:  
+    import { createControlsMenu, toggleControlsMenu } from './ui/controlsMenu.js';  
+    // Create controls menu  
+    const controlsElement = createControlsMenu();  
+    document.body.appendChild(controlsElement);  
+    // Toggle visibility  
+    toggleControlsMenu();  
+    /
+
+  - 📄 **menu.js** (345 lines):  
+    Menu System Module - Provides a centralized menu management system  
+    This module provides a flexible menu system for the game that can handle multiple  
+    sub-menus, such as controls, settings, audio, etc. The main menu controller manages  
+    the creation, display, and toggling of various menu components.  
+    Example usage:  
+    import { initMenuSystem, addSubMenu, toggleMenu } from './ui/menu.js';  
+    // Initialize the menu system  
+    initMenuSystem();  
+    // Add a sub-menu from another module  
+    import { createControlsMenu } from './ui/controlsMenu.js';  
+    addSubMenu('controls', 'Controls', createControlsMenu());  
+    /
+
+  - 📄 **soundSettings.js** (252 lines):  
     Sound Settings UI Module  
     This module provides a user interface for controlling game audio settings,  
     including music volume, sound effects volume, and mute toggle.  
@@ -177,7 +242,7 @@ This document provides a detailed overview of the project's file structure with 
     createSoundSettingsUI();  
     /
 
-  - 📄 **ui.js** (225 lines):  
+  - 📄 **ui.js** (182 lines):  
     UI Module - Handles user interface updates  
     This module contains functions for updating the UI elements  
     that display player stats like health and EXP.  
@@ -234,7 +299,7 @@ This document provides a detailed overview of the project's file structure with 
     // Use: const health = safeGet(zombie, 'userData.health', 100); // 100 is default value  
     /
 
-  - 📄 **testRunner.js** (206 lines):  
+  - 📄 **testRunner.js** (208 lines):  
     testRunner.js  
     A testing framework for the Zombie WebGL Co-Op game.  
     This file contains functions to test individual components of the game  

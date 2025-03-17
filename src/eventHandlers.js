@@ -1,7 +1,7 @@
 import { gameState } from './gameState.js';
 import { logger } from './utils/logger.js';
 import { spawnPowerupBehindPlayer } from './gameplay/powerupSpawner.js';
-import { createSoundSettingsUI } from './ui/soundSettings.js';
+import { createSoundSettingsUI, toggleSoundSettingsUI } from './ui/soundSettings.js';
 
 export function setupEventListeners(player, scene, camera,renderer) {
 // Setup event listeners
@@ -16,7 +16,7 @@ document.addEventListener('keydown', (event) => {
         
         // Toggle sound settings with M key
         if (event.key.toLowerCase() === 'm') {
-            createSoundSettingsUI();
+            toggleSoundSettingsUI();
         }
     });
 

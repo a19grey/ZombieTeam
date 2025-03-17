@@ -14,7 +14,7 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.m
 import { createScene, createCamera, createRenderer, createLighting, createGround } from './rendering/scene.js';
 import { createPlayer, createPlayerWeapon } from './gameplay/player.js';
 import { updateUI, initUI,showMessage, } from './ui/ui.js';
-import { initAudio, loadAudio, loadPositionalAudio, playSound, stopSound, toggleMute, setMasterVolume, debugAudioSystem, getAudioState, setAudioEnabled } from './gameplay/audio.js';
+import { initAudio, loadAudio, loadPositionalAudio, playSound, stopSound, toggleMute, setMasterVolume, debugAudioSystem, getAudioState, setAudioEnabled, loadMusicTracks, playRandomMusicTrack } from './gameplay/audio.js';
 import { createSoundSettingsUI } from './ui/soundSettings.js';
 import { debugWebGL, fixWebGLContext, createFallbackCanvas } from './debug.js';
 import { logger } from './utils/logger.js';
@@ -54,9 +54,9 @@ export function initializeGame(gameState) {
         // Initialize audio listener
         try {
             audioListener = initAudio(camera);
-            // Disable audio system by default until all sound files are properly set up
-            setAudioEnabled(false);
-            logger.info('Audio system initialized but disabled by default');
+            // Enable audio system by default
+            setAudioEnabled(true);
+            logger.info('Audio system initialized and enabled');
         } catch (audioError) {
             logger.error('Audio initialization failed:', audioError);
             console.error('Audio initialization failed:', audioError);
@@ -200,15 +200,15 @@ export function initializeGame(gameState) {
         try {
             logger.info('Loading game audio files...');
             
-            // Load background music
-            await loadAudio('backgroundMusic', './audio/music/Pulse-Drive.mp3', true, 0.5, 'music');
+            // Load all music tracks from the music directory
+            await loadMusicTracks();
             
             // Load weapon sounds
             await loadAudio('gunshot', './audio/sfx/bullet.mp3', false, 0.8);
             
             // Load zombie sounds
-            await loadPositionalAudio('zombieGrowl', './audio/sfx/zombie-growl.mp3', 15, 0.7);
-            await loadPositionalAudio('zombieDeath', './audio/sfx/zombie-death.mp3', 10, 0.8);
+            await loadPositionalAudio('zombie-growl', './audio/sfx/zombie-growl.mp3', 15, 0.7);
+            await loadPositionalAudio('zombie-death', './audio/sfx/zombie-death.mp3', 10, 0.8);
             
             // Load powerup sounds
             await loadAudio('powerupPickup', './audio/sfx/powerup-pickup.mp3', false, 0.9);
@@ -216,8 +216,8 @@ export function initializeGame(gameState) {
             // Load explosion sound
             await loadPositionalAudio('explosion', './audio/sfx/explosion.mp3', 20, 1.0);
             
-            // Start background music
-            playSound('backgroundMusic');
+            // Start playing random background music
+            playRandomMusicTrack();
             
             logger.info('Game audio loaded successfully');
             return true;

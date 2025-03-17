@@ -24,7 +24,7 @@ const AUDIO_FILES = [
     { path: './audio/sfx/gunshot.mp3', name: 'Gunshot', required: true },
     { path: './audio/sfx/zombie-growl.mp3', name: 'Zombie Growl', required: true },
     { path: './audio/sfx/player-hit.mp3', name: 'Player Hit', required: true },
-    { path: './audio/sfx/powerup.mp3', name: 'Powerup', required: true },
+    { path: './audio/sfx/powerup-pickup.mp3', name: 'Powerup', required: true },
     { path: './audio/sfx/zombie-death.mp3', name: 'Zombie Death', required: true },
     { path: './audio/sfx/explosion.mp3', name: 'Explosion', required: false },
     { path: './audio/sfx/shotgun.mp3', name: 'Shotgun', required: false },

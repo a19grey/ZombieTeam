@@ -16,27 +16,10 @@ import { animate } from './gameLoop.js';
 import { initMenuSystem, addSubMenu } from './ui/menu.js';
 import { createControlsMenu } from './ui/controlsMenu.js';
 import { createSoundSettingsUI } from './ui/soundSettings.js';
-
-// import { createScene, createCamera, createRenderer, createLighting, createGround } from './rendering/scene.js';
-// import { createPlayer, handlePlayerMovement, createPlayerWeapon, aimPlayerWithMouse } from './gameplay/player.js';
-// import { createZombie, updateZombies, createSkeletonArcher, createExploder, createZombieKing, createExplosion } from './gameplay/zombie.js';
-// import { updateUI, showMessage, initUI } from './ui/ui.js';
-// import { handleCollisions, checkCollision, applyPowerupEffect } from './gameplay/physics.js';
-// import { createBullet, updateBullets } from './gameplay/weapons.js';
 import { logger } from './utils/logger.js';
-// import { createRapidFirePowerup, createShotgunBlastPowerup, createExplosionPowerup, createLaserShotPowerup, createGrenadeLauncherPowerup, animatePowerup, createSmokeTrail } from './gameplay/powerups2.js';
-// import { createTexturedGround, createBuilding, createRock, createDeadTree } from './rendering/environment.js';
-// import { setupDismemberment, updateParticleEffects } from './gameplay/dismemberment.js';
-// import { shouldSpawnPowerup, spawnPowerupBehindPlayer, cleanupOldPowerups } from './gameplay/powerupSpawner.js';
-// import { initAudio, loadAudio, loadPositionalAudio, playSound, stopSound, toggleMute, setMasterVolume, debugAudioSystem, getAudioState, setAudioEnabled } from './gameplay/audio.js';
-// import { createSoundSettingsUI, toggleSoundSettingsUI, isSoundSettingsVisible } from './ui/soundSettings.js';
 import { debugWebGL, fixWebGLContext, monitorRenderingPerformance, createFallbackCanvas } from './debug.js';
-// import { runTests } from './utils/testRunner.js';
-// import { testWeaponsSystem } from './utils/weaponsTester.js';
-// import { safeCall } from './utils/safeAccess.js';
 import { checkAudioFiles, suggestAudioFix } from './utils/audioChecker.js';
 import { spawnEnvironmentObjects, spawnEnemy } from './gameplay/entitySpawners.js';
-// import { shootBullet } from './gameplay/combat.js';
 import { setupEventListeners } from './eventHandlers.js';
 
 // Set log level based on environment

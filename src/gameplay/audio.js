@@ -33,6 +33,11 @@ const audioState = {
   enabled: true // Global setting to enable/disable audio system
 };
 
+// Store music tracks for random playback
+const musicTracks = [];
+let currentMusicIndex = -1;
+let isRandomMusicEnabled = true;
+
 /**
  * Initialize audio listener (to be attached to camera)
  * @param {THREE.Camera} camera - The camera to attach the audio listener to
@@ -382,4 +387,118 @@ export const setAudioEnabled = (enabled) => {
   }
   
   return audioState.enabled;
+};
+
+/**
+ * Load all music tracks from the specified directory
+ * @param {string} directory - Path to the music directory
+ * @returns {Promise} Promise that resolves when all tracks are loaded
+ */
+export const loadMusicTracks = async (directory = './audio/music/') => {
+  try {
+    // List of music files to load
+    const musicFiles = [
+      'Electric Heartbeat.mp3',
+      'Electric Pulse.mp3',
+      'Night Circuit.mp3',
+      'Night of the Undead1.mp3',
+      'Pulse Control.mp3',
+      'Pulse Drive (1).mp3',
+      'Pulse-Drive.mp3',
+      'Pulse of the Shadows.mp3',
+      'Pulse of the Undead.mp3',
+      'Pulse of the Undead_Chill.mp3',
+      'Zombie Shuffle.mp3'
+    ];
+    
+    logger.info(`Loading ${musicFiles.length} music tracks...`);
+    
+    // Clear existing music tracks
+    musicTracks.length = 0;
+    
+    // Load each music track
+    for (const file of musicFiles) {
+      const trackName = `music_${musicTracks.length}`;
+      await loadAudio(trackName, `${directory}${file}`, true, 0.5, 'music');
+      musicTracks.push(trackName);
+      logger.debug(`Loaded music track: ${file} as ${trackName}`);
+    }
+    
+    logger.info(`Successfully loaded ${musicTracks.length} music tracks`);
+    return true;
+  } catch (error) {
+    logger.error(`Failed to load music tracks: ${error}`);
+    return false;
+  }
+};
+
+/**
+ * Play a random music track from the loaded tracks
+ * @returns {boolean} Whether a track was successfully played
+ */
+export const playRandomMusicTrack = () => {
+  if (!isRandomMusicEnabled || musicTracks.length === 0) {
+    return false;
+  }
+  
+  // Stop current music if playing
+  if (currentMusicIndex >= 0 && currentMusicIndex < musicTracks.length) {
+    const currentTrack = musicTracks[currentMusicIndex];
+    stopSound(currentTrack);
+  }
+  
+  // Select a random track (different from the current one if possible)
+  let newIndex;
+  if (musicTracks.length === 1) {
+    newIndex = 0;
+  } else {
+    do {
+      newIndex = Math.floor(Math.random() * musicTracks.length);
+    } while (newIndex === currentMusicIndex && musicTracks.length > 1);
+  }
+  
+  currentMusicIndex = newIndex;
+  const trackToPlay = musicTracks[currentMusicIndex];
+  
+  // Get the sound data for the track
+  const soundData = audioState.sounds.get(trackToPlay);
+  if (soundData && soundData.audio) {
+    // Set up the onEnded callback to play the next random track
+    soundData.audio.onEnded = () => {
+      soundData.isPlaying = false;
+      // Play another random track when this one ends
+      playRandomMusicTrack();
+    };
+  }
+  
+  // Play the selected track
+  const success = playSound(trackToPlay);
+  if (success) {
+    logger.info(`Now playing music track: ${trackToPlay}`);
+  }
+  
+  return success;
+};
+
+/**
+ * Enable or disable random music playback
+ * @param {boolean} enabled - Whether random music should be enabled
+ * @returns {boolean} The new enabled state
+ */
+export const setRandomMusicEnabled = (enabled) => {
+  isRandomMusicEnabled = !!enabled;
+  
+  if (!isRandomMusicEnabled) {
+    // Stop all music tracks if random music is disabled
+    musicTracks.forEach(track => {
+      stopSound(track);
+    });
+    logger.info('Random music playback disabled');
+  } else {
+    // Start playing a random track if enabled
+    playRandomMusicTrack();
+    logger.info('Random music playback enabled');
+  }
+  
+  return isRandomMusicEnabled;
 }; 

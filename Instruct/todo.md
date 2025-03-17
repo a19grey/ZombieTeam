@@ -1,5 +1,5 @@
--- Fix UI elements for main game 
--- Implement working audio
+-- Fix UI elements for main game -- Done 3/16/2025
+-- Implement working audio 
 -- basespeed is correctly updated and used in the game
 -- Adapt the generated world.js to work with our assets and zombies and use it as the procedurally generated world
 -- zombie.js needs to be broken up to smaller chunks
@@ -9,7 +9,7 @@
 -- Flocking behavior works - hordeflocking.md has notes here
 -- Add use the bigger badder bosses zombies that are new in zombies.js
 -- zombie archer works
--- Zombie percent selection is better more scalable method
+-- Zombie spawn selection is better more scalable method - if have boss new boss less likely
 -- Multiplayer with not websockets but that other thing - Socket.io webrtc UDP
 -- experience value and  time of game and game length saved to some tiny DB
 -- Implement zustand for better global state
