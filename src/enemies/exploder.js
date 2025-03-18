@@ -18,7 +18,7 @@ import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.m
 import { createExplosion } from '../gameplay/zombieUtils.js'; // Import explosion utility
 
 // Check if we're in development mode
-const isDev = window.NODE_ENV !== 'production';
+const isDev = false;//window.NODE_ENV !== 'production';
 
 export const createExploder = (position, baseSpeed ) => {
     const exploder = new THREE.Group();

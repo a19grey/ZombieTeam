@@ -67,7 +67,7 @@ export const setupDismemberment = (zombie) => {
         parts: {}
     };
     
-    logger.debug(`Setting up dismemberment for ${zombie.type} with max health: ${zombie.dismemberment.maxHealth}`);
+    // logger.debug(`Setting up dismemberment for ${zombie.type} with max health: ${zombie.dismemberment.maxHealth}`);
     
     // Map body parts based on zombie type
     const zombieMesh = zombie.mesh;
@@ -108,7 +108,7 @@ export const setupDismemberment = (zombie) => {
     
     // For zombie king, adjust the part mapping due to different proportions
     if (zombie.type === 'zombieKing') {
-        logger.debug('Setting up dismemberment for Zombie King');
+        // logger.debug('Setting up dismemberment for Zombie King');
         
         // Clear previous mappings to avoid confusion
         zombie.dismemberment.parts = {};
@@ -116,42 +116,42 @@ export const setupDismemberment = (zombie) => {
         zombieMesh.traverse((child) => {
             if (child.isMesh) {
                 // Log each mesh for debugging
-                logger.debug(`ZombieKing mesh: y=${child.position.y.toFixed(2)}, x=${child.position.x.toFixed(2)}, z=${child.position.z.toFixed(2)}, type=${child.geometry.type}`);
+                // logger.debug(`ZombieKing mesh: y=${child.position.y.toFixed(2)}, x=${child.position.x.toFixed(2)}, z=${child.position.z.toFixed(2)}, type=${child.geometry.type}`);
                 
                 // Eyes - purple glowing eyes at eye level
                 if (child.position.y > 2.2 && child.position.y < 2.3 && child.position.z > 0.3) {
                     if (child.position.x < 0) {
                         zombie.dismemberment.parts.leftEye = child;
-                        logger.debug('Found left eye for Zombie King');
+                        //logger.debug('Found left eye for Zombie King');
                     } else if (child.position.x > 0) {
                         zombie.dismemberment.parts.rightEye = child;
-                        logger.debug('Found right eye for Zombie King');
+                        // logger.debug('Found right eye for Zombie King');
                     }
                 } 
                 // Head - large box at the top
                 else if (child.position.y > 2.0 && child.geometry.type === 'BoxGeometry' && 
                          Math.abs(child.position.x) < 0.4 && Math.abs(child.position.z) < 0.4) {
                     zombie.dismemberment.parts.head = child;
-                    logger.debug('Found head for Zombie King');
+                    //logger.debug('Found head for Zombie King');
                 }
                 // Arms - boxes at mid-height with x offset
                 else if (child.position.y > 0.7 && child.position.y < 1.3) {
                     if (child.position.x < -0.4) {
                         zombie.dismemberment.parts.leftArm = child;
-                        logger.debug('Found left arm for Zombie King');
+                        // logger.debug('Found left arm for Zombie King');
                     } else if (child.position.x > 0.4) {
                         zombie.dismemberment.parts.rightArm = child;
-                        logger.debug('Found right arm for Zombie King');
+                        // logger.debug('Found right arm for Zombie King');
                     }
                 }
                 // Legs - boxes at the bottom
                 else if (child.position.y < 0.7) {
                     if (child.position.x < 0) {
                         zombie.dismemberment.parts.leftLeg = child;
-                        logger.debug('Found left leg for Zombie King');
+                        // logger.debug('Found left leg for Zombie King');
                     } else if (child.position.x > 0) {
                         zombie.dismemberment.parts.rightLeg = child;
-                        logger.debug('Found right leg for Zombie King');
+                        // logger.debug('Found right leg for Zombie King');
                     }
                 }
             }
@@ -208,7 +208,7 @@ export const setupDismemberment = (zombie) => {
         });
     }
     
-    logger.debug('Dismemberment setup complete for zombie type:', zombie.type);
+    // logger.debug('Dismemberment setup complete for zombie type:', zombie.type);
 };
 
 /**
@@ -308,7 +308,7 @@ export const processDismemberment = (zombie, newDamage, scene) => {
     const damagePercent = (zombie.dismemberment.damageTaken / zombie.dismemberment.maxHealth) * 100;
     
     // Debug logging
-    logger.debug(`Zombie type: ${zombie.type}, Health: ${zombie.health}, Max Health: ${zombie.dismemberment.maxHealth}, Damage %: ${damagePercent.toFixed(1)}%`);
+   // logger.debug(`Zombie type: ${zombie.type}, Health: ${zombie.health}, Max Health: ${zombie.dismemberment.maxHealth}, Damage %: ${damagePercent.toFixed(1)}%`);
     
     // Track particles created
     const particles = [];
@@ -373,9 +373,9 @@ export const processDismemberment = (zombie, newDamage, scene) => {
             // Apply gameplay effects based on part lost
             applyDismembermentEffects(zombie, partName);
             
-            logger.debug(`Zombie lost ${partName} at ${damagePercent.toFixed(1)}% damage`);
+           // logger.debug(`Zombie lost ${partName} at ${damagePercent.toFixed(1)}% damage`);
         } else {
-            logger.debug(`Failed to find part: ${partName} for zombie type: ${zombie.type}`);
+           // logger.debug(`Failed to find part: ${partName} for zombie type: ${zombie.type}`);
         }
     });
     

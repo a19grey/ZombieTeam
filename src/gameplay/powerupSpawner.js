@@ -23,9 +23,9 @@ import { logger } from '../utils/logger.js';
 // Constants for powerup spawning
 const POWERUP_MIN_DISTANCE = 10; // Minimum distance from player
 const POWERUP_MAX_DISTANCE = 20; // Maximum distance from player
-const POWERUP_SPAWN_CHANCE = 0.005; // Chance to spawn a powerup each frame (0.5%)
-const POWERUP_TYPES = ['rapidFire', 'shotgunBlast', 'explosion', 'laserShot', 'grenadeLauncher'];
-const MIN_TIME_BETWEEN_POWERUPS = 10000; // Minimum time between powerup spawns (10 seconds)
+const POWERUP_SPAWN_CHANCE_PER_SECOND = 0.1; // 30% chance per second to spawn a powerup
+const POWERUP_TYPES = ['rapidFire', 'shotgunBlast', 'explosion', 'laserShot', 'grenadeLauncher','shotgunBlast'];
+const MIN_TIME_BETWEEN_POWERUPS = 1000; // Minimum time between powerup spawns (10 seconds)
 
 /**
  * Determines if a powerup should spawn based on time and probability
@@ -34,41 +34,61 @@ const MIN_TIME_BETWEEN_POWERUPS = 10000; // Minimum time between powerup spawns 
  * @returns {boolean} Whether a powerup should spawn
  */
 export const shouldSpawnPowerup = (gameState, currentTime) => {
-    // Use the main gameState.powerupSpawnRate or fallback to debug settings or constant
-    const spawnRate = gameState.powerupSpawnRate || 
-        (gameState.debug && gameState.debug.powerupSpawnRate) || 
-        MIN_TIME_BETWEEN_POWERUPS;
-    
-    // Initialize lastPowerupSpawnTime if it doesn't exist
+    // Use the main gameState.powerupSpawnRate 
+    const spawnRate = gameState.powerupSpawnRate;
+    console.log('A : curentTime, gameState.lastPowerupSpawnTime delta', currentTime - gameState.lastPowerupSpawnTime);
+    // Initialize lastPowerupSpawnTime and lastPowerupCheckTime if they don't exist
     if (!gameState.lastPowerupSpawnTime) {
         gameState.lastPowerupSpawnTime = currentTime - spawnRate;
+        gameState.lastPowerupCheckTime = currentTime;
+        console.log(`B: lastPowerupSpawnTime: ${gameState.lastPowerupSpawnTime}`);
         return false;
     }
     
     // Don't spawn if we've spawned recently
-    if (currentTime - gameState.lastPowerupSpawnTime < spawnRate) {
+    if (currentTime - gameState.lastPowerupSpawnTime < MIN_TIME_BETWEEN_POWERUPS) {
+        console.log(`C: currentTime - gameState.lastPowerupSpawnTime < spawnRate: ${currentTime - gameState.lastPowerupSpawnTime} < ${MIN_TIME_BETWEEN_POWERUPS}`);
         return false;
     }
     
-    // Always spawn if enough time has passed
+    // Always spawn if enough time has passed (guaranteed spawn after 1.5x the spawn rate)
     if (currentTime - gameState.lastPowerupSpawnTime > spawnRate * 1.5) {
+        console.log(`D: Forcing powerup spawn after extended time without spawn: ${currentTime - gameState.lastPowerupSpawnTime}ms`);
+        gameState.lastPowerupCheckTime = currentTime;
         return true;
     }
     
-    // Random chance to spawn
-    return Math.random() < POWERUP_SPAWN_CHANCE;
+    // Calculate time since last check in seconds
+    const timeSinceLastCheck = (currentTime - (gameState.lastPowerupCheckTime || 0)) / 1000;
+    console.log(`E: timeSinceLastCheck: ${timeSinceLastCheck}`);
+    // Update last check time
+    gameState.lastPowerupCheckTime = currentTime;
+    
+    // Skip if time since last check is too small (prevents multiple checks in short time periods)
+    if (timeSinceLastCheck < 0.1) {
+        return false;
+    }
+    
+    // Calculate spawn probability based on time passed
+    const spawnProbability = POWERUP_SPAWN_CHANCE_PER_SECOND * timeSinceLastCheck;
+    
+    // Log check with adjusted probability
+    console.log(`F: Checking powerup spawn: ${(spawnProbability * 100).toFixed(2)}% chance (${timeSinceLastCheck.toFixed(2)}s elapsed)`);
+    
+    // Random chance to spawn based on time passed
+    return Math.random() < spawnProbability;
 };
 
 /**
- * Gets a position behind the player in absolute world coordinates (negative Z direction)
+ * Gets a position behind the player in absolute world coordinates (positive Z direction in this game)
  * @param {THREE.Object3D} player - The player object
- * @param {number} zDistance - Exact distance from player in Z direction
+ * @param {number} zDistance - Distance from player in Z direction
  * @param {boolean} isRightSide - Whether to position on right side (positive X) or left side (negative X)
  * @returns {THREE.Vector3} The spawn position
  */
 export const getPositionBehindPlayer = (player, zDistance, isRightSide = false) => {
-    // Fixed X offset for horizontal positioning
-    const xOffset = 2.5; // Distance from center in X direction
+    // Horizontal offset for positioning powerups on either side
+    const xOffset = 5.0; // Increased from 2.5 to 5.0 for wider separation
     
     // Create the spawn position in absolute world coordinates
     const spawnPosition = new THREE.Vector3();
@@ -76,14 +96,24 @@ export const getPositionBehindPlayer = (player, zDistance, isRightSide = false) 
     // Start at player's position
     spawnPosition.copy(player.position);
     
-    // Move south (negative Z) by the specified distance
-    spawnPosition.z = zDistance;
+    // Calculate the z position - In this game, POSITIVE Z is behind the player
+    // Add the zDistance to player's Z to place powerup behind them
+    const playerZ = player.position.z; 
+    spawnPosition.z = playerZ + zDistance;
     
     // Apply X offset based on left/right side
     spawnPosition.x += isRightSide ? xOffset : -xOffset;
     
     // Ensure y-coordinate is at ground level
     spawnPosition.y = 0;
+    
+    console.log('Spawning powerup at:', {
+        playerPos: player.position.clone(),
+        spawnPos: spawnPosition.clone(), 
+        zDistance,
+        relativeZ: spawnPosition.z - playerZ,
+        xOffset: isRightSide ? xOffset : -xOffset
+    });
     
     return spawnPosition;
 };

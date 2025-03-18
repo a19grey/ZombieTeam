@@ -61,7 +61,7 @@ const spawnEnvironmentObjects = (scene, gameState) => {
         gameState.environmentObjects.push(environmentObject);
     }
     
-    logger.debug('Environment objects spawned');
+    //logger.debug('Environment objects spawned');
 };
 
 /**
@@ -178,7 +178,7 @@ const spawnEnemy = (playerPos, scene, gameState) => {
     // Play zombie growl sound at the zombie's position given by the enemyObj
     playSound('zombie-growl', enemyObj.mesh.position);
     
-    logger.debug(`New ${enemyObj.type} spawned`, { position });
+    //logger.debug(`New ${enemyObj.type} spawned`, { position });
     
     return enemyObj;
 };

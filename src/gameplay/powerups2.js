@@ -180,7 +180,7 @@ export const createLaserShotPowerup = (position) => {
     const powerup = new THREE.Group();
 
     // Laser emitter (futuristic rod with glowing tip)
-    const emitterGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.5, 8);
+    const emitterGeometry = new THREE.CylinderGeometry(0.2, 0.2, 0.5, 8);
     const emitterMaterial = new THREE.MeshStandardMaterial({
         color: 0x00ffff, // Cyan for sci-fi laser
         emissive: 0x00ffff,

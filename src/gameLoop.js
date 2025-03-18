@@ -365,9 +365,14 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTi
             }
         }
         
-        // Check if we should spawn a powerup
-        if (shouldSpawnPowerup(gameState, currentTime)) {
-            spawnPowerupBehindPlayer(scene, gameState, player);
+        
+        // Check if we should spawn a powerup (only check once per second for efficiency)
+        if (!gameState.lastPowerupCheckFrameTime || currentTime - gameState.lastPowerupCheckFrameTime >= 1000) {
+            gameState.lastPowerupCheckFrameTime = currentTime;
+            console.log('currentTime is inside the loop for spawn powerup', currentTime);
+            if (shouldSpawnPowerup(gameState, currentTime)) {
+                spawnPowerupBehindPlayer(scene, gameState, player);
+            }
         }
         
         // Clean up old powerups
