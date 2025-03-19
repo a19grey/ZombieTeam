@@ -14,7 +14,7 @@
  *   scene.add(exploder);
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import * as THREE from 'three';
 import { createExplosion } from '../gameplay/zombieUtils.js'; // Import explosion utility
 import { logger } from '../utils/logger.js';
 
@@ -114,7 +114,7 @@ export const createExploder = (position, baseSpeed ) => {
         
         // Exploder specific behavior - start exploding when close to player
         if (distance < 3 && !exploder.isExploding) {
-            logger.info('enemy', `Exploder starting explosion sequence`);
+            logger.debug('enemy', `Exploder starting explosion sequence`);
             
             exploder.isExploding = true;
             exploder.explosionTimer = 1.5; // Time before exploding

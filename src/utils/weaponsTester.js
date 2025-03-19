@@ -11,7 +11,7 @@
  * testWeaponsSystem();
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import * as THREE from 'three';
 import { createBullet, updateBullets } from '../gameplay/weapons.js';
 import { testComponent } from './testRunner.js';
 

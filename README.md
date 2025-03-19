@@ -70,4 +70,42 @@ The game features a modular architecture with separate components for:
 
 ## Credits
 
-Created as a WebGL experiment for learning Three.js and game development concepts. 
+Created as a WebGL experiment for learning Three.js and game development concepts.
+
+## Development
+
+### Using Vite
+
+This project uses Vite for fast development and optimized production builds. 
+
+#### Getting Started with Vite
+
+1. Install dependencies:
+   ```
+   npm install
+   ```
+
+2. Start the development server:
+   ```
+   npm run dev
+   ```
+
+3. Build for production:
+   ```
+   npm run build
+   ```
+
+4. Preview the production build:
+   ```
+   npm run preview
+   ```
+
+### Migrating from CDN to Vite
+
+If you're updating from an older version of the project that used CDN imports, run the migration script:
+
+```
+node updateImports.js
+```
+
+This will update all Three.js imports to use the npm package instead of CDN links. 

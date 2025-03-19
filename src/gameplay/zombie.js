@@ -5,7 +5,7 @@
  * positions to chase the player. g 
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import * as THREE from 'three';
 import { checkCollision, pushAway } from './physics.js'; // Import physics helpers
 import { setupDismemberment } from './dismemberment.js'; // Import dismemberment system
 import { playSound } from './audio.js'; // Import audio system

@@ -56,12 +56,31 @@ export function initializeGame(gameState) {
             audioListener = initAudio(camera);
             // Enable audio system by default
             setAudioEnabled(true);
-            logger.info('Audio system initialized and enabled');
+            logger.info('A: Audio system initialized and enabled');
         } catch (audioError) {
             logger.error('Audio initialization failed:', audioError);
             console.error('Audio initialization failed:', audioError);
             // Continue without audio
         }
+
+        // Initialize audio listener
+try {
+    audioListener = initAudio(camera);
+    setAudioEnabled(true);
+    logger.info('B: Audio system initialized and enabled');
+  
+    // Test audio loading and playback
+    console.log('Starting audio test...');
+    loadAudio('pulseControl', '/music/Pulse Control.mp3', true, 0.5, 'music')
+      .then(() => {
+        console.log('Audio loaded, attempting to play...');
+        playSound('pulseControl');
+      })
+      .catch(err => console.error('Audio test failed:', err));
+  } catch (audioError) {
+    logger.error('Audio initialization failed:', audioError);
+    console.error('Audio initialization failed:', audioError);
+  }
         
         // Add lighting
         const lights = createLighting(scene);
@@ -204,17 +223,17 @@ export function initializeGame(gameState) {
             await loadMusicTracks();
             
             // Load weapon sounds
-            await loadAudio('gunshot', './audio/sfx/gunshot.mp3', false, 0.8);
+            await loadAudio('gunshot', './sfx/gunshot.mp3', false, 0.8);
             
             // Load zombie sounds
-            await loadPositionalAudio('zombie-growl', './audio/sfx/zombie-growl.mp3', 15, 0.7);
-            await loadPositionalAudio('zombie-death', './audio/sfx/zombie-death.mp3', 10, 0.8);
+            await loadPositionalAudio('zombie-growl', './sfx/zombie-growl.mp3', 15, 0.7);
+            await loadPositionalAudio('zombie-death', './sfx/zombie-death.mp3', 10, 0.8);
             
             // Load powerup sounds
-            await loadAudio('powerupPickup', './audio/sfx/powerup-pickup.mp3', false, 0.9);
+            await loadAudio('powerupPickup', './sfx/powerup-pickup.mp3', false, 0.9);
             
             // Load explosion sound
-            await loadPositionalAudio('explosion', './audio/sfx/explosion.mp3', 20, 1.0);
+            await loadPositionalAudio('explosion', './sfx/explosion.mp3', 20, 1.0);
             
             // Start playing random background music
             playRandomMusicTrack();

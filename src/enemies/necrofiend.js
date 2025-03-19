@@ -14,7 +14,7 @@
  *   scene.add(necrofiend);
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import * as THREE from 'three';
 import { logger } from '../utils/logger.js';
 
 // Add 'enemy' to logger sections if not already included

@@ -10,7 +10,7 @@
  * scene.add(building);
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import * as THREE from 'three';
 
 /**
  * Creates a simple building with windows

@@ -21,14 +21,14 @@ import { logger } from './logger.js';
  * Add new audio files to this list as they are added to the game
  */
 const AUDIO_FILES = [
-    { path: './audio/sfx/gunshot.mp3', name: 'gunshot', required: true },
-    { path: './audio/sfx/zombie-growl.mp3', name: 'zombie-growl', required: true },
-    { path: './audio/sfx/player-hit.mp3', name: 'player-hit', required: true },
-    { path: './audio/sfx/powerup-pickup.mp3', name: 'powerup-pickup', required: true },
-    { path: './audio/sfx/zombie-death.mp3', name: 'zombie-death', required: true },
-    { path: './audio/sfx/explosion.mp3', name: 'explosion', required: false },
-    { path: './audio/sfx/shotgun.mp3', name: 'shotgun', required: false },
-    { path: './audio/sfx/laser.mp3', name: 'laser', required: false }
+    { path: './sfx/gunshot.mp3', name: 'gunshot', required: true },
+    { path: './sfx/zombie-growl.mp3', name: 'zombie-growl', required: true },
+    { path: './sfx/player-hit.mp3', name: 'player-hit', required: true },
+    { path: './sfx/powerup-pickup.mp3', name: 'powerup-pickup', required: true },
+    { path: './sfx/zombie-death.mp3', name: 'zombie-death', required: true },
+    { path: './sfx/explosion.mp3', name: 'explosion', required: false },
+    { path: './sfx/shotgun.mp3', name: 'shotgun', required: false },
+    { path: './sfx/laser.mp3', name: 'laser', required: false }
 ];
 
 /**

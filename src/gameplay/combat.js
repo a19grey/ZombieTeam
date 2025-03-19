@@ -17,7 +17,7 @@
  *   handleCombatCollisions(scene, player, gameState, delta);
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import * as THREE from 'three';
 import { createBullet } from './weapons.js';
 import { playSound } from './audio.js';
 import { createExplosion } from './zombie.js';

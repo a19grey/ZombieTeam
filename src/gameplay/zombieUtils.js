@@ -19,7 +19,7 @@
  *   createExplosion(scene, position, 3, 100, zombies, player, gameState);
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import * as THREE from 'three';
 import { playSound } from './audio.js';
 import { logger } from '../utils/logger.js';
 import { processDismemberment } from './dismemberment.js';

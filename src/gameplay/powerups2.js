@@ -1,7 +1,7 @@
 /**
  * Powerup Module - Defines enhanced powerup assets for the game
  */
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import * as THREE from 'three';
 
 // Helper function to create a halo
 const createHalo = (color, radius = 0.6) => {

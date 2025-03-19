@@ -9,7 +9,7 @@
  * handleCollisions(gameState, scene);
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import * as THREE from 'three';
 import { createBullet } from './weapons.js';
 import { damageZombie, isZombieDead } from './zombie.js';
 import { logger } from '../utils/logger.js';

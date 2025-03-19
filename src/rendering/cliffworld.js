@@ -28,7 +28,7 @@ This keeps world.js lean and focused on geometry, letting gameLoop.js and gameSt
 
 */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import * as THREE from 'three';
 import { createRock, createTexturedGround, createDeadTree } from '../rendering/environment.js';
 
 const CHUNK_SIZE = 50; // Size of each terrain chunk along Z-axis

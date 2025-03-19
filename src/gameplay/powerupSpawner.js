@@ -16,7 +16,7 @@
  * ```
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import * as THREE from 'three';
 import { createRapidFirePowerup, createShotgunBlastPowerup, createExplosionPowerup, createLaserShotPowerup, createGrenadeLauncherPowerup } from './powerups2.js';
 import { logger } from '../utils/logger.js';
 
@@ -36,31 +36,38 @@ const MIN_TIME_BETWEEN_POWERUPS = 1000; // Minimum time between powerup spawns (
 export const shouldSpawnPowerup = (gameState, currentTime) => {
     // Use the main gameState.powerupSpawnRate 
     const spawnRate = gameState.powerupSpawnRate;
-    console.log('A : curentTime, gameState.lastPowerupSpawnTime delta', currentTime - gameState.lastPowerupSpawnTime);
+    logger.debug('powerup', 'Current time vs last powerup spawn time delta', { delta: currentTime - gameState.lastPowerupSpawnTime });
+    
     // Initialize lastPowerupSpawnTime and lastPowerupCheckTime if they don't exist
     if (!gameState.lastPowerupSpawnTime) {
         gameState.lastPowerupSpawnTime = currentTime - spawnRate;
         gameState.lastPowerupCheckTime = currentTime;
-        console.log(`B: lastPowerupSpawnTime: ${gameState.lastPowerupSpawnTime}`);
+        logger.debug('powerup', 'Initializing lastPowerupSpawnTime', { time: gameState.lastPowerupSpawnTime });
         return false;
     }
     
     // Don't spawn if we've spawned recently
     if (currentTime - gameState.lastPowerupSpawnTime < MIN_TIME_BETWEEN_POWERUPS) {
-        console.log(`C: currentTime - gameState.lastPowerupSpawnTime < spawnRate: ${currentTime - gameState.lastPowerupSpawnTime} < ${MIN_TIME_BETWEEN_POWERUPS}`);
+        logger.debug('powerup', 'Too soon to spawn another powerup', { 
+            timeSinceLastSpawn: currentTime - gameState.lastPowerupSpawnTime,
+            minimumTime: MIN_TIME_BETWEEN_POWERUPS 
+        });
         return false;
     }
     
     // Always spawn if enough time has passed (guaranteed spawn after 1.5x the spawn rate)
     if (currentTime - gameState.lastPowerupSpawnTime > spawnRate * 1.5) {
-        console.log(`D: Forcing powerup spawn after extended time without spawn: ${currentTime - gameState.lastPowerupSpawnTime}ms`);
+        logger.info('powerup', 'Forcing powerup spawn after extended time without spawn', { 
+            timeSinceLastSpawn: currentTime - gameState.lastPowerupSpawnTime
+        });
         gameState.lastPowerupCheckTime = currentTime;
         return true;
     }
     
     // Calculate time since last check in seconds
     const timeSinceLastCheck = (currentTime - (gameState.lastPowerupCheckTime || 0)) / 1000;
-    console.log(`E: timeSinceLastCheck: ${timeSinceLastCheck}`);
+    logger.debug('powerup', 'Time since last powerup check', { seconds: timeSinceLastCheck });
+    
     // Update last check time
     gameState.lastPowerupCheckTime = currentTime;
     
@@ -73,7 +80,10 @@ export const shouldSpawnPowerup = (gameState, currentTime) => {
     const spawnProbability = POWERUP_SPAWN_CHANCE_PER_SECOND * timeSinceLastCheck;
     
     // Log check with adjusted probability
-    console.log(`F: Checking powerup spawn: ${(spawnProbability * 100).toFixed(2)}% chance (${timeSinceLastCheck.toFixed(2)}s elapsed)`);
+    logger.debug('powerup', 'Checking powerup spawn probability', { 
+        chance: (spawnProbability * 100).toFixed(2) + '%', 
+        timeElapsed: timeSinceLastCheck.toFixed(2) + 's' 
+    });
     
     // Random chance to spawn based on time passed
     return Math.random() < spawnProbability;
@@ -107,12 +117,13 @@ export const getPositionBehindPlayer = (player, zDistance, isRightSide = false) 
     // Ensure y-coordinate is at ground level
     spawnPosition.y = 0;
     
-    console.log('Spawning powerup at:', {
-        playerPos: player.position.clone(),
-        spawnPos: spawnPosition.clone(), 
+    logger.debug('powerup', 'Calculating powerup spawn position', {
+        playerPos: player.position.toArray(),
+        spawnPos: spawnPosition.toArray(), 
         zDistance,
         relativeZ: spawnPosition.z - playerZ,
-        xOffset: isRightSide ? xOffset : -xOffset
+        xOffset: isRightSide ? xOffset : -xOffset,
+        side: isRightSide ? 'right' : 'left'
     });
     
     return spawnPosition;
@@ -165,7 +176,9 @@ export const createPowerup = (scene, position, gameState, powerupType) => {
     gameState.powerups.push(powerup);
     
     // Log powerup creation
-    logger.debug(`Spawned ${powerupType} powerup at position (${position.x.toFixed(2)}, ${position.z.toFixed(2)})`);
+    logger.info('powerup', `Spawned ${powerupType} powerup`, { 
+        position: { x: position.x.toFixed(2), z: position.z.toFixed(2) }
+    });
     
     return powerup;
 };
@@ -216,7 +229,11 @@ export const spawnPowerupBehindPlayer = (scene, gameState, player) => {
     createPowerup(scene, leftPosition, gameState, firstType);
     createPowerup(scene, rightPosition, gameState, secondType);
     
-    logger.debug(`Spawned powerup pair: ${firstType} and ${secondType} at Z-distance ${zDistance.toFixed(2)} with group ID ${spawnGroupId}`);
+    logger.info('powerup', `Spawned powerup pair`, { 
+        types: [firstType, secondType], 
+        zDistance: zDistance.toFixed(2), 
+        groupId: spawnGroupId 
+    });
 };
 
 /**
@@ -227,7 +244,7 @@ export const spawnPowerupBehindPlayer = (scene, gameState, player) => {
  */
 export const removeOtherPowerups = (scene, gameState, collectedPowerup) => {
     const groupId = collectedPowerup.spawnGroup;
-    logger.debug(`Attempting to remove powerups from group ${groupId}`);
+    logger.debug('powerup', `Starting removal of other powerups from group`, { groupId });
     
     // Find all powerups from the same group that need to be removed
     const powerupsToRemove = gameState.powerups.filter(powerup => 
@@ -237,11 +254,15 @@ export const removeOtherPowerups = (scene, gameState, collectedPowerup) => {
     );
     
     if (powerupsToRemove.length === 0) {
-        logger.debug('No other powerups found in the same group');
+        logger.debug('powerup', 'No other powerups found in the same group', { groupId });
         return;
     }
     
-    logger.debug(`Found ${powerupsToRemove.length} other powerups to remove from group ${groupId}`);
+    logger.debug('powerup', `Found powerups to remove from group`, { 
+        count: powerupsToRemove.length, 
+        groupId,
+        types: powerupsToRemove.map(p => p.type)
+    });
     
     // Process each powerup to remove
     powerupsToRemove.forEach(powerup => {
@@ -275,7 +296,10 @@ export const removeOtherPowerups = (scene, gameState, collectedPowerup) => {
                         gameState.powerups.splice(index, 1);
                     }
                     
-                    logger.debug(`Completed removal of ${powerup.type} powerup from group ${groupId}`);
+                    logger.debug('powerup', `Completed removal of powerup from group`, {
+                        type: powerup.type,
+                        groupId
+                    });
                 }
             };
             
@@ -293,7 +317,10 @@ export const removeOtherPowerups = (scene, gameState, collectedPowerup) => {
                 gameState.powerups.splice(index, 1);
             }
             
-            logger.debug(`Immediately removed ${powerup.type} powerup without mesh/material from group ${groupId}`);
+            logger.debug('powerup', `Immediately removed powerup without mesh/material`, {
+                type: powerup.type,
+                groupId
+            });
         }
     });
 };
@@ -306,6 +333,7 @@ export const removeOtherPowerups = (scene, gameState, collectedPowerup) => {
  */
 export const cleanupOldPowerups = (scene, gameState, maxAge = 30000) => {
     const currentTime = Date.now();
+    let removedCount = 0;
     
     for (let i = gameState.powerups.length - 1; i >= 0; i--) {
         const powerup = gameState.powerups[i];
@@ -313,6 +341,7 @@ export const cleanupOldPowerups = (scene, gameState, maxAge = 30000) => {
         // Skip if not active
         if (!powerup.active) {
             gameState.powerups.splice(i, 1);
+            removedCount++;
             continue;
         }
         
@@ -323,8 +352,17 @@ export const cleanupOldPowerups = (scene, gameState, maxAge = 30000) => {
             
             // Remove from array
             gameState.powerups.splice(i, 1);
+            removedCount++;
             
-            logger.debug(`Removed old ${powerup.type} powerup`);
+            logger.debug('powerup', `Removed old powerup due to age`, {
+                type: powerup.type,
+                age: currentTime - powerup.createdAt,
+                maxAge
+            });
         }
+    }
+    
+    if (removedCount > 0) {
+        logger.debug('powerup', `Cleanup removed powerups`, { count: removedCount });
     }
 }; 

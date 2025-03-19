@@ -20,7 +20,7 @@ console.log('GAMESTATE.JS: DEBUG_MODE =', DEBUG_MODE);
 // Game state
 const gameState = {
     player: {
-        health: 100, exp: 0, damage: 40, speed: 0.15, activePowerup: null, powerupDuration: 0
+        health: 100, exp: 0, damage: 40, speed: 0.15, activePowerup: null, powerupDuration: 0, name: 'Unknown Survivor'
     },
     zombies: [],bullets: [],keys: {},mouse: { x: 0, y: 0 },
     mouseDown: false, // Track if mouse button is held down
@@ -81,6 +81,7 @@ const handleGameOver = () => {
     gameOverDiv.style.textShadow = '2px 2px 4px #000000';
     gameOverDiv.innerHTML = `
         GAME OVER<br>
+        ${gameState.player.name} has fallen!<br>
         Score: ${gameState.player.exp}<br><br>
         <span style="font-size: 24px">Press R to restart</span>
     `;

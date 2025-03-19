@@ -28,6 +28,11 @@
  * 
  * // Custom log level
  * logger.log(6, 'Super detailed logs', { extraData: 'value' });
+ * 
+ * // URL parameters for debugging:
+ * // ?debug=5                           // Set debug level to 5
+ * // ?debugSection=audio,physics        // Only show logs from audio and physics sections
+ * // ?debugAll=true                     // Enable all debug sections
  */
 
 // Default log levels (higher number = more verbose/detailed)
@@ -50,16 +55,61 @@ const DEFAULT_SECTIONS = [
     'ui',
     'scene',
     'speed'
+    ,'enemy'
+    ,'audio'
+    ,'powerup'
 ];
 
 // Default configuration
 let config = {
-    level: DEFAULT_LOG_LEVELS.INFO,  // Default to INFO level
+    level: DEFAULT_LOG_LEVELS.ERROR,  // Default to ERROR level (only show errors)
     includeTimestamp: true,
     logToConsole: true,
-    sections: DEFAULT_SECTIONS,      // All sections enabled by default
-    enabledSections: new Set(DEFAULT_SECTIONS)
+    sections: DEFAULT_SECTIONS,      // All available sections
+    enabledSections: new Set()       // No sections enabled by default
 };
+
+/**
+ * Parse URL parameters to allow runtime configuration of logging
+ * This enables command-line like flags via the URL:
+ * ?debug=5&debugSection=audio,physics
+ */
+const parseURLParameters = () => {
+    if (typeof window === 'undefined') return; // Skip if not in browser
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    // Check for debug level parameter
+    const debugLevel = urlParams.get('debug');
+    if (debugLevel !== null) {
+        const level = parseInt(debugLevel, 10);
+        if (!isNaN(level)) {
+            config.level = level;
+            console.log(`Logger: Debug level set to ${level} from URL parameter`);
+        }
+    }
+    
+    // Check for debug sections parameter
+    const debugSections = urlParams.get('debugSection');
+    if (debugSections) {
+        const sections = debugSections.split(',').map(s => s.trim());
+        if (sections.length > 0) {
+            config.enabledSections = new Set(sections);
+            console.log(`Logger: Enabled debug sections from URL: ${sections.join(', ')}`);
+        }
+    }
+    
+    // Check for debug all parameter
+    const debugAll = urlParams.get('debugAll');
+    if (debugAll === 'true') {
+        // Enable all sections
+        config.enabledSections = new Set(config.sections);
+        console.log('Logger: All debug sections enabled from URL parameter');
+    }
+};
+
+// Run URL parameter parsing on module load
+parseURLParameters();
 
 /**
  * Formats a log message with optional timestamp and section
@@ -118,8 +168,14 @@ const shouldLog = (level, section) => {
         return false;
     }
     
-    // Check if section is enabled (if a section is provided)
-    if (section && !config.enabledSections.has(section)) {
+    // If it's an error, always show regardless of section
+    if (level <= DEFAULT_LOG_LEVELS.ERROR) {
+        return true;
+    }
+    
+    // For non-errors, section must be explicitly enabled
+    // No sections enabled means nothing gets logged (except errors)
+    if (!section || !config.enabledSections.has(section)) {
         return false;
     }
     
@@ -211,8 +267,10 @@ export const logger = {
      * @param {string} section - The section name to add
      */
     addSection: (section) => {
-        config.sections.push(section);
-        config.enabledSections.add(section);
+        if (!config.sections.includes(section)) {
+            config.sections.push(section);
+        }
+        // No longer automatically enable new sections
     },
 
     /**
@@ -220,6 +278,9 @@ export const logger = {
      * @param {string} section - The section to enable
      */
     enableSection: (section) => {
+        if (!config.sections.includes(section)) {
+            config.sections.push(section);
+        }
         config.enabledSections.add(section);
     },
 
@@ -321,6 +382,11 @@ export const logger = {
             log(DEFAULT_LOG_LEVELS.VERBOSE, 'VERBOSE', section, message, data);
         }
     },
+    
+    /**
+     * Parse URL parameters again (can be called if URL changes)
+     */
+    parseURLParameters,
     
     // Export log levels as a property of the logger
     levels: DEFAULT_LOG_LEVELS

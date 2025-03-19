@@ -15,7 +15,7 @@
  */
 
 // src/enemies/zombie.js
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import * as THREE from 'three';
 
 export const createRotBehemoth = (position, baseSpeed) => {
     const behemoth = new THREE.Group();

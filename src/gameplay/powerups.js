@@ -5,7 +5,7 @@
  * that the player can shoot or walk over to collect. Logic for effects is not implemented.
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import * as THREE from 'three';
 
 /**
  * Creates a Triple Shot powerup

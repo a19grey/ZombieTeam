@@ -10,7 +10,7 @@
  * updateBullets(bullets, scene);
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import * as THREE from 'three';
 
 // Track when the last bullet was fired to prevent too rapid firing
 let lastBulletTime = 0;
@@ -18,6 +18,7 @@ const BULLET_COOLDOWN = 100; // milliseconds - reduced by 50% for faster firing
 
 // Counter for tracer bullets (only show every 2nd bullet)
 let bulletCounter = 0;
+const TRACER_BULLET_INTERVAL = 1;
 
 /**
  * Creates a bullet projectile
@@ -48,9 +49,9 @@ export const createBullet = (position, direction, damage = 25, speed = 1.0, colo
     }
 
     // Increment bullet counter
-    bulletCounter = (bulletCounter + 1) % 2;
+    bulletCounter = (bulletCounter + 1) % TRACER_BULLET_INTERVAL;
     
-    // Only create visible bullet for every 2nd shot (tracer)
+    // Only create visible bullet for every TRACER_BULLET_INTERVAL shot (tracer)
     const isTracer = bulletCounter === 0;
     
     // Clone position and direction to avoid accidental modification

@@ -2,7 +2,7 @@
  * World Module - Manages infinite procedural world and multiplayer elements
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import * as THREE from 'three';
 import { createBuilding, createRock, createTexturedGround, createDeadTree } from './environment.js';
 
 const CHUNK_SIZE = 50; // Size of each terrain chunk

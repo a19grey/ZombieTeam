@@ -3,7 +3,10 @@
 -- zombie.js needs to be broken up to smaller chunks -- Done 3.17.2025
 -- Powerups should spawn in pairs behind players in same horizontal position abit far apart left and right so there is a choice and only time to grab one, once grabbed the rest disappear -- done 3/16/2025
 -- Fix spawn rates so more than one spawns in teh game -- done 3/16/2025
--- basespeed is correctly updated and used in the game
+-- fix /music/audio references for VITE  Vite’s public directory (e.g., project/public/) is a special folder. Anything in it—like images, audio files, or fonts—is copied to the root of your build output (dist/) during npm run build.
+In your case, you likely have a file at public/audio/music/Pulse of the Shadows.mp3. After the build, Vite makes it available at /music/Pulse of the Shadows.mp3 (relative to the root), not /audio/music/Pulse of the Shadows.mp3.
+-- basespeed is correctly updated and used in the game -- done 3/16/2025
+-- test improved speed optioons I fear above broke
 -- Implement working SFX 
 -- Adapt the generated world.js to work with our assets and zombies and use it as the procedurally generated world
 -- Tune zombie and gun rates and power up rates, camera angle

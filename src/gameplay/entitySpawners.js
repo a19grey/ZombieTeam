@@ -15,7 +15,7 @@
  *   spawnEnemy(player.position, scene, gameState);
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import * as THREE from 'three';
 import { createbaseZombie, createSkeletonArcher, createExploder, createZombieKing } from '../enemies/enemyindex.js';
 import { createBuilding, createRock, createDeadTree } from '../rendering/environment.js';
 import { setupDismemberment } from './dismemberment.js';

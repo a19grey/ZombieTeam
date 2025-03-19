@@ -15,7 +15,7 @@
  */
 
 // src/enemies/zombie.js
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import * as THREE from 'three';
 import { logger } from '../utils/logger.js';
 
 // Add 'enemy' to logger sections if not already included
@@ -149,7 +149,7 @@ export const createSkeletonArcher = (position, baseSpeed) => {
                 skeleton.lastShotTime = currentTime;
                 // Fire arrow logic would go here
                 // Example: createArrow(skeleton.position, playerPosition, gameState);
-                logger.info('enemy', `Skeleton archer firing arrow at player`);
+                logger.debug('enemy', `Skeleton archer firing arrow at player`);
             }
             return; // Don't move while shooting
         }
@@ -179,7 +179,7 @@ export const createSkeletonArcher = (position, baseSpeed) => {
             if (checkCollision(intendedPosition, playerPosition, DAMAGE_DISTANCE)) {
                 const damageAmount = DAMAGE_PER_SECOND * delta;
                 if (gameState) damagePlayer(gameState, damageAmount);
-                logger.info('enemy', `Skeleton archer deals ${damageAmount.toFixed(2)} damage to player`);
+                logger.debug('enemy', `Skeleton archer deals ${damageAmount.toFixed(2)} damage to player`);
             }
         }
         

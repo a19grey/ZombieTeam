@@ -5,7 +5,7 @@
  * handling player movement based on keyboard input, and creating the player's weapon.
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import * as THREE from 'three';
 import { logger } from '../utils/logger.js';
 
 /**

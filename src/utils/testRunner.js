@@ -12,7 +12,7 @@
  * runTests();
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import * as THREE from 'three';
 
 // Store test results
 const testResults = {
@@ -39,10 +39,10 @@ const logTest = (component, test, passed, error = null) => {
 // Audio test function
 const testAudio = () => {
     const audioFiles = [
-        { src: './audio/sfx/gunshot.mp3', name: 'gunshot' },
-        { src: './audio/sfx/zombie-growl.mp3', name: 'zombie-growl' },
-        { src: './audio/sfx/player-hit.mp3', name: 'player-hit' },
-        { src: './audio/sfx/powerup-pickup.mp3', name: 'powerup-pickup' }
+        { src: './sfx/gunshot.mp3', name: 'gunshot' },
+        { src: './sfx/zombie-growl.mp3', name: 'zombie-growl' },
+        { src: './sfx/player-hit.mp3', name: 'player-hit' },
+        { src: './sfx/powerup-pickup.mp3', name: 'powerup-pickup' }
     ];
     
     let pendingTests = audioFiles.length;
