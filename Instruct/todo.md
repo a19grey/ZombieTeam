@@ -2,7 +2,7 @@
 -- impleement working game music -- Done 3/16/2025
 -- zombie.js needs to be broken up to smaller chunks -- Done 3.17.2025
 -- Powerups should spawn in pairs behind players in same horizontal position abit far apart left and right so there is a choice and only time to grab one, once grabbed the rest disappear -- done 3/16/2025
--- Fix spawn rates so more than one spawns in teh game
+-- Fix spawn rates so more than one spawns in teh game -- done 3/16/2025
 -- basespeed is correctly updated and used in the game
 -- Implement working SFX 
 -- Adapt the generated world.js to work with our assets and zombies and use it as the procedurally generated world
