@@ -20,7 +20,6 @@
 -- Zombie spawn selection is better more scalable method - if have boss new boss less likely
 -- Multiplayer with not websockets but that other thing - Socket.io webrtc UDP
 -- Experience value and  time of game and game length saved to some tiny DB
-
 -- Implement zustand for better global state
 -- Users score is displayed as a line overlaid on a 'mountain' shape of the score distribution flipped to be rarest up high
 -- Flocking behavior works - hordeflocking.md has notes here

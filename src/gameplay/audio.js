@@ -148,36 +148,37 @@ export const loadPositionalAudio = (name, url, refDistance = 10, volume = 1.0) =
  * @returns {boolean} Whether the sound was successfully played
  */
 export const playSound = (name, position = null) => {
-  logger.verbose('audio', `playSound: ${name}`);
+  logger.verbose('audio', 'M: playSound: ' + name);
   // Check if audio system is enabled
   if (!audioState.enabled) {
-    logger.debug('audio', `Sound ${name} not played (audio system disabled)`);
+    logger.debug('audio', 'N: Sound ' + name + ' not played (audio system disabled)');
     return false;
   }
-  logger.verbose('audio', `playSound: ${name}`);
+  
   if (audioState.muted) {
-    logger.debug('audio', `Sound ${name} not played (audio muted)`);
+    logger.debug('audio', 'O: Sound ' + name + ' not played (audio muted)');
     return false;
   }
 
   const soundData = audioState.sounds.get(name);
   if (!soundData) {
-    logger.warn('audio', `Sound not found: ${name}`);
+    logger.warn('audio', 'P: Sound not found: ' + name);
     // List available sounds to help debugging
     const availableSounds = Array.from(audioState.sounds.keys()).join(', ');
-    logger.warn('audio', `Sound not found: "${name}". Available sounds: ${availableSounds || 'none'}`);
+    logger.warn('audio', 'Q: Sound not found: "' + name + '". Available sounds: ' + (availableSounds || 'none'));
     return false;
   }
 
-  const { audio, isPositional } = soundData;
+  const { audio, isPositional, type } = soundData;
+  logger.debug('audio', 'R: About to play sound: ' + name + ' - Type: ' + type + ' - ContextState: ' + (audio.context?.state || 'unknown'));
   
   // Check if audio context is suspended and try to resume it
   if (audio.context && audio.context.state === 'suspended') {
-    logger.debug('audio', `Attempting to resume audio context for ${name}`);
+    logger.debug('audio', 'S: Attempting to resume audio context for ' + name);
     audio.context.resume().then(() => {
-      logger.debug('audio', `Audio context resumed successfully`);
+      logger.debug('audio', 'T: Audio context resumed successfully');
     }).catch(error => {
-      logger.error('audio', `Failed to resume audio context: ${error}`);
+      logger.error('audio', 'U: Failed to resume audio context: ' + error);
     });
   }
   
@@ -185,6 +186,7 @@ export const playSound = (name, position = null) => {
   if (isPositional && position) {
     // If the audio is already attached to an object, we need to detach it first
     if (audio.parent !== audioState.listener && audio.parent !== null) {
+      logger.debug('audio', 'V: Detaching audio from previous parent');
       audio.parent.remove(audio);
     }
     
@@ -192,22 +194,37 @@ export const playSound = (name, position = null) => {
     const tempObject = new THREE.Object3D();
     tempObject.position.copy(position);
     tempObject.add(audio);
+    logger.debug('audio', 'W: Attached positional audio to temp object at position: ' + 
+                 position.x.toFixed(2) + ',' + position.y.toFixed(2) + ',' + position.z.toFixed(2));
   }
-  logger.verbose('audio', `playSound: ${name} - isPositional: ${isPositional}`);
+  
+  logger.verbose('audio', 'X: playSound: ' + name + ' - isPositional: ' + isPositional);
   if (!soundData.isPlaying) {
     try {
+      logger.debug('audio', 'Y: Calling audio.play() on ' + name + ' - Loop: ' + audio.loop);
       audio.play();
       soundData.isPlaying = true;
       audio.onEnded = () => {
+        logger.debug('audio', 'Z: onEnded callback triggered for: ' + name);
         soundData.isPlaying = false;
-        logger.debug('audio', 'A: Sound ended:', name);
+        logger.debug('audio', 'AA: Sound ended: ' + name);
+        
+        // For music tracks, log more details
+        if (type === 'music') {
+          logger.info('audio', 'AB: Music track completed: ' + name + ' - Will loop: ' + audio.loop);
+          if (!audio.loop && musicTracks.includes(name)) {
+            logger.info('audio', 'AC: Non-looping music track ended naturally, should trigger next track');
+          }
+        }
       };
-      logger.debug('audio', `Playing sound: ${name}, context state: ${audio.context?.state || 'unknown'}`);
+      logger.debug('audio', 'AD: Playing sound: ' + name + ', context state: ' + (audio.context?.state || 'unknown'));
       return true;
     } catch (error) {
-      logger.error('audio', `Error playing sound ${name}: ${error}`);
+      logger.error('audio', 'AE: Error playing sound ' + name + ': ' + error);
       return false;
     }
+  } else {
+    logger.debug('audio', 'AF: Sound ' + name + ' is already playing, not starting again');
   }
   
   return false;
@@ -219,13 +236,18 @@ export const playSound = (name, position = null) => {
  * @returns {boolean} Whether the sound was successfully stopped
  */
 export const stopSound = (name) => {
-  logger.verbose('audio', `K: stopSound: ${name}`);
+  logger.verbose('audio', 'AG: stopSound: ' + name);
   const soundData = audioState.sounds.get(name);
   if (soundData && soundData.isPlaying) {
+    logger.debug('audio', 'AH: Actually stopping sound: ' + name + ' - type: ' + soundData.type);
     soundData.audio.stop();
     soundData.isPlaying = false;
-    logger.debug('audio', `L: Stopped sound: ${name}`);
+    logger.debug('audio', 'AI: Stopped sound: ' + name);
     return true;
+  } else if (soundData) {
+    logger.debug('audio', 'AJ: Called stopSound but sound was not playing: ' + name);
+  } else {
+    logger.debug('audio', 'AK: Called stopSound but sound not found: ' + name);
   }
   return false;
 };
@@ -456,12 +478,14 @@ export const loadMusicTracks = async (directory = './audio/music/') => {
 export const playRandomMusicTrack = () => {
   logger.info('audio', 'A: playRandomMusicTrack is going to play a random track');
   if (!isRandomMusicEnabled || musicTracks.length === 0) {
+    logger.debug('audio', 'C: No random music - enabled: ' + isRandomMusicEnabled + ', tracks: ' + musicTracks.length);
     return false;
   }
   
   // Stop current music if playing
   if (currentMusicIndex >= 0 && currentMusicIndex < musicTracks.length) {
     const currentTrack = musicTracks[currentMusicIndex];
+    logger.debug('audio', 'D: Stopping current track before playing new one: ' + currentTrack);
     stopSound(currentTrack);
   }
   
@@ -477,6 +501,7 @@ export const playRandomMusicTrack = () => {
   
   currentMusicIndex = newIndex;
   const trackToPlay = musicTracks[currentMusicIndex];
+  logger.debug('audio', 'E: Selected track #' + newIndex + ': ' + trackToPlay);
   
   // Get the sound data for the track
   const soundData = audioState.sounds.get(trackToPlay);
@@ -484,16 +509,23 @@ export const playRandomMusicTrack = () => {
     // Set up the onEnded callback to play the next random track
     soundData.audio.onEnded = () => {
       soundData.isPlaying = false;
-      logger.debug('audio', 'B: Sound ended: ', trackToPlay);
+      logger.debug('audio', 'B: Sound ended: ' + trackToPlay);
       // Play another random track when this one ends
+      logger.debug('audio', 'F: Sound ended naturally, calling playRandomMusicTrack again');
       playRandomMusicTrack();
     };
+    
+    logger.debug('audio', 'G: Track setup complete - isLooping: ' + soundData.audio.loop + ' duration: ' + (soundData.duration || 'unknown'));
+  } else {
+    logger.warn('audio', 'H: Sound data not found for track: ' + trackToPlay);
   }
   
   // Play the selected track
   const success = playSound(trackToPlay);
   if (success) {
-    logger.debug('audio', `Now playing music track: ${trackToPlay}`);
+    logger.debug('audio', 'I: Successfully started playing music track: ' + trackToPlay);
+  } else {
+    logger.warn('audio', 'J: Failed to play music track: ' + trackToPlay);
   }
   
   return success;
