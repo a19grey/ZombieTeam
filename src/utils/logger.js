@@ -48,7 +48,8 @@ const DEFAULT_SECTIONS = [
     'ai',
     'audio',
     'ui',
-    'scene'
+    'scene',
+    'speed'
 ];
 
 // Default configuration

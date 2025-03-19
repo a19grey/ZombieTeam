@@ -30,7 +30,7 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60, baseSpeed) 
     
     // Debug log in development mode
     if (isDev) {
-        console.log(`[DEBUG] updateZombies called with ${zombies.length} zombies, delta: ${delta}`);
+        logger.debug('speed', `updateZombies called with ${zombies.length} zombies, base speed: ${baseSpeed}`);
     }
     
     const COLLISION_DISTANCE = 1.0;
@@ -43,19 +43,28 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60, baseSpeed) 
         if (zombie.mesh && zombie.mesh.enemyType === 'zombieKing') {
             // If baseSpeed is provided, we're doing a runtime adjustment
             if (baseSpeed !== null) {
+                const oldSpeed = zombie.speed;
                 // Recalculate speed based on the new baseSpeed while maintaining relative speed
                 const currentSpeedRatio = zombie.speed / (zombie.originalBaseSpeed || baseSpeed);
                 zombie.speed = baseSpeed * currentSpeedRatio;
                 zombie.originalBaseSpeed = baseSpeed;
+                
+                logger.debug('speed', `Zombie King speed adjusted from ${oldSpeed} to ${zombie.speed} (baseSpeed: ${baseSpeed})`);
             }
             
             // Continue with normal zombie king speed increase logic
             const maxSpeedFactor = 1.2; // Cap at 120% of their base speed
             const currentBaseSpeed = baseSpeed || (zombie.originalBaseSpeed);
-            const maxSpeed = baseSpeed * maxSpeedFactor;
+            const maxSpeed = currentBaseSpeed * maxSpeedFactor;
             const speedIncreaseFactor = 0.0001;
             
+            const oldSpeed = zombie.speed;
             zombie.speed = Math.min(maxSpeed, zombie.speed + speedIncreaseFactor * delta * 60);
+            
+            if (Math.floor(oldSpeed * 1000) !== Math.floor(zombie.speed * 1000)) {
+                // Only log when there's a meaningful change (at least 0.001 difference)
+                logger.debug('speed', `Zombie King speed increased from ${oldSpeed.toFixed(5)} to ${zombie.speed.toFixed(5)} (max: ${maxSpeed})`);
+            }
         }
     });
     

@@ -1,20 +1,25 @@
 /**
- * Plague Titan Module - Creates a massive boss enemy that uses ground slams
+ * Plague Titan Module - Creates a poison-based boss enemy
  * 
- * This module contains the function to create a Plague Titan, a colossal boss-level
- * enemy with devastating abilities. The Plague Titan is a hulking zombie with festering
- * sores and massive limbs. It moves slowly but has high health and can perform
- * ground slam attacks that damage players in a wide area.
+ * This module contains the function to create a Plague Titan, a boss-level enemy
+ * that can poison players in its vicinity. The Plague Titan is a massive, bloated
+ * zombie with a sickly green aura that deals damage over time to players who get
+ * too close to it.
  * 
  * Example usage:
  *   import { createPlagueTitan } from './enemies/plagueTitan.js';
  *   
- *   // Create a Plague Titan at position (30, 0, 30) with speed 0.05
- *   const titan = createPlagueTitan({x: 30, z: 30}, 0.05);
+ *   // Create a Plague Titan at position (25, 0, 25) with speed 0.05
+ *   const titan = createPlagueTitan({x: 25, z: 25}, 0.05);
  *   scene.add(titan);
  */
 
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import { logger } from '../utils/logger.js';
+
+// Add 'enemy' to logger sections if not already included
+logger.addSection('enemy');
+
 export const createPlagueTitan = (position, baseSpeed) => {
     const titan = new THREE.Group();
 
@@ -78,19 +83,45 @@ export const createPlagueTitan = (position, baseSpeed) => {
     rightLeg.castShadow = true;
     titan.add(rightLeg);
 
+    // Position the titan
     titan.position.set(position.x, 0, position.z);
+
+    // Log the creation
+    logger.info('enemy', `Creating plague titan at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
+
+    // Set properties
     titan.mesh = titan;
     titan.enemyType = 'plagueTitan';
-    
-    // Set speed relative to baseSpeed (slower than standard zombie due to size)
-    titan.speed = baseSpeed * 0.75; // 75% of base speed
-    
-    // Set mass for physics calculations - titan is very heavy
-    titan.mass = 2.5;
-    
-    titan.health = 500; // High health
-    titan.slamCooldown = 0; // For ground slam timing
+    titan.health = 500; // Very high health
+    titan.speed = baseSpeed * 0.5; // Much slower than standard zombies
+    titan.mass = 4.0; // Very heavy
+    titan.poisonRadius = 5.0; // Radius of poison effect
+    titan.poisonDamage = 10; // Damage per second from poison
 
+    // Update method
+    titan.update = (context) => {
+        logger.verbose('enemy', `Plague titan update at ${titan.position.x.toFixed(2)},${titan.position.z.toFixed(2)}`);
+        
+        // Standard movement behavior
+        // ...
+        
+        // Poison effect
+        const { playerPosition, delta, damagePlayer, gameState } = context;
+        const distanceToPlayer = new THREE.Vector3(
+            playerPosition.x - titan.position.x,
+            0,
+            playerPosition.z - titan.position.z
+        ).length();
+        
+        if (distanceToPlayer < titan.poisonRadius) {
+            const poisonAmount = titan.poisonDamage * delta;
+            if (gameState) {
+                logger.info('enemy', `Plague titan poisoning player for ${poisonAmount.toFixed(2)} damage`);
+                damagePlayer(gameState, poisonAmount);
+            }
+        }
+    };
+    
     return titan;
 };
 

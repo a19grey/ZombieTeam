@@ -16,10 +16,10 @@
 
 // src/enemies/zombie.js
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import { logger } from '../utils/logger.js';
 
-// Check if we're in development mode
-const isDev = 0;// window.NODE_ENV !== 'production';
-
+// Add 'enemy' to logger sections if not already included
+logger.addSection('enemy');
 
 export const createbaseZombie = (position, baseSpeed) => {
 /**
@@ -107,9 +107,7 @@ export const createbaseZombie = (position, baseSpeed) => {
     basezombie.position.set(position.x, 0, position.z);
     
     // Debug log for zombie creation
-    if (isDev) {
-        console.log(`[DEBUG] Creating base zombie at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
-    }
+    logger.debug('enemy', `Creating base zombie at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
     
     // Store mesh reference for updateZombies compatibility
     basezombie.mesh = basezombie;
@@ -132,20 +130,18 @@ export const createbaseZombie = (position, baseSpeed) => {
      */
     basezombie.update = (context) => {
         // Debug log update call
-        if (isDev) {
-            console.log(`[DEBUG] Base zombie update method called (at ${basezombie.position.x.toFixed(2)},${basezombie.position.z.toFixed(2)})`);
-            
-            // Additional debugging to inspect context
-            console.log(`[DEBUG] Context check:`, {
-                hasPlayerPosition: !!context.playerPosition,
-                playerPos: context.playerPosition ? 
-                    `${context.playerPosition.x.toFixed(2)},${context.playerPosition.z.toFixed(2)}` : 'missing',
-                delta: context.delta,
-                speed: basezombie.speed,
-                hasCollisionSettings: !!context.collisionSettings,
-                hasNearbyZombies: Array.isArray(context.nearbyZombies)
-            });
-        }
+        logger.verbose('enemy', `Base zombie update method called (at ${basezombie.position.x.toFixed(2)},${basezombie.position.z.toFixed(2)})`);
+        
+        // Additional debugging to inspect context
+        logger.verbose('enemy', `Context check:`, {
+            hasPlayerPosition: !!context.playerPosition,
+            playerPos: context.playerPosition ? 
+                `${context.playerPosition.x.toFixed(2)},${context.playerPosition.z.toFixed(2)}` : 'missing',
+            delta: context.delta,
+            speed: basezombie.speed,
+            hasCollisionSettings: !!context.collisionSettings,
+            hasNearbyZombies: Array.isArray(context.nearbyZombies)
+        });
         
         const { 
             playerPosition, 
@@ -182,9 +178,7 @@ export const createbaseZombie = (position, baseSpeed) => {
             .addScaledVector(finalDirection, moveDistance);
         
         // Debug log position change
-        if (0) {
-            console.log(`[DEBUG] Base zombie moving from ${basezombie.position.x.toFixed(2)},${basezombie.position.z.toFixed(2)} to ${intendedPosition.x.toFixed(2)},${intendedPosition.z.toFixed(2)}`);
-        }
+        logger.verbose('enemy', `Base zombie moving from ${basezombie.position.x.toFixed(2)},${basezombie.position.z.toFixed(2)} to ${intendedPosition.x.toFixed(2)},${intendedPosition.z.toFixed(2)}`);
         
         // Player collision
         const { COLLISION_DISTANCE, DAMAGE_DISTANCE, DAMAGE_PER_SECOND, ZOMBIE_COLLISION_DISTANCE } = collisionSettings;
@@ -242,9 +236,7 @@ export const createbaseZombie = (position, baseSpeed) => {
         basezombie.rotation.y = Math.atan2(finalDirection.x, finalDirection.z);
         
         // Debug position confirmation
-        if (isDev) {
-            console.log(`[DEBUG] Base zombie position updated to ${basezombie.position.x.toFixed(2)},${basezombie.position.z.toFixed(2)}`);
-        }
+        logger.verbose('enemy', `Base zombie position updated to ${basezombie.position.x.toFixed(2)},${basezombie.position.z.toFixed(2)}`);
     };
 
     return basezombie;

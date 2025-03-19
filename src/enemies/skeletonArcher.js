@@ -16,9 +16,10 @@
 
 // src/enemies/zombie.js
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import { logger } from '../utils/logger.js';
 
-// Check if we're in development mode
-const isDev = false;// window.NODE_ENV !== 'production';
+// Add 'enemy' to logger sections if not already included
+logger.addSection('enemy');
 
 export const createSkeletonArcher = (position, baseSpeed) => {
     const skeleton = new THREE.Group();
@@ -80,6 +81,10 @@ export const createSkeletonArcher = (position, baseSpeed) => {
     skeleton.add(rightLeg);
 
     skeleton.position.set(position.x, 0, position.z);
+    
+    // Debug log for skeleton creation
+    logger.debug('enemy', `Creating skeleton archer at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
+    
     skeleton.mesh = skeleton;
     
     // Set enemy type for special behavior
@@ -100,6 +105,9 @@ export const createSkeletonArcher = (position, baseSpeed) => {
      * @param {Object} context - The update context containing all necessary information
      */
     skeleton.update = (context) => {
+        // Debug log update call
+        logger.verbose('enemy', `Skeleton archer update method called (at ${skeleton.position.x.toFixed(2)},${skeleton.position.z.toFixed(2)})`);
+        
         const { 
             playerPosition, 
             delta, 
@@ -123,11 +131,16 @@ export const createSkeletonArcher = (position, baseSpeed) => {
         const distance = direction.length();
         const finalDirection = direction.clone().normalize();
         
+        // Debug distance to player
+        logger.verbose('enemy', `Skeleton archer distance to player: ${distance.toFixed(2)}`);
+        
         // Special archer behavior - run away when too close, stand still at medium range
         if (distance < 8) {
             finalDirection.negate(); // Run away when close
+            logger.debug('enemy', `Skeleton archer retreating from player`);
         } else if (distance > 15) {
             // Move toward player (normal behavior)
+            logger.verbose('enemy', `Skeleton archer approaching player`);
         } else {
             // Stand still and shoot
             // Shooting logic would go here - creating an arrow projectile, etc.
@@ -136,6 +149,7 @@ export const createSkeletonArcher = (position, baseSpeed) => {
                 skeleton.lastShotTime = currentTime;
                 // Fire arrow logic would go here
                 // Example: createArrow(skeleton.position, playerPosition, gameState);
+                logger.info('enemy', `Skeleton archer firing arrow at player`);
             }
             return; // Don't move while shooting
         }
@@ -151,6 +165,9 @@ export const createSkeletonArcher = (position, baseSpeed) => {
             .copy(skeleton.position)
             .addScaledVector(finalDirection, moveDistance);
         
+        // Debug log position change
+        logger.verbose('enemy', `Skeleton archer moving from ${skeleton.position.x.toFixed(2)},${skeleton.position.z.toFixed(2)} to ${intendedPosition.x.toFixed(2)},${intendedPosition.z.toFixed(2)}`);
+        
         // Player collision
         const { COLLISION_DISTANCE, DAMAGE_DISTANCE, DAMAGE_PER_SECOND, ZOMBIE_COLLISION_DISTANCE } = collisionSettings;
         
@@ -162,6 +179,7 @@ export const createSkeletonArcher = (position, baseSpeed) => {
             if (checkCollision(intendedPosition, playerPosition, DAMAGE_DISTANCE)) {
                 const damageAmount = DAMAGE_PER_SECOND * delta;
                 if (gameState) damagePlayer(gameState, damageAmount);
+                logger.info('enemy', `Skeleton archer deals ${damageAmount.toFixed(2)} damage to player`);
             }
         }
         
@@ -205,6 +223,9 @@ export const createSkeletonArcher = (position, baseSpeed) => {
         // Apply final position and rotation
         skeleton.position.copy(intendedPosition);
         skeleton.rotation.y = Math.atan2(finalDirection.x, finalDirection.z);
+        
+        // Debug position confirmation
+        logger.verbose('enemy', `Skeleton archer position updated to ${skeleton.position.x.toFixed(2)},${skeleton.position.z.toFixed(2)}`);
     };
     
     return skeleton;

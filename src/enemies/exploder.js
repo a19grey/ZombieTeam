@@ -16,9 +16,10 @@
 
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
 import { createExplosion } from '../gameplay/zombieUtils.js'; // Import explosion utility
+import { logger } from '../utils/logger.js';
 
-// Check if we're in development mode
-const isDev = false;//window.NODE_ENV !== 'production';
+// Add 'enemy' to logger sections if not already included
+logger.addSection('enemy');
 
 export const createExploder = (position, baseSpeed ) => {
     const exploder = new THREE.Group();
@@ -60,9 +61,7 @@ export const createExploder = (position, baseSpeed ) => {
     exploder.position.set(position.x, 0, position.z);
     
     // Debug log for exploder creation
-    if (isDev) {
-        console.log(`[DEBUG] Creating exploder at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
-    }
+    logger.debug('enemy', `Creating exploder at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
     
     exploder.mesh = exploder;
     
@@ -86,9 +85,7 @@ export const createExploder = (position, baseSpeed ) => {
      */
     exploder.update = (context) => {
         // Debug log update call
-        if (isDev) {
-            console.log(`[DEBUG] Exploder update method called (at ${exploder.position.x.toFixed(2)},${exploder.position.z.toFixed(2)}), isExploding: ${exploder.isExploding}`);
-        }
+        logger.verbose('enemy', `Exploder update method called (at ${exploder.position.x.toFixed(2)},${exploder.position.z.toFixed(2)}), isExploding: ${exploder.isExploding}`);
         
         const { 
             playerPosition, 
@@ -113,15 +110,11 @@ export const createExploder = (position, baseSpeed ) => {
         const distance = direction.length();
         
         // Debug distance to player
-        if (isDev) {
-            console.log(`[DEBUG] Exploder distance to player: ${distance.toFixed(2)}`);
-        }
+        logger.verbose('enemy', `Exploder distance to player: ${distance.toFixed(2)}`);
         
         // Exploder specific behavior - start exploding when close to player
         if (distance < 3 && !exploder.isExploding) {
-            if (isDev) {
-                console.log(`[DEBUG] Exploder starting explosion sequence`);
-            }
+            logger.info('enemy', `Exploder starting explosion sequence`);
             
             exploder.isExploding = true;
             exploder.explosionTimer = 1.5; // Time before exploding
@@ -142,60 +135,127 @@ export const createExploder = (position, baseSpeed ) => {
             // Update explosion timer and flashing effect
             exploder.explosionTimer -= delta;
             
-            if (isDev) {
-                console.log(`[DEBUG] Exploder explosion timer: ${exploder.explosionTimer.toFixed(2)}`);
-            }
+            logger.verbose('enemy', `Exploder explosion timer: ${exploder.explosionTimer.toFixed(2)}`);
             
             const flashSpeed = Math.max(0.1, exploder.explosionTimer / 3);
             const flashIntensity = Math.sin(Date.now() * 0.01 / flashSpeed) * 0.5 + 0.5;
             
+            // Make it flash red/yellow as countdown progresses
             exploder.children.forEach(child => {
-                if (child.material && child.material.emissiveIntensity !== undefined) {
-                    child.material.emissiveIntensity = flashIntensity;
+                if (child.material && child.material.color) {
+                    // Flash between red and yellow
+                    const r = 1.0;
+                    const g = flashIntensity * 0.8;
+                    const b = 0;
+                    child.material.color.setRGB(r, g, b);
+                    
+                    if (child.material.emissive) {
+                        child.material.emissive.setRGB(r * 0.5, g * 0.5, 0);
+                        child.material.emissiveIntensity = 0.5 + flashIntensity * 0.5;
+                    }
                 }
             });
             
-            // Create explosion when timer reaches zero
+            // Wobble/shake the exploder as it's about to explode
+            const wobbleIntensity = Math.min(0.05, (1.5 - exploder.explosionTimer) * 0.1);
+            exploder.position.x += (Math.random() - 0.5) * wobbleIntensity;
+            exploder.position.z += (Math.random() - 0.5) * wobbleIntensity;
+            
+            // Explode when timer runs out
             if (exploder.explosionTimer <= 0) {
-                if (isDev) {
-                    console.log(`[DEBUG] Exploder detonating!`);
+                logger.info('enemy', `Exploder detonating at ${exploder.position.x.toFixed(2)},${exploder.position.z.toFixed(2)}`);
+                
+                // Create explosion effect
+                const explosion = createExplosion(
+                    new THREE.Vector3(
+                        exploder.position.x,
+                        0.5, // Height of explosion
+                        exploder.position.z
+                    ), 
+                    3.5 // Explosion radius
+                );
+                
+                // Add explosion to scene
+                if (context.scene) {
+                    context.scene.add(explosion);
+                    // Remove explosion after animation (2 seconds)
+                    setTimeout(() => {
+                        context.scene.remove(explosion);
+                    }, 2000);
                 }
                 
-                // Create explosion at exploder's position
-                if (gameState && gameState.scene) {
-                    createExplosion(
-                        gameState.scene, 
-                        exploder.position.clone(), 
-                        3.5, // Explosion radius
-                        120, // Explosion damage
-                        gameState.zombies || [], 
-                        gameState.playerObject,
-                        gameState,
-                        'zombie' // Explicitly set source as zombie
-                    );
+                // Deal damage to player if in blast radius
+                const blastRadius = 5;
+                const blastDamage = 30; // Base explosion damage
+                const playerDistance = direction.length();
+                
+                if (playerDistance < blastRadius) {
+                    // Calculate damage based on distance (less damage farther away)
+                    const damageMultiplier = 1 - (playerDistance / blastRadius);
+                    const actualDamage = blastDamage * damageMultiplier;
                     
-                    // Remove the exploder
-                    if (exploder.parent) {
-                        exploder.parent.remove(exploder);
+                    logger.info('enemy', `Explosion damaging player: ${actualDamage.toFixed(1)} damage`);
+                    
+                    if (gameState) {
+                        damagePlayer(gameState, actualDamage);
                     }
-                    
-                    // Mark the zombie as dead in the game state
-                    exploder.health = 0;
                 }
+                
+                // Handle nearby zombies being damaged by explosion
+                if (nearbyZombies) {
+                    nearbyZombies.forEach(otherZombie => {
+                        if (otherZombie && otherZombie.mesh) {
+                            const zombieDirection = new THREE.Vector3(
+                                otherZombie.mesh.position.x - exploder.position.x,
+                                0,
+                                otherZombie.mesh.position.z - exploder.position.z
+                            );
+                            const zombieDistance = zombieDirection.length();
+                            
+                            // Apply blast force to other zombies
+                            if (zombieDistance < blastRadius) {
+                                const pushForce = 0.5 * (1 - zombieDistance / blastRadius);
+                                const pushVector = zombieDirection.normalize().multiplyScalar(pushForce);
+                                
+                                // Only move zombies if they have a position
+                                if (otherZombie.mesh.position) {
+                                    otherZombie.mesh.position.x += pushVector.x;
+                                    otherZombie.mesh.position.z += pushVector.z;
+                                }
+                                
+                                // Damage other zombies too
+                                if (otherZombie.mesh.health !== undefined) {
+                                    otherZombie.mesh.health -= 20 * (1 - zombieDistance / blastRadius);
+                                }
+                            }
+                        }
+                    });
+                }
+                
+                // Remove this exploder from the scene
+                if (context.scene) {
+                    context.scene.remove(exploder);
+                }
+                
+                // Mark for cleanup
+                exploder.markedForDeletion = true;
+                exploder.health = 0;
+                
+                return;
             }
             
             return; // Don't move while exploding
         }
         
-        // Normal movement if not exploding
+        // Standard movement when not exploding (normalized for consistent speed)
         const finalDirection = direction.clone().normalize();
         
-        // Add slight randomness to movement
-        const randomFactor = Math.min(0.1, distance * 0.005);
+        // Add slight jitter to movement
+        const randomFactor = Math.min(0.15, distance * 0.005);
         const randomAngle = (Math.random() - 0.5) * Math.PI * randomFactor;
         finalDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), randomAngle);
         
-        // Calculate intended position
+        // Calculate movement
         const moveDistance = exploder.speed * delta * 60;
         const intendedPosition = new THREE.Vector3()
             .copy(exploder.position)
@@ -208,22 +268,14 @@ export const createExploder = (position, baseSpeed ) => {
             const newPosition = pushAway(intendedPosition, playerPosition, COLLISION_DISTANCE);
             intendedPosition.x = newPosition.x;
             intendedPosition.z = newPosition.z;
-            
-            if (checkCollision(intendedPosition, playerPosition, DAMAGE_DISTANCE)) {
-                const damageAmount = DAMAGE_PER_SECOND * delta;
-                if (gameState) damagePlayer(gameState, damageAmount);
-            }
         }
         
         // Zombie collisions
         for (let i = 0; i < nearbyZombies.length; i++) {
             const otherZombie = nearbyZombies[i];
-            if (!otherZombie || !otherZombie.mesh || otherZombie.mesh.isExploding) continue;
+            if (!otherZombie || !otherZombie.mesh || otherZombie === exploder) continue;
             
             if (checkCollision(intendedPosition, otherZombie.mesh.position, ZOMBIE_COLLISION_DISTANCE)) {
-                const thisSize = exploder.mass || 1.0;
-                const otherSize = otherZombie.mesh.mass || 1.0;
-                
                 const avoidancePosition = pushAway(
                     intendedPosition, 
                     otherZombie.mesh.position, 
@@ -252,15 +304,10 @@ export const createExploder = (position, baseSpeed ) => {
             }
         }
         
-        // Debug position update
-        if (isDev && !exploder.isExploding) {
-            console.log(`[DEBUG] Exploder moving from ${exploder.position.x.toFixed(2)},${exploder.position.z.toFixed(2)} to ${intendedPosition.x.toFixed(2)},${intendedPosition.z.toFixed(2)}`);
-        }
-        
         // Apply final position and rotation
         exploder.position.copy(intendedPosition);
         exploder.rotation.y = Math.atan2(finalDirection.x, finalDirection.z);
     };
-    
+
     return exploder;
-};
+}

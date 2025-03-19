@@ -13,6 +13,7 @@
     ,"check-env": "./check-env.sh"
     ,"test": "echo \"Error: no test specified\" && exit 1"
     ,"lint": "eslint . --config eslint.config.mjs"
+    ,"build": "mkdir -p .vercel/output/static && cp -r src .vercel/output/static/ && cp index.html .vercel/output/static/ && cp -r audio .vercel/output/static/ && echo \"Build completed successfully\""
   },
   "keywords": [
     "three.js",

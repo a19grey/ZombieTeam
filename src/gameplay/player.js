@@ -6,6 +6,7 @@
  */
 
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Creates a Minecraft-style low-poly player character
@@ -195,6 +196,14 @@ export const handlePlayerMovement = (player, keys, baseSpeed, mouse) => {
     const forwardSpeed = baseSpeed * 1.03;
     const backwardSpeed = baseSpeed * 0.97;
     const sideSpeed = baseSpeed;
+    
+    // Log player speed values occasionally to avoid console spam
+    // Use a static variable to track last log time
+    const currentTime = Date.now();
+    if (!handlePlayerMovement.lastLogTime || currentTime - handlePlayerMovement.lastLogTime > 5000) { // Log every 5 seconds
+        logger.debug('speed', `Player movement speeds - base: ${baseSpeed}, forward: ${forwardSpeed}, backward: ${backwardSpeed}, side: ${sideSpeed}`);
+        handlePlayerMovement.lastLogTime = currentTime;
+    }
     
     let speedX = sideSpeed;
     let speedZ = moveZ < 0 ? forwardSpeed : backwardSpeed;

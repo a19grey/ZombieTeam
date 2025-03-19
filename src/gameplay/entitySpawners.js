@@ -115,9 +115,13 @@ const spawnEnemy = (playerPos, scene, gameState) => {
     let enemyObj;
     const enemyTypeRoll = Math.random();
     
+    // Get the base speed from gameState with a small random variation
+    const globalBaseSpeed = gameState.baseSpeed;
+    logger.debug('speed', `Using global base speed: ${globalBaseSpeed} for enemy spawn`);
+    
     if (enemyTypeRoll < 0.6) {
         // Regular zombie (60% chance)
-        const baseSpeed = 0.03 + Math.random() * 0.02;
+        const baseSpeed = globalBaseSpeed + (Math.random() * 0.04 - 0.02); // +/- 0.02 variation
         const zombie = createbaseZombie(position, baseSpeed);
         enemyObj = {
             mesh: zombie,
@@ -127,9 +131,10 @@ const spawnEnemy = (playerPos, scene, gameState) => {
             baseSpeed: baseSpeed,
             type: 'zombie'
         };
+        logger.debug('speed', `Regular zombie spawned with speed: ${baseSpeed}`);
     } else if (enemyTypeRoll < 0.8) {
         // Skeleton Archer (20% chance)
-        const baseSpeed = 0.04;
+        const baseSpeed = globalBaseSpeed * 1.1 + (Math.random() * 0.02 - 0.01); // Slightly faster with small variation
         const skeletonArcher = createSkeletonArcher(position, baseSpeed);
         enemyObj = {
             mesh: skeletonArcher,
@@ -140,9 +145,10 @@ const spawnEnemy = (playerPos, scene, gameState) => {
             type: 'skeletonArcher',
             lastShotTime: 0
         };
+        logger.debug('speed', `Skeleton Archer spawned with speed: ${baseSpeed}`);
     } else if (enemyTypeRoll < 0.95) {
         // Exploder (15% chance)
-        const baseSpeed = 0.05;
+        const baseSpeed = globalBaseSpeed * 1.3 + (Math.random() * 0.03 - 0.015); // Faster to get close to player
         const exploder = createExploder(position, baseSpeed);
         enemyObj = {
             mesh: exploder,
@@ -152,9 +158,10 @@ const spawnEnemy = (playerPos, scene, gameState) => {
             baseSpeed: baseSpeed,
             type: 'exploder'
         };
+        logger.debug('speed', `Exploder spawned with speed: ${baseSpeed}`);
     } else {
         // Zombie King (5% chance - rare but powerful)
-        const baseSpeed = 0.02;
+        const baseSpeed = globalBaseSpeed * 0.7 + (Math.random() * 0.02 - 0.01); // Slower but powerful
         const zombieKing = createZombieKing(position, baseSpeed);
         enemyObj = {
             mesh: zombieKing,
@@ -164,6 +171,7 @@ const spawnEnemy = (playerPos, scene, gameState) => {
             baseSpeed: baseSpeed,
             type: 'zombieKing'
         };
+        logger.debug('speed', `Zombie King spawned with speed: ${baseSpeed}`);
     }
     
     // Ensure the mesh has the same type property for consistency

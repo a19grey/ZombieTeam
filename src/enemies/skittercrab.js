@@ -1,17 +1,16 @@
 /**
- * Skittercrab Module - Creates a small, fast-moving crab-like enemy
+ * Skittercrab Module - Creates a fast, agile zombie variant
  * 
- * This module contains the function to create a Skittercrab, a unique enemy
- * that resembles a mutated crab zombie. The Skittercrab is much smaller than
- * other enemies but moves significantly faster. It has a dark gray carapace
- * with red spikes and pincers that can quickly overwhelm players if not
- * dealt with promptly.
+ * This module contains the function to create a Skittercrab, a unique enemy type
+ * that moves very quickly but has low health. The Skittercrab is a small, hunched
+ * zombie with crab-like features that can rapidly close the distance to players
+ * and attack with quick strikes.
  * 
  * Example usage:
  *   import { createSkittercrab } from './enemies/skittercrab.js';
  *   
- *   // Create a Skittercrab at position (15, 0, 15) with speed 0.05
- *   const crab = createSkittercrab({x: 15, z: 15}, 0.05);
+ *   // Create a Skittercrab at position (15, 0, 20) with speed 0.05
+ *   const crab = createSkittercrab({x: 15, z: 20}, 0.05);
  *   scene.add(crab);
  */
 
@@ -24,7 +23,10 @@
 
 // src/enemies/zombie.js
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import { logger } from '../utils/logger.js';
 
+// Add 'enemy' to logger sections if not already included
+logger.addSection('enemy');
 
 export const createSkittercrab = (position, baseSpeed) => {
     const crab = new THREE.Group();
@@ -77,18 +79,50 @@ export const createSkittercrab = (position, baseSpeed) => {
     rightLeg.castShadow = true;
     crab.add(rightLeg);
 
+    // Position the skittercrab
     crab.position.set(position.x, 0, position.z);
+
+    // Log the creation
+    logger.info('enemy', `Creating skittercrab at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
+
+    // Set properties
     crab.mesh = crab;
     crab.enemyType = 'skittercrab';
-    
-    // Set speed relative to baseSpeed (much faster than standard zombie)
-    crab.speed = baseSpeed * 1.4; // 140% of base speed
-    
-    // Set mass for physics calculations - skittercrab is very light
-    crab.mass = 0.6;
-    
     crab.health = 50; // Low health
+    crab.speed = baseSpeed * 2.0; // Very fast
+    crab.mass = 0.5; // Very light
+    crab.lastDashTime = 0;
+    crab.dashCooldown = 3000; // 3 seconds between dashes
 
+    // Update method
+    crab.update = (context) => {
+        logger.verbose('enemy', `Skittercrab update at ${crab.position.x.toFixed(2)},${crab.position.z.toFixed(2)}`);
+        
+        const { playerPosition, delta } = context;
+        
+        // Special dash ability
+        const now = Date.now();
+        if (now - crab.lastDashTime > crab.dashCooldown) {
+            // Calculate distance to player
+            const distanceToPlayer = new THREE.Vector3(
+                playerPosition.x - crab.position.x,
+                0,
+                playerPosition.z - crab.position.z
+            ).length();
+            
+            // Dash when at medium range
+            if (distanceToPlayer > 5 && distanceToPlayer < 10) {
+                logger.info('enemy', `Skittercrab performing dash attack toward player`);
+                crab.lastDashTime = now;
+                // Dash logic - move quickly toward player
+                // ...
+            }
+        }
+        
+        // Regular movement is already fast
+        // ...
+    };
+    
     return crab;
 };
 

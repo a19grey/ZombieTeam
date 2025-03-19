@@ -26,7 +26,12 @@
 // src/enemies/index.js
 
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import { logger } from '../utils/logger.js';
 
+// Add 'enemy' to logger sections if not already included
+logger.addSection('enemy');
+
+// Export all enemy creation functions
 export { createbaseZombie } from './baseZombie.js';
 export { createSkeletonArcher } from './skeletonArcher.js';
 export { createExploder } from './exploder.js';
@@ -35,3 +40,6 @@ export { createPlagueTitan } from './plagueTitan.js';
 export { createNecrofiend } from './necrofiend.js';
 export { createRotBehemoth } from './rotBehemoth.js';
 export { createSkittercrab } from './skittercrab.js';
+
+// Log that the enemy module is initialized
+logger.info('enemy', 'Enemy module initialized with all enemy types');

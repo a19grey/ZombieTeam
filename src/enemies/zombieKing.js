@@ -23,9 +23,10 @@
 
 // src/enemies/zombie.js
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import { logger } from '../utils/logger.js';
 
-// Check if we're in development mode
-const isDev = false;//window.NODE_ENV !== 'production';
+// Add 'enemy' to logger sections if not already included
+logger.addSection('enemy');
 
 export const createZombieKing = (position, baseSpeed) => {
     const king = new THREE.Group();
@@ -232,6 +233,9 @@ export const createZombieKing = (position, baseSpeed) => {
         king.position.copy(intendedPosition);
         king.rotation.y = Math.atan2(finalDirection.x, finalDirection.z);
     };
+    
+    // Add logging statements at appropriate places
+    logger.info('enemy', `Creating zombie king at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
     
     return king;
 };

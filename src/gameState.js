@@ -33,28 +33,31 @@ const gameState = {
     dismembermentParticles: [], // Store colorful particles for dismemberment effects
     lastPowerupSpawnTime: 0, // Track when the last powerup was spawned
     playerObject: null, // Store player object for access by other functions
-    // Debug settings
-    debug: {
-        enabled: DEBUG_MODE,
-        gunFireRate: 100, // ms between shots
-        playerMoveSpeed: 0.15, // Base movement speed
-        zombieSpawnRate: 200, // ms between zombie spawns
-        powerupSpawnRate: 1500, // ms between powerup spawns
-        camera: {
-            distance: 10, // Distance from player
-            height: 10,   // Height above ground
-            tilt: 0,      // Camera tilt angle in degrees
-            defaultValues: {
-                distance: 10,
-                height: 10,
-                tilt: 0
-            }
-        }
-    }
+    baseSpeed: 0.10, // Global base speed for player and enemies
 };
 
 // Make gameState globally accessible for zombie collision detection
 window.gameState = gameState;
+
+// Update player speed to reference the global base speed
+gameState.player.speed = gameState.baseSpeed;
+
+/**
+ * Sets the global base speed for both player and enemies
+ * @param {number} newSpeed - The new base speed value
+ */
+const setGlobalBaseSpeed = (newSpeed) => {
+    if (typeof newSpeed === 'number' && newSpeed > 0) {
+        gameState.baseSpeed = newSpeed;
+        gameState.player.speed = newSpeed;
+        logger.debug('speed', `Global base speed updated to: ${newSpeed}`);
+    } else {
+        logger.error('speed', 'Invalid speed value provided to setGlobalBaseSpeed');
+    }
+};
+
+// Add the function to gameState for access
+gameState.setGlobalBaseSpeed = setGlobalBaseSpeed;
 
 /**
  * Handles game over state, displays message and sets up restart functionality
@@ -94,4 +97,4 @@ const handleGameOver = () => {
 // Assign the handleGameOver function to gameState
 gameState.handleGameOver = handleGameOver;
 
-export { gameState, handleGameOver }; 
+export { gameState, handleGameOver, setGlobalBaseSpeed }; 

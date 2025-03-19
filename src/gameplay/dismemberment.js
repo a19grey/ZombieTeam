@@ -392,8 +392,8 @@ const applyDismembermentEffects = (zombie, partName) => {
         case 'leftLeg':
         case 'rightLeg':
             // Losing a leg slows the zombie down
-            zombie.speed *= 0.7;
-            zombie.baseSpeed *= 0.7;
+            zombie.speed *= 0.95;
+            zombie.baseSpeed *= 0.95;
             break;
             
         case 'leftArm':

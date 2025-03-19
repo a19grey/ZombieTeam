@@ -15,6 +15,10 @@
  */
 
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import { logger } from '../utils/logger.js';
+
+// Add 'enemy' to logger sections if not already included
+logger.addSection('enemy');
 
 export const createNecrofiend = (position, baseSpeed) => {
     const necro = new THREE.Group();
@@ -72,18 +76,36 @@ export const createNecrofiend = (position, baseSpeed) => {
     necro.add(rightLeg);
 
     necro.position.set(position.x, 0, position.z);
+    
+    // Log the creation
+    logger.info('enemy', `Creating necrofiend at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
+    
+    // Set properties
     necro.mesh = necro;
     necro.enemyType = 'necrofiend';
+    necro.health = 400; // High health for a boss type
+    necro.speed = baseSpeed * 0.7; // Slower than standard zombies
+    necro.mass = 3.0; // Heavy
+    necro.nextSummonTime = Date.now() + 5000; // First summon after 5 seconds
     
-    // Set speed relative to baseSpeed (slightly faster than standard zombie)
-    necro.speed = baseSpeed * 1.2; // 120% of base speed
+    // Update method
+    necro.update = (context) => {
+        logger.verbose('enemy', `Necrofiend update at ${necro.position.x.toFixed(2)},${necro.position.z.toFixed(2)}`);
+        
+        // Standard zombie movement code
+        // ...
+        
+        // Summon minions periodically
+        const now = Date.now();
+        if (now > necro.nextSummonTime) {
+            logger.info('enemy', `Necrofiend summoning minions`);
+            necro.nextSummonTime = now + 15000; // Next summon in 15 seconds
+            
+            // Summon logic would go here, e.g.:
+            // context.summonZombie(necro.position, 3); // Summon 3 zombies
+        }
+    };
     
-    // Set mass for physics calculations - necrofiend is medium-weight
-    necro.mass = 1.3;
-    
-    necro.health = 300; // Moderate health
-    necro.spawnCooldown = 0; // For minion spawning
-
     return necro;
 };
 

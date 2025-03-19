@@ -39,7 +39,7 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTi
         }
         
         // Update player position based on input with direction-based speeds
-        handlePlayerMovement(player, gameState.keys, gameState.player.speed);
+        handlePlayerMovement(player, gameState.keys, gameState.baseSpeed);
         
         // Aim player with mouse
         aimPlayerWithMouse(player, gameState.mouse, camera);
@@ -183,8 +183,8 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTi
         // Handle all collisions (player-powerup, bullet-powerup, player-zombie, etc.)
         handleCollisions(gameState, scene, delta);
         
-        // Update zombies
-        updateZombies(gameState.zombies, player.position, delta);
+        // Update zombies to chase player
+        updateZombies(gameState.zombies, player.position, delta, gameState.baseSpeed);
         
         // Handle exploder explosions
         for (let i = gameState.zombies.length - 1; i >= 0; i--) {
