@@ -29,11 +29,11 @@ const gameState = {
     enemySpawnRate: 200, // Time between enemy spawns in ms (reduced for more zombies)
     powerupSpawnRate: 1500, // ms between powerup spawns
     lastEnemySpawnTime: 0, maxZombies: 1000, // Maximum number of zombies allowed at once
-    initialSpawnCount: 300, // Number of zombies to spawn at start (increased from 30 to 300)
+    initialSpawnCount: 12, // Number of zombies to spawn at start (increased from 30 to 300)
     dismembermentParticles: [], // Store colorful particles for dismemberment effects
     lastPowerupSpawnTime: 0, // Track when the last powerup was spawned
     playerObject: null, // Store player object for access by other functions
-    baseSpeed: 0.10, // Global base speed for player and enemies
+    baseSpeed: 0.08, // Global base speed for player and enemies
 };
 
 // Make gameState globally accessible for zombie collision detection

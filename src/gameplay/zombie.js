@@ -128,7 +128,7 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60, baseSpeed) 
     // Dev-mode logging: Check if zombie meshes have update methods
     if (isDev) {
         const zombiesWithUpdate = zombies.filter(z => z && z.mesh && typeof z.mesh.update === 'function').length;
-        console.log(`[DEBUG] Zombies with update method: ${zombiesWithUpdate}/${zombies.length}`);
+        logger.debug('enemy',`[DEBUG] Zombies with update method: ${zombiesWithUpdate}/${zombies.length}`);
         
         // Log types of zombies
         const zombieTypes = {};
@@ -137,7 +137,7 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60, baseSpeed) 
                 zombieTypes[z.mesh.enemyType] = (zombieTypes[z.mesh.enemyType] || 0) + 1;
             }
         });
-        console.log('[DEBUG] Zombie types:', zombieTypes);
+        logger.debug('enemy','[DEBUG] Zombie types:', zombieTypes);
     }
     
     // Dev-mode logging: Check for potential reference issues
@@ -146,21 +146,21 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60, baseSpeed) 
             if (zombie && zombie.mesh) {
                 // Check if zombie !== zombie.mesh (potential issue)
                 if (zombie !== zombie.mesh) {
-                    console.warn(`[DEBUG] Zombie ${index} has separate mesh reference! Type: ${zombie.mesh.enemyType}`);
+                    logger.debug('enemy',`[DEBUG] Zombie ${index} has separate mesh reference! Type: ${zombie.mesh.enemyType}`);
                     
                     // Check if update method exists on both
                     const zombieHasUpdate = typeof zombie.update === 'function';
                     const meshHasUpdate = typeof zombie.mesh.update === 'function';
-                    console.warn(`[DEBUG] Update method exists: on zombie: ${zombieHasUpdate}, on mesh: ${meshHasUpdate}`);
+                    logger.debug('enemy',`[DEBUG] Update method exists: on zombie: ${zombieHasUpdate}, on mesh: ${meshHasUpdate}`);
                     
                     // Check if positions are synchronized
                     if (zombie.position && zombie.mesh.position) {
                         const posSame = zombie.position.equals(zombie.mesh.position);
-                        console.warn(`[DEBUG] Positions match: ${posSame}`);
+                        logger.debug('enemy',`[DEBUG] Positions match: ${posSame}`);
                     }
                     
                     // NEW: Check critical properties needed for update
-                    console.warn(`[DEBUG] Critical property check for zombie ${index}:`, {
+                    logger.debug('enemy',`[DEBUG] Critical property check for zombie ${index}:`, {
                         zombieSpeed: zombie.speed,
                         meshSpeed: zombie.mesh.speed,
                         zombiePosition: zombie.position ? 
@@ -179,7 +179,7 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60, baseSpeed) 
         const zombie = zombies[index];
         if (!zombie || !zombie.mesh || !zombie.mesh.position) {
             if (isDev) {
-                console.log(`[DEBUG] Skipping zombie ${index}: ${!zombie ? 'zombie missing' : (!zombie.mesh ? 'mesh missing' : 'position missing')}`);
+                logger.debug('enemy',`[DEBUG] Skipping zombie ${index}: ${!zombie ? 'zombie missing' : (!zombie.mesh ? 'mesh missing' : 'position missing')}`);
             }
             return;
         }
@@ -209,14 +209,14 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60, baseSpeed) 
             
             // Debug log for first zombie update
             if (isDev && index === updateOrder[0]) {
-                console.log(`[DEBUG] Updating zombie ${index}, type: ${zombie.mesh.enemyType}, position before: ${zombie.mesh.position.x.toFixed(2)},${zombie.mesh.position.z.toFixed(2)}`);
+                logger.debug('enemy',`[DEBUG] Updating zombie ${index}, type: ${zombie.mesh.enemyType}, position before: ${zombie.mesh.position.x.toFixed(2)},${zombie.mesh.position.z.toFixed(2)}`);
             }
             
             // Call the zombie's update method if it exists
             if (typeof zombie.mesh.update === 'function') {
                 // NEW: Add detailed debugging right before update call
                 if (isDev && index === updateOrder[0]) {
-                    console.log(`[DEBUG] Update context for zombie ${index}:`, {
+                    logger.debug('enemy',`[DEBUG] Update context for zombie ${index}:`, {
                         playerPosition: `${playerPosition.x.toFixed(2)},${playerPosition.z.toFixed(2)}`,
                         zombiePosition: zombie.mesh.position ? 
                             `${zombie.mesh.position.x.toFixed(2)},${zombie.mesh.position.z.toFixed(2)}` : 'undefined',
@@ -232,18 +232,18 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60, baseSpeed) 
                 
                 // Debug log for first zombie after update
                 if (isDev && index === updateOrder[0]) {
-                    console.log(`[DEBUG] Zombie ${index} updated, position after: ${zombie.mesh.position.x.toFixed(2)},${zombie.mesh.position.z.toFixed(2)}`);
+                    logger.debug('enemy',`[DEBUG] Zombie ${index} updated, position after: ${zombie.mesh.position.x.toFixed(2)},${zombie.mesh.position.z.toFixed(2)}`);
                     
                     // NEW: Add result check
                     const positionIsNaN = isNaN(zombie.mesh.position.x) || isNaN(zombie.mesh.position.z);
                     if (positionIsNaN) {
-                        console.error(`[DEBUG] ERROR: Zombie ${index} position contains NaN values after update!`);
+                        logger.debug('enemy',`[DEBUG] ERROR: Zombie ${index} position contains NaN values after update!`);
                     }
                 }
             } else {
                 // Debug log for missing update method
                 if (isDev) {
-                    console.warn(`[DEBUG] Zombie ${index} (type: ${zombie.mesh.enemyType}) has no update method!`);
+                    logger.debug('enemy',`[DEBUG] Zombie ${index} (type: ${zombie.mesh.enemyType}) has no update method!`);
                 }
                 
                 // Fallback for zombies without update method - basic movement towards player
@@ -265,7 +265,7 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60, baseSpeed) 
     
     // Dev-mode logging: Report how many zombies were updated
     if (isDev) {
-        console.log(`[DEBUG] Updated ${updatedCount}/${zombies.length} zombies`);
+        logger.debug('enemy',`[DEBUG] Updated ${updatedCount}/${zombies.length} zombies`);
     }
 };
 

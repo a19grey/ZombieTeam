@@ -14,13 +14,8 @@ import { createRapidFirePowerup, createShotgunBlastPowerup, createExplosionPower
 import { createTexturedGround, createBuilding, createRock, createDeadTree } from './rendering/environment.js';
 import { setupDismemberment, updateParticleEffects } from './gameplay/dismemberment.js';
 import { shouldSpawnPowerup, spawnPowerupBehindPlayer, cleanupOldPowerups } from './gameplay/powerupSpawner.js';
-//import { initAudio, loadAudio, loadPositionalAudio, playSound, stopSound, toggleMute, setMasterVolume, debugAudioSystem, getAudioState, setAudioEnabled } from './gameplay/audio.js';
-//import { createSoundSettingsUI, toggleSoundSettingsUI, isSoundSettingsVisible } from './ui/soundSettings.js';
 import { debugWebGL, fixWebGLContext, monitorRenderingPerformance, createFallbackCanvas } from './debug.js';
-//import { runTests } from './utils/testRunner.js';
-// import { testWeaponsSystem } from './utils/weaponsTester.js';
 import { safeCall } from './utils/safeAccess.js';
-// import { checkAudioFiles, suggestAudioFix } from './utils/audioChecker.js';
 import { spawnEnvironmentObjects, spawnEnemy } from './gameplay/entitySpawners.js';
 import { shootBullet, handleCombatCollisions } from './gameplay/combat.js';
 
@@ -300,7 +295,7 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTi
                     const minionObj = {
                         mesh: minion,
                         health: 30, // Weaker than regular zombies
-                        speed: 0.04, // But faster
+                        speed: gameState.baseSpeed, // But faster
                         gameState: gameState,
                         baseSpeed: 0.04,
                         type: 'zombie'
@@ -369,7 +364,7 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTi
         // Check if we should spawn a powerup (only check once per second for efficiency)
         if (!gameState.lastPowerupCheckFrameTime || currentTime - gameState.lastPowerupCheckFrameTime >= 1000) {
             gameState.lastPowerupCheckFrameTime = currentTime;
-            console.log('currentTime is inside the loop for spawn powerup', currentTime);
+            logger.debug('powerup', 'Checking for powerup spawn time', currentTime);
             if (shouldSpawnPowerup(gameState, currentTime)) {
                 spawnPowerupBehindPlayer(scene, gameState, player);
             }
@@ -454,8 +449,7 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTi
         try {
             renderer.render(scene, camera);
         } catch (renderError) {
-            logger.error('Render error:', renderError);
-            console.error('Render error:', renderError);
+            logger.error('renderer', 'Render error:', renderError);
             
             // Try to fix WebGL context
             const fixed = fixWebGLContext(renderer);
@@ -469,7 +463,6 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTi
         }
     } catch (error) {
         logger.error('Animation loop error:', error);
-        console.error('Animation loop error:', error);
     }
 }
 

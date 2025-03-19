@@ -3,20 +3,24 @@
 -- zombie.js needs to be broken up to smaller chunks -- Done 3.17.2025
 -- Powerups should spawn in pairs behind players in same horizontal position abit far apart left and right so there is a choice and only time to grab one, once grabbed the rest disappear -- done 3/16/2025
 -- Fix spawn rates so more than one spawns in teh game -- done 3/16/2025
--- fix /music/audio references for VITE  Vite’s public directory (e.g., project/public/) is a special folder. Anything in it—like images, audio files, or fonts—is copied to the root of your build output (dist/) during npm run build.
-In your case, you likely have a file at public/audio/music/Pulse of the Shadows.mp3. After the build, Vite makes it available at /music/Pulse of the Shadows.mp3 (relative to the root), not /audio/music/Pulse of the Shadows.mp3.
+-- fix /music/audio references for VITE  Vite’s public directory -- done 3/18/2025
 -- basespeed is correctly updated and used in the game -- done 3/16/2025
--- test improved speed optioons I fear above broke
+-- Player should not be damaged by grenade launcher explosion -- done 03/17/2025
+-- Launch game -- done 3.18/2025 - already on Vercel!
+-- Music not play over and over again ugh
+-- Music controls actually work...
+-- Player should not be damaged by grenade launcher explosion (again)
+-- Works on mobile 
+-- test improved speed options I fear above broke
 -- Implement working SFX 
 -- Adapt the generated world.js to work with our assets and zombies and use it as the procedurally generated world
 -- Tune zombie and gun rates and power up rates, camera angle
--- Player should not be damaged by grenade launcher explosion - Player in explosion radius, dealing 40 damage
 -- Add use the bigger badder bosses zombies that are new in zombies.js
 -- zombie archer works
 -- Zombie spawn selection is better more scalable method - if have boss new boss less likely
 -- Multiplayer with not websockets but that other thing - Socket.io webrtc UDP
--- experience value and  time of game and game length saved to some tiny DB
--- Launch game
+-- Experience value and  time of game and game length saved to some tiny DB
+
 -- Implement zustand for better global state
 -- Users score is displayed as a line overlaid on a 'mountain' shape of the score distribution flipped to be rarest up high
 -- Flocking behavior works - hordeflocking.md has notes here

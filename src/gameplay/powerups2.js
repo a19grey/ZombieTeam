@@ -9,7 +9,7 @@ const createHalo = (color, radius = 0.6) => {
     const haloMaterial = new THREE.MeshBasicMaterial({
         color,
         transparent: true,
-        opacity: 0.5,
+        opacity: 0.55,
         side: THREE.DoubleSide
     });
     const halo = new THREE.Mesh(haloGeometry, haloMaterial);
@@ -296,16 +296,22 @@ export const createGrenadeLauncherPowerup = (position) => {
 export const animatePowerup = (powerup, time) => {
     powerup.position.y = Math.sin(time * 2) * 0.1 + 0.25;
     powerup.rotation.y += 0.02;
-    // Pulse halo
-    const halo = powerup.children.find(child => child.geometry.type === 'CircleGeometry');
-    if (halo) {
-        halo.scale.setScalar(1 + Math.sin(time * 3) * 0.1);
-    }
-    // Optional: Pulse laser tip
-    if (powerup.userData.type === 'laserShot') {
-        const tip = powerup.children.find(child => child.geometry.type === 'SphereGeometry');
-        if (tip) {
-            tip.scale.setScalar(1 + Math.sin(time * 5) * 0.05);
+    
+    // Pulse halo - more robust detection
+    for (let i = 0; i < powerup.children.length; i++) {
+        const child = powerup.children[i];
+        
+        // Look for the halo by checking if it's a mesh with CircleGeometry
+        if (child instanceof THREE.Mesh && 
+            child.geometry instanceof THREE.CircleGeometry) {
+            child.scale.setScalar(1 + Math.sin(time * 3) * 0.1);
+        }
+        
+        // Optional: Pulse laser tip
+        if (powerup.userData.type === 'laserShot' && 
+            child instanceof THREE.Mesh && 
+            child.geometry instanceof THREE.SphereGeometry) {
+            child.scale.setScalar(1 + Math.sin(time * 5) * 0.05);
         }
     }
 };

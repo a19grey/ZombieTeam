@@ -23,7 +23,7 @@
  * // ?debugAll=true                    - Enable all debug sections
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import * as THREE from 'three';
 import { logger } from '../utils/logger.js';
 
 // No need to manually configure logger here as it now supports URL parameters
@@ -148,12 +148,13 @@ export const loadPositionalAudio = (name, url, refDistance = 10, volume = 1.0) =
  * @returns {boolean} Whether the sound was successfully played
  */
 export const playSound = (name, position = null) => {
+  logger.verbose('audio', `playSound: ${name}`);
   // Check if audio system is enabled
   if (!audioState.enabled) {
     logger.debug('audio', `Sound ${name} not played (audio system disabled)`);
     return false;
   }
-
+  logger.verbose('audio', `playSound: ${name}`);
   if (audioState.muted) {
     logger.debug('audio', `Sound ${name} not played (audio muted)`);
     return false;
@@ -192,13 +193,14 @@ export const playSound = (name, position = null) => {
     tempObject.position.copy(position);
     tempObject.add(audio);
   }
-
+  logger.verbose('audio', `playSound: ${name} - isPositional: ${isPositional}`);
   if (!soundData.isPlaying) {
     try {
       audio.play();
       soundData.isPlaying = true;
       audio.onEnded = () => {
         soundData.isPlaying = false;
+        logger.debug('audio', 'A: Sound ended:', name);
       };
       logger.debug('audio', `Playing sound: ${name}, context state: ${audio.context?.state || 'unknown'}`);
       return true;
@@ -217,11 +219,12 @@ export const playSound = (name, position = null) => {
  * @returns {boolean} Whether the sound was successfully stopped
  */
 export const stopSound = (name) => {
+  logger.verbose('audio', `K: stopSound: ${name}`);
   const soundData = audioState.sounds.get(name);
   if (soundData && soundData.isPlaying) {
     soundData.audio.stop();
     soundData.isPlaying = false;
-    logger.debug('audio', `Stopped sound: ${name}`);
+    logger.debug('audio', `L: Stopped sound: ${name}`);
     return true;
   }
   return false;
@@ -451,6 +454,7 @@ export const loadMusicTracks = async (directory = './audio/music/') => {
  * @returns {boolean} Whether a track was successfully played
  */
 export const playRandomMusicTrack = () => {
+  logger.info('audio', 'A: playRandomMusicTrack is going to play a random track');
   if (!isRandomMusicEnabled || musicTracks.length === 0) {
     return false;
   }
@@ -480,6 +484,7 @@ export const playRandomMusicTrack = () => {
     // Set up the onEnded callback to play the next random track
     soundData.audio.onEnded = () => {
       soundData.isPlaying = false;
+      logger.debug('audio', 'B: Sound ended: ', trackToPlay);
       // Play another random track when this one ends
       playRandomMusicTrack();
     };
@@ -488,7 +493,7 @@ export const playRandomMusicTrack = () => {
   // Play the selected track
   const success = playSound(trackToPlay);
   if (success) {
-    logger.info('audio', `Now playing music track: ${trackToPlay}`);
+    logger.debug('audio', `Now playing music track: ${trackToPlay}`);
   }
   
   return success;

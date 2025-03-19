@@ -10,7 +10,7 @@
  * Example usage: Import and call initializeGame() to set up all game components
  */
 
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.module.js';
+import * as THREE from 'three';
 import { createScene, createCamera, createRenderer, createLighting, createGround } from './rendering/scene.js';
 import { createPlayer, createPlayerWeapon } from './gameplay/player.js';
 import { updateUI, initUI,showMessage, } from './ui/ui.js';
