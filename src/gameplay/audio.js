@@ -1,17 +1,24 @@
 /**
- * Audio Module - Handles audio loading, playback, and state management
+ * Audio Module - Main entry point for the audio system
  * 
- * This module provides functionality for loading and playing both global and positional
- * audio in the game. It supports background music, sound effects, and spatial audio.
+ * This module re-exports all functionality from the individual audio modules:
+ * - audio-core.js: Core audio setup and state management
+ * - audio-loader.js: Functions for loading audio files
+ * - audio-playback.js: Functions for playing and stopping sounds
+ * - audio-volume.js: Volume control functions
+ * - audio-music.js: Music track management
  * 
  * Example usage:
- * import { initAudio, loadAudio, playSound } from './gameplay/audio.js';
+ * import { 
+ *   initAudio, loadAudio, playSound, setMasterVolume, 
+ *   loadMusicTracks, playRandomMusicTrack 
+ * } from './gameplay/audio.js';
  * 
  * // Initialize audio system
  * initAudio(camera);
  * 
  * // Load background music and sound effects
- * await loadAudio('backgroundMusic', '/audio/Pulse-Drive.mp3'.mp3', true, 0.5);
+ * await loadAudio('backgroundMusic', '/audio/Pulse-Drive.mp3', true, 0.5, 'music');
  * await loadAudio('gunshot', '/audio/gunshot.mp3', false, 0.8);
  * 
  * // Play sounds
@@ -23,533 +30,41 @@
  * // ?debugAll=true                    - Enable all debug sections
  */
 
-import * as THREE from 'three';
-import { logger } from '../utils/logger.js';
+// Re-export from audio-core.js
+export { 
+  initAudio,
+  getAudioState,
+  debugAudioSystem,
+  setAudioEnabled,
+  audioState 
+} from './audio-core.js';
 
-// No need to manually configure logger here as it now supports URL parameters
-// Access the audio module with: ?debug=5&debugSection=audio in the URL
+// Re-export from audio-loader.js
+export { 
+  loadAudio,
+  loadPositionalAudio 
+} from './audio-loader.js';
 
-// Audio state object
-const audioState = {
-  listener: null,
-  sounds: new Map(), // Map of sound name to { audio, buffer, isPlaying, type }
-  masterVolume: 0.7,
-  musicVolume: 0.5,
-  sfxVolume: 0.8,
-  muted: false,
-  enabled: true // Global setting to enable/disable audio system
-};
+// Re-export from audio-playback.js
+export { 
+  playSound,
+  stopSound 
+} from './audio-playback.js';
 
-// Store music tracks for random playback
-const musicTracks = [];
-let currentMusicIndex = -1;
-let isRandomMusicEnabled = true;
+// Re-export from audio-volume.js
+export { 
+  setMasterVolume,
+  setMusicVolume,
+  setSfxVolume,
+  toggleMute 
+} from './audio-volume.js';
 
-/**
- * Initialize audio listener (to be attached to camera)
- * @param {THREE.Camera} camera - The camera to attach the audio listener to
- * @returns {THREE.AudioListener} The initialized audio listener
- */
-export const initAudio = (camera) => {
-  audioState.listener = new THREE.AudioListener();
-  camera.add(audioState.listener);
-  logger.info('audio', 'Audio listener initialized');
-  return audioState.listener;
-};
-
-/**
- * Load a global audio file (e.g., music, gunshot)
- * @param {string} name - Unique identifier for the sound
- * @param {string} url - Path to the audio file
- * @param {boolean} isLooping - Whether the sound should loop
- * @param {number} volume - Volume level (0.0 to 1.0)
- * @param {string} type - Type of sound ('music' or 'sfx')
- * @returns {Promise} Promise that resolves when the audio is loaded
- */
-export const loadAudio = (name, url, isLooping = false, volume = 1.0, type = 'sfx') => {
-  return new Promise((resolve, reject) => {
-    const audioLoader = new THREE.AudioLoader();
-    const sound = new THREE.Audio(audioState.listener);
-    
-    // Apply the appropriate volume based on type
-    const adjustedVolume = type === 'music' 
-      ? volume * audioState.musicVolume * audioState.masterVolume
-      : volume * audioState.sfxVolume * audioState.masterVolume;
-
-    audioLoader.load(
-      url,
-      (buffer) => {
-        sound.setBuffer(buffer);
-        sound.setLoop(isLooping);
-        sound.setVolume(adjustedVolume);
-        audioState.sounds.set(name, { 
-          audio: sound, 
-          buffer, 
-          isPlaying: false,
-          type
-        });
-        logger.debug('audio', `Audio loaded: ${name} (${type})`);
-        resolve(sound);
-      },
-      undefined,
-      (error) => {
-        logger.error('audio', `Failed to load audio ${name}: ${error}`);
-        reject(error);
-      }
-    );
-  });
-};
-
-/**
- * Load a positional audio file (e.g. explosion)
- * @param {string} name - Unique identifier for the sound
- * @param {string} url - Path to the audio file
- * @param {number} refDistance - Distance at which the volume is reduced by half
- * @param {number} volume - Volume level (0.0 to 1.0)
- * @returns {Promise} Promise that resolves when the audio is loaded
- */
-export const loadPositionalAudio = (name, url, refDistance = 10, volume = 1.0) => {
-  return new Promise((resolve, reject) => {
-    const audioLoader = new THREE.AudioLoader();
-    const sound = new THREE.PositionalAudio(audioState.listener);
-    
-    // Apply SFX volume to positional audio
-    const adjustedVolume = volume * audioState.sfxVolume * audioState.masterVolume;
-
-    audioLoader.load(
-      url,
-      (buffer) => {
-        sound.setBuffer(buffer);
-        sound.setRefDistance(refDistance);
-        sound.setVolume(adjustedVolume);
-        audioState.sounds.set(name, { 
-          audio: sound, 
-          buffer, 
-          isPlaying: false, 
-          isPositional: true,
-          type: 'sfx'
-        });
-        logger.debug('audio', `Positional audio loaded: ${name}`);
-        resolve(sound);
-      },
-      undefined,
-      (error) => {
-        logger.error('audio', `Failed to load positional audio ${name}: ${error}`);
-        reject(error);
-      }
-    );
-  });
-};
-
-/**
- * Play a sound by name, with optional position for positional audio
- * @param {string} name - Name of the sound to play
- * @param {THREE.Vector3} position - Position for positional audio (optional)
- * @returns {boolean} Whether the sound was successfully played
- */
-export const playSound = (name, position = null) => {
-  logger.verbose('audio', 'M: playSound: ' + name);
-  // Check if audio system is enabled
-  if (!audioState.enabled) {
-    logger.debug('audio', 'N: Sound ' + name + ' not played (audio system disabled)');
-    return false;
-  }
-  
-  if (audioState.muted) {
-    logger.debug('audio', 'O: Sound ' + name + ' not played (audio muted)');
-    return false;
-  }
-
-  const soundData = audioState.sounds.get(name);
-  if (!soundData) {
-    logger.warn('audio', 'P: Sound not found: ' + name);
-    // List available sounds to help debugging
-    const availableSounds = Array.from(audioState.sounds.keys()).join(', ');
-    logger.warn('audio', 'Q: Sound not found: "' + name + '". Available sounds: ' + (availableSounds || 'none'));
-    return false;
-  }
-
-  const { audio, isPositional, type } = soundData;
-  logger.debug('audio', 'R: About to play sound: ' + name + ' - Type: ' + type + ' - ContextState: ' + (audio.context?.state || 'unknown'));
-  
-  // Check if audio context is suspended and try to resume it
-  if (audio.context && audio.context.state === 'suspended') {
-    logger.debug('audio', 'S: Attempting to resume audio context for ' + name);
-    audio.context.resume().then(() => {
-      logger.debug('audio', 'T: Audio context resumed successfully');
-    }).catch(error => {
-      logger.error('audio', 'U: Failed to resume audio context: ' + error);
-    });
-  }
-  
-  // For positional audio, we need to attach it to an object at the specified position
-  if (isPositional && position) {
-    // If the audio is already attached to an object, we need to detach it first
-    if (audio.parent !== audioState.listener && audio.parent !== null) {
-      logger.debug('audio', 'V: Detaching audio from previous parent');
-      audio.parent.remove(audio);
-    }
-    
-    // Create a temporary object at the specified position
-    const tempObject = new THREE.Object3D();
-    tempObject.position.copy(position);
-    tempObject.add(audio);
-    logger.debug('audio', 'W: Attached positional audio to temp object at position: ' + 
-                 position.x.toFixed(2) + ',' + position.y.toFixed(2) + ',' + position.z.toFixed(2));
-  }
-  
-  logger.verbose('audio', 'X: playSound: ' + name + ' - isPositional: ' + isPositional);
-  if (!soundData.isPlaying) {
-    try {
-      logger.debug('audio', 'Y: Calling audio.play() on ' + name + ' - Loop: ' + audio.loop);
-      audio.play();
-      soundData.isPlaying = true;
-      audio.onEnded = () => {
-        logger.debug('audio', 'Z: onEnded callback triggered for: ' + name);
-        soundData.isPlaying = false;
-        logger.debug('audio', 'AA: Sound ended: ' + name);
-        
-        // For music tracks, log more details
-        if (type === 'music') {
-          logger.info('audio', 'AB: Music track completed: ' + name + ' - Will loop: ' + audio.loop);
-          if (!audio.loop && musicTracks.includes(name)) {
-            logger.info('audio', 'AC: Non-looping music track ended naturally, should trigger next track');
-          }
-        }
-      };
-      logger.debug('audio', 'AD: Playing sound: ' + name + ', context state: ' + (audio.context?.state || 'unknown'));
-      return true;
-    } catch (error) {
-      logger.error('audio', 'AE: Error playing sound ' + name + ': ' + error);
-      return false;
-    }
-  } else {
-    logger.debug('audio', 'AF: Sound ' + name + ' is already playing, not starting again');
-  }
-  
-  return false;
-};
-
-/**
- * Stop a sound by name
- * @param {string} name - Name of the sound to stop
- * @returns {boolean} Whether the sound was successfully stopped
- */
-export const stopSound = (name) => {
-  logger.verbose('audio', 'AG: stopSound: ' + name);
-  const soundData = audioState.sounds.get(name);
-  if (soundData && soundData.isPlaying) {
-    logger.debug('audio', 'AH: Actually stopping sound: ' + name + ' - type: ' + soundData.type);
-    soundData.audio.stop();
-    soundData.isPlaying = false;
-    logger.debug('audio', 'AI: Stopped sound: ' + name);
-    return true;
-  } else if (soundData) {
-    logger.debug('audio', 'AJ: Called stopSound but sound was not playing: ' + name);
-  } else {
-    logger.debug('audio', 'AK: Called stopSound but sound not found: ' + name);
-  }
-  return false;
-};
-
-/**
- * Set master volume for all sounds
- * @param {number} volume - Volume level (0.0 to 1.0)
- */
-export const setMasterVolume = (volume) => {
-  audioState.masterVolume = Math.max(0, Math.min(1, volume));
-  
-  // Update all sound volumes
-  updateAllSoundVolumes();
-  
-  logger.debug('audio', `Master volume set: ${audioState.masterVolume}`);
-};
-
-/**
- * Set music volume
- * @param {number} volume - Volume level (0.0 to 1.0)
- */
-export const setMusicVolume = (volume) => {
-  audioState.musicVolume = Math.max(0, Math.min(1, volume));
-  
-  // Update only music volumes
-  updateSoundVolumesByType('music');
-  
-  logger.debug('audio', `Music volume set: ${audioState.musicVolume}`);
-};
-
-/**
- * Set sound effects volume
- * @param {number} volume - Volume level (0.0 to 1.0)
- */
-export const setSfxVolume = (volume) => {
-  audioState.sfxVolume = Math.max(0, Math.min(1, volume));
-  
-  // Update only SFX volumes
-  updateSoundVolumesByType('sfx');
-  
-  logger.debug('audio', `SFX volume set: ${audioState.sfxVolume}`);
-};
-
-/**
- * Update volumes for all sounds
- */
-const updateAllSoundVolumes = () => {
-  audioState.sounds.forEach((soundData, name) => {
-    const { audio, type } = soundData;
-    const baseVolume = audio.getVolume() / (type === 'music' ? audioState.musicVolume : audioState.sfxVolume) / audioState.masterVolume;
-    
-    if (type === 'music') {
-      audio.setVolume(baseVolume * audioState.musicVolume * audioState.masterVolume);
-    } else {
-      audio.setVolume(baseVolume * audioState.sfxVolume * audioState.masterVolume);
-    }
-  });
-};
-
-/**
- * Update volumes for sounds of a specific type
- * @param {string} type - Type of sounds to update ('music' or 'sfx')
- */
-const updateSoundVolumesByType = (type) => {
-  audioState.sounds.forEach((soundData, name) => {
-    if (soundData.type === type) {
-      const { audio } = soundData;
-      const baseVolume = audio.getVolume() / (type === 'music' ? audioState.musicVolume : audioState.sfxVolume) / audioState.masterVolume;
-      
-      if (type === 'music') {
-        audio.setVolume(baseVolume * audioState.musicVolume * audioState.masterVolume);
-      } else {
-        audio.setVolume(baseVolume * audioState.sfxVolume * audioState.masterVolume);
-      }
-    }
-  });
-};
-
-/**
- * Toggle mute state for all sounds
- * @returns {boolean} The new mute state
- */
-export const toggleMute = () => {
-  audioState.muted = !audioState.muted;
-  
-  audioState.sounds.forEach((soundData) => {
-    if (audioState.muted) {
-      if (soundData.isPlaying) {
-        soundData.audio.pause();
-      }
-    } else {
-      if (soundData.isPlaying) {
-        soundData.audio.play();
-      }
-    }
-  });
-  
-  logger.debug('audio', `Audio ${audioState.muted ? 'muted' : 'unmuted'}`);
-  return audioState.muted;
-};
-
-/**
- * Get the current audio state
- * @returns {Object} The current audio state
- */
-export const getAudioState = () => {
-  return {
-    masterVolume: audioState.masterVolume,
-    musicVolume: audioState.musicVolume,
-    sfxVolume: audioState.sfxVolume,
-    muted: audioState.muted,
-    enabled: audioState.enabled,
-    loadedSounds: Array.from(audioState.sounds.keys())
-  };
-};
-
-/**
- * Debug audio system and log detailed information
- * Useful for troubleshooting audio issues
- */
-export const debugAudioSystem = () => {
-  logger.info('audio', '=== AUDIO SYSTEM DEBUG ===');
-  logger.info('audio', `Audio Context State: ${audioState.listener?.context?.state || 'No context'}`);
-  logger.info('audio', `Audio System Enabled: ${audioState.enabled}`);
-  logger.info('audio', `Master Volume: ${audioState.masterVolume}`);
-  logger.info('audio', `Music Volume: ${audioState.musicVolume}`);
-  logger.info('audio', `SFX Volume: ${audioState.sfxVolume}`);
-  logger.info('audio', `Muted: ${audioState.muted}`);
-  
-  logger.info('audio', 'Loaded Sounds:');
-  audioState.sounds.forEach((soundData, name) => {
-    logger.info('audio', `- ${name}: ${soundData.isPlaying ? 'Playing' : 'Stopped'}, Type: ${soundData.type}, Positional: ${soundData.isPositional || false}`);
-  });
-  
-  // Check if browser might be blocking audio
-  if (audioState.listener?.context?.state === 'suspended') {
-    logger.warn('audio', 'Audio context is suspended. This usually means the browser is blocking autoplay.');
-    logger.info('audio', 'Try resuming the audio context after user interaction:');
-    logger.info('audio', 'audioState.listener.context.resume()');
-  }
-  
-  return {
-    contextState: audioState.listener?.context?.state || 'No context',
-    enabled: audioState.enabled,
-    masterVolume: audioState.masterVolume,
-    musicVolume: audioState.musicVolume,
-    sfxVolume: audioState.sfxVolume,
-    muted: audioState.muted,
-    loadedSounds: Array.from(audioState.sounds.keys())
-  };
-};
-
-/**
- * Enable or disable the entire audio system
- * @param {boolean} enabled - Whether the audio system should be enabled
- * @returns {boolean} The new enabled state
- */
-export const setAudioEnabled = (enabled) => {
-  audioState.enabled = !!enabled;
-  
-  // If disabling, stop all currently playing sounds
-  if (!audioState.enabled) {
-    audioState.sounds.forEach((soundData, name) => {
-      if (soundData.isPlaying) {
-        soundData.audio.stop();
-        soundData.isPlaying = false;
-      }
-    });
-    logger.info('audio', 'Audio system disabled');
-  } else {
-    logger.info('audio', 'Audio system enabled');
-  }
-  
-  return audioState.enabled;
-};
-
-/**
- * Load all music tracks from the specified directory
- * @param {string} directory - Path to the music directory
- * @returns {Promise} Promise that resolves when all tracks are loaded
- */
-export const loadMusicTracks = async (directory = './audio/music/') => {
-  try {
-    // List of music files to load
-    const musicFiles = [
-      'Electric Heartbeat.mp3',
-      'Electric Pulse.mp3',
-      'Night Circuit.mp3',
-      'Night of the Undead1.mp3',
-      'Pulse Control.mp3',
-      'Pulse Drive_deux.mp3',
-      'Pulse-Drive.mp3',
-      'Pulse of the Shadows.mp3',
-      'Pulse of the Shadows_deux.mp3',
-      'Pulse of the Undead.mp3',
-      'Pulse of the Undead_Chill.mp3',
-      'Zombie Shuffle.mp3'
-    ];
-    
-    logger.info('audio', `Loading ${musicFiles.length} music tracks...`);
-    
-    // Clear existing music tracks
-    musicTracks.length = 0;
-    
-    // Load each music track with sanitized file name as the track name
-    for (const file of musicFiles) {
-      // Remove file extension and sanitize name (replace spaces with dashes)
-      const baseName = file.replace('.mp3', '');
-      const sanitizedName = baseName.replace(/\s+/g, '-').replace(/[()]/g, '');
-      
-      await loadAudio(sanitizedName, `${directory}${file}`, true, 0.5, 'music');
-      musicTracks.push(sanitizedName);
-      logger.debug('audio', `Loaded music track: ${file} as ${sanitizedName}`);
-    }
-    
-    logger.info('audio', `Successfully loaded ${musicTracks.length} music tracks`);
-    return true;
-  } catch (error) {
-    logger.error('audio', `Failed to load music tracks: ${error}`);
-    return false;
-  }
-};
-
-/**
- * Play a random music track from the loaded tracks
- * @returns {boolean} Whether a track was successfully played
- */
-export const playRandomMusicTrack = () => {
-  logger.info('audio', 'A: playRandomMusicTrack is going to play a random track');
-  if (!isRandomMusicEnabled || musicTracks.length === 0) {
-    logger.debug('audio', 'C: No random music - enabled: ' + isRandomMusicEnabled + ', tracks: ' + musicTracks.length);
-    return false;
-  }
-  
-  // Stop current music if playing
-  if (currentMusicIndex >= 0 && currentMusicIndex < musicTracks.length) {
-    const currentTrack = musicTracks[currentMusicIndex];
-    logger.debug('audio', 'D: Stopping current track before playing new one: ' + currentTrack);
-    stopSound(currentTrack);
-  }
-  
-  // Select a random track (different from the current one if possible)
-  let newIndex;
-  if (musicTracks.length === 1) {
-    newIndex = 0;
-  } else {
-    do {
-      newIndex = Math.floor(Math.random() * musicTracks.length);
-    } while (newIndex === currentMusicIndex && musicTracks.length > 1);
-  }
-  
-  currentMusicIndex = newIndex;
-  const trackToPlay = musicTracks[currentMusicIndex];
-  logger.debug('audio', 'E: Selected track #' + newIndex + ': ' + trackToPlay);
-  
-  // Get the sound data for the track
-  const soundData = audioState.sounds.get(trackToPlay);
-  if (soundData && soundData.audio) {
-    // Set up the onEnded callback to play the next random track
-    soundData.audio.onEnded = () => {
-      soundData.isPlaying = false;
-      logger.debug('audio', 'B: Sound ended: ' + trackToPlay);
-      // Play another random track when this one ends
-      logger.debug('audio', 'F: Sound ended naturally, calling playRandomMusicTrack again');
-      playRandomMusicTrack();
-    };
-    
-    logger.debug('audio', 'G: Track setup complete - isLooping: ' + soundData.audio.loop + ' duration: ' + (soundData.duration || 'unknown'));
-  } else {
-    logger.warn('audio', 'H: Sound data not found for track: ' + trackToPlay);
-  }
-  
-  // Play the selected track
-  const success = playSound(trackToPlay);
-  if (success) {
-    logger.debug('audio', 'I: Successfully started playing music track: ' + trackToPlay);
-  } else {
-    logger.warn('audio', 'J: Failed to play music track: ' + trackToPlay);
-  }
-  
-  return success;
-};
-
-/**
- * Enable or disable random music playback
- * @param {boolean} enabled - Whether random music should be enabled
- * @returns {boolean} The new enabled state
- */
-export const setRandomMusicEnabled = (enabled) => {
-  isRandomMusicEnabled = !!enabled;
-  
-  if (!isRandomMusicEnabled) {
-    // Stop all music tracks if random music is disabled
-    musicTracks.forEach(track => {
-      stopSound(track);
-    });
-    logger.info('audio', 'Random music playback disabled');
-  } else {
-    // Start playing a random track if enabled
-    playRandomMusicTrack();
-    logger.info('audio', 'Random music playback enabled');
-  }
-  
-  return isRandomMusicEnabled;
-}; 
+// Re-export from audio-music.js
+export { 
+  loadMusicTracks,
+  playRandomMusicTrack,
+  setRandomMusicEnabled,
+  musicTracks,
+  currentMusicIndex,
+  isRandomMusicEnabled 
+} from './audio-music.js'; 
