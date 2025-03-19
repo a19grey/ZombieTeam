@@ -18,6 +18,79 @@ import { debugWebGL, fixWebGLContext, monitorRenderingPerformance, createFallbac
 import { safeCall } from './utils/safeAccess.js';
 import { spawnEnvironmentObjects, spawnEnemy } from './gameplay/entitySpawners.js';
 import { shootBullet, handleCombatCollisions } from './gameplay/combat.js';
+import { playSound } from './gameplay/audio.js';
+
+/**
+ * Controls and plays ambient enemy sounds based on global sound settings
+ * Uses the sound control parameters from gameState to determine frequency and probability
+ * 
+ * @param {Array} zombies - Array of zombie objects
+ * @param {number} currentTime - Current game timestamp in milliseconds
+ * @param {Object} gameState - The game state containing sound settings
+ */
+function updateEnemySounds(zombies, currentTime, gameState) {
+    if (!zombies || zombies.length === 0) return;
+    
+    // Check if enough time has passed since the last sound check
+    if (currentTime - gameState.sound.lastZombieSoundTime < gameState.sound.zombieSoundCheckInterval) {
+        return; // Not time to check for sounds yet
+    }
+    
+    // Update the last sound check time
+    gameState.sound.lastZombieSoundTime = currentTime;
+    
+    // Track how many sounds we've played in this interval
+    let soundsPlayed = 0;
+    
+    // Process a random subset of zombies
+    // Get a random starting point to avoid always checking the same zombies first
+    const maxZombiesToProcess = Math.min(zombies.length, 20); // Process up to 20 zombies per check
+    const startIndex = Math.floor(Math.random() * zombies.length);
+    
+    // Check zombie sounds
+    for (let i = 0; i < maxZombiesToProcess; i++) {
+        // Exit if we've reached the maximum number of sounds per interval
+        if (soundsPlayed >= gameState.sound.maxZombieSoundsPerInterval) {
+            break;
+        }
+        
+        const index = (startIndex + i) % zombies.length;
+        const zombie = zombies[index];
+        
+        // Skip if zombie doesn't exist
+        if (!zombie || !zombie.mesh) continue;
+        
+        // Get the sound chance based on zombie type
+        const soundChance = gameState.sound.zombieSoundChance[zombie.type] || 0.01;
+        
+        // Random chance to play sound based on type
+        if (Math.random() < soundChance) {
+            // Only play sound if zombie is close enough to the player
+            const player = gameState.playerObject;
+            if (player && player.position) {
+                const dx = zombie.mesh.position.x - player.position.x;
+                const dz = zombie.mesh.position.z - player.position.z;
+                const distanceToPlayer = Math.sqrt(dx * dx + dz * dz);
+                
+                // Only play sound if zombie is within hearing range (adjust distance as needed)
+                const maxHearingDistance = 20;
+                if (distanceToPlayer < maxHearingDistance) {
+                    // Select sound based on zombie type
+                    let soundId = 'zombie-growl'; // Default sound
+                    
+                    // Log the sound being played
+                    logger.debug('audio', `Playing ambient sound for ${zombie.type} at distance ${distanceToPlayer.toFixed(2)}`);
+                    
+                    // Play the sound at the zombie's position
+                    playSound(soundId, zombie.mesh.position);
+                    
+                    // Increment the sound counter
+                    soundsPlayed++;
+                }
+            }
+        }
+    }
+}
 
 // Animation loop with error handling
 function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTimerGeometry, innerCircle, powerupTimerMaterial, innerCircleGeometry, innerCircleMaterial) {
@@ -180,6 +253,9 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTi
         
         // Update zombies to chase player
         updateZombies(gameState.zombies, player.position, delta, gameState.baseSpeed);
+        
+        // Update enemy sounds using global sound control settings
+        updateEnemySounds(gameState.zombies, currentTime, gameState);
         
         // Handle exploder explosions
         for (let i = gameState.zombies.length - 1; i >= 0; i--) {

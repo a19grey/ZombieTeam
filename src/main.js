@@ -189,15 +189,16 @@ let gameComponents = null;
 
 // Main initialization function
 async function startGame() {
+   // Initialize game
+   gameComponents = initializeGame(gameState);
+   const { scene, camera, renderer, player, clock, audioListener, powerupTimer, innerCircle, powerupTimerMaterial, powerupTimerGeometry, innerCircleGeometry, innerCircleMaterial } = gameComponents;
+
+   setupEventListeners(player, scene, camera, renderer);
+    
     // Wait for player to enter their name before starting the game
     await createStartupScreen();
 
-    // Initialize game
-    gameComponents = initializeGame(gameState);
-    const { scene, camera, renderer, player, clock, audioListener, powerupTimer, innerCircle, powerupTimerMaterial, powerupTimerGeometry, innerCircleGeometry, innerCircleMaterial } = gameComponents;
-
-    setupEventListeners(player, scene, camera, renderer);
-
+   
     // Initialize menu system with error handling
     try {
         initMenuSystem();

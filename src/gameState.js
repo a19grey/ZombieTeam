@@ -34,6 +34,18 @@ const gameState = {
     lastPowerupSpawnTime: 0, // Track when the last powerup was spawned
     playerObject: null, // Store player object for access by other functions
     baseSpeed: 0.08, // Global base speed for player and enemies
+    // Sound control parameters
+    sound: {
+        lastZombieSoundTime: 0,     // Last time any zombie made a sound
+        zombieSoundCheckInterval: 600, // Check for zombie sounds every 600ms
+        zombieSoundChance: {         // Chance that a zombie type will make a sound (per check)
+            zombie: 0.03,            // 3% chance for regular zombies
+            skeletonArcher: 0.02,    // 2% chance for archers
+            exploder: 0.05,          // 5% chance for exploders
+            zombieKing: 0.15         // 15% chance for zombie kings
+        },
+        maxZombieSoundsPerInterval: 1 // Maximum number of zombie sounds per interval
+    }
 };
 
 // Make gameState globally accessible for zombie collision detection

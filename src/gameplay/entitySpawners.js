@@ -129,7 +129,8 @@ const spawnEnemy = (playerPos, scene, gameState) => {
             speed: baseSpeed,
             gameState: gameState,
             baseSpeed: baseSpeed,
-            type: 'zombie'
+            type: 'zombie',
+            playSpawnSfx: false // Default to false for regular zombies
         };
         logger.debug('speed', `Regular zombie spawned with speed: ${baseSpeed}`);
     } else if (enemyTypeRoll < 0.8) {
@@ -143,7 +144,8 @@ const spawnEnemy = (playerPos, scene, gameState) => {
             gameState: gameState,
             baseSpeed: baseSpeed,
             type: 'skeletonArcher',
-            lastShotTime: 0
+            lastShotTime: 0,
+            playSpawnSfx: false // Default to false for skeleton archers
         };
         logger.debug('speed', `Skeleton Archer spawned with speed: ${baseSpeed}`);
     } else if (enemyTypeRoll < 0.95) {
@@ -156,7 +158,8 @@ const spawnEnemy = (playerPos, scene, gameState) => {
             speed: baseSpeed, // Faster to get close to player
             gameState: gameState,
             baseSpeed: baseSpeed,
-            type: 'exploder'
+            type: 'exploder',
+            playSpawnSfx: false // Default to false for exploders
         };
         logger.debug('speed', `Exploder spawned with speed: ${baseSpeed}`);
     } else {
@@ -169,7 +172,8 @@ const spawnEnemy = (playerPos, scene, gameState) => {
             speed: baseSpeed, // Slower but powerful
             gameState: gameState,
             baseSpeed: baseSpeed,
-            type: 'zombieKing'
+            type: 'zombieKing',
+            playSpawnSfx: true // Enable spawn sound for rare Zombie Kings only
         };
         logger.debug('speed', `Zombie King spawned with speed: ${baseSpeed}`);
     }
@@ -183,8 +187,11 @@ const spawnEnemy = (playerPos, scene, gameState) => {
     gameState.zombies.push(enemyObj);
     scene.add(enemyObj.mesh);
     
-    // Play zombie growl sound at the zombie's position given by the enemyObj
-    playSound('zombie-growl', enemyObj.mesh.position);
+    // Only play the zombie growl sound if the enemy has playSpawnSfx set to true
+    if (enemyObj.playSpawnSfx === true) {
+        logger.debug('audio', `Playing spawn sound for ${enemyObj.type}`);
+        playSound('zombie-growl', enemyObj.mesh.position);
+    }
     
     //logger.debug(`New ${enemyObj.type} spawned`, { position });
     

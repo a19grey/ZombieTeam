@@ -25,7 +25,7 @@ import { musicTracks } from './audio-music.js';
 /**
  * Play a sound by name, with optional position for positional audio
  * @param {string} name - Name of the sound to play
- * @param {THREE.Vector3} position - Position for positional audio (optional)
+ * @param {THREE.Vector3|Object} position - Position for positional audio (optional)
  * @returns {boolean} Whether the sound was successfully played
  */
 export const playSound = (name, position = null) => {
@@ -50,7 +50,7 @@ export const playSound = (name, position = null) => {
     return false;
   }
 
-  const { audio, isPositional, type } = soundData;
+  const { audio, isPositional, type, buffer } = soundData;
   logger.debug('audio', 'R: About to play sound: ' + name + ' - Type: ' + type + ' - ContextState: ' + (audio.context?.state || 'unknown'));
   
   // Check if audio context is suspended and try to resume it
@@ -63,49 +63,82 @@ export const playSound = (name, position = null) => {
     });
   }
   
-  // For positional audio, we need to attach it to an object at the specified position
-  if (isPositional && position) {
-    // If the audio is already attached to an object, we need to detach it first
-    if (audio.parent !== audioState.listener && audio.parent !== null) {
-      logger.debug('audio', 'V: Detaching audio from previous parent');
-      audio.parent.remove(audio);
-    }
-    
-    // Create a temporary object at the specified position
-    const tempObject = new THREE.Object3D();
-    tempObject.position.copy(position);
-    tempObject.add(audio);
-    logger.debug('audio', 'W: Attached positional audio to temp object at position: ' + 
-                 position.x.toFixed(2) + ',' + position.y.toFixed(2) + ',' + position.z.toFixed(2));
-  }
-  
-  logger.verbose('audio', 'X: playSound: ' + name + ' - isPositional: ' + isPositional);
-  if (!soundData.isPlaying) {
-    try {
-      logger.debug('audio', 'Y: Calling audio.play() on ' + name + ' - Loop: ' + audio.loop);
-      audio.play();
-      soundData.isPlaying = true;
-      audio.onEnded = () => {
-        logger.debug('audio', 'Z: onEnded callback triggered for: ' + name);
-        soundData.isPlaying = false;
-        logger.debug('audio', 'AA: Sound ended: ' + name);
-        
-        // For music tracks, log more details
-        if (type === 'music') {
-          logger.info('audio', 'AB: Music track completed: ' + name + ' - Will loop: ' + audio.loop);
-          if (!audio.loop && musicTracks.includes(name)) {
-            logger.info('audio', 'AC: Non-looping music track ended naturally, should trigger next track');
-          }
-        }
+  try {
+    // For positional audio, create a new instance each time to allow concurrent sounds
+    if (isPositional && position) {
+      logger.debug('audio', 'Creating new positional audio instance for: ' + name);
+      
+      // Create a new positional audio instance for each play to allow overlapping sounds
+      const newSound = new THREE.PositionalAudio(audioState.listener);
+      newSound.setBuffer(buffer);
+      newSound.setRefDistance(audio.refDistance || 10);
+      newSound.setVolume(audio.getVolume());
+      
+      // Create a temporary object at the specified position and add it to the scene
+      const tempObject = new THREE.Object3D();
+      
+      // Handle both Vector3 and object with position property
+      if (position.isVector3) {
+        tempObject.position.copy(position);
+      } else if (position.position && position.position.isVector3) {
+        tempObject.position.copy(position.position);
+      } else if (typeof position.x === 'number' && typeof position.z === 'number') {
+        tempObject.position.set(position.x, position.y || 0, position.z);
+      }
+      
+      // Reference to scene
+      const scene = window.scene || THREE.DefaultScene;
+      if (!scene) {
+        logger.error('audio', 'No scene available to add positional audio');
+        return false;
+      }
+      
+      // Add tempObject to the scene
+      scene.add(tempObject);
+      tempObject.add(newSound);
+      
+      logger.debug('audio', 'W: Created new positional audio at: ' + 
+               tempObject.position.x.toFixed(2) + ',' + tempObject.position.y.toFixed(2) + ',' + tempObject.position.z.toFixed(2));
+      
+      // Play the sound and set up cleanup when it's done
+      newSound.play();
+      
+      // Set up cleanup when the sound is finished
+      newSound.onEnded = () => {
+        logger.debug('audio', 'Removing temporary positional audio object for: ' + name);
+        scene.remove(tempObject);
       };
-      logger.debug('audio', 'AD: Playing sound: ' + name + ', context state: ' + (audio.context?.state || 'unknown'));
+      
       return true;
-    } catch (error) {
-      logger.error('audio', 'AE: Error playing sound ' + name + ': ' + error);
-      return false;
+    } else {
+      // For non-positional audio, use the original audio object
+      logger.debug('audio', 'Y: Calling audio.play() on ' + name + ' - Loop: ' + audio.loop);
+      
+      if (!soundData.isPlaying) {
+        audio.play();
+        soundData.isPlaying = true;
+        
+        audio.onEnded = () => {
+          logger.debug('audio', 'Z: onEnded callback triggered for: ' + name);
+          soundData.isPlaying = false;
+          logger.debug('audio', 'AA: Sound ended: ' + name);
+          
+          // For music tracks, log more details
+          if (type === 'music') {
+            logger.info('audio', 'AB: Music track completed: ' + name + ' - Will loop: ' + audio.loop);
+            if (!audio.loop && musicTracks.includes(name)) {
+              logger.info('audio', 'AC: Non-looping music track ended naturally, should trigger next track');
+            }
+          }
+        };
+        return true;
+      } else {
+        logger.debug('audio', 'AF: Sound ' + name + ' is already playing, not starting again');
+      }
     }
-  } else {
-    logger.debug('audio', 'AF: Sound ' + name + ' is already playing, not starting again');
+  } catch (error) {
+    logger.error('audio', 'AE: Error playing sound ' + name + ': ' + error);
+    return false;
   }
   
   return false;

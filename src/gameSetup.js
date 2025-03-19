@@ -6,6 +6,7 @@
  * - Player creation and configuration
  * - Audio system initialization
  * - UI initialization
+ * - Sound management configuration
  * 
  * Example usage: Import and call initializeGame() to set up all game components
  */
@@ -18,15 +19,35 @@ import { initAudio, loadAudio, loadPositionalAudio, playSound, stopSound, toggle
 import { createSoundSettingsUI } from './ui/soundSettings.js';
 import { debugWebGL, fixWebGLContext, createFallbackCanvas } from './debug.js';
 import { logger } from './utils/logger.js';
+import { checkAudioFiles, fixAudioPath } from './utils/audioChecker.js';
 // import { gameState } from './gameState.js'; gamestate is passed in as a parameter
 
 /**
  * Initializes all game components and returns references to key objects
- * @returns {Object} Object containing scene, camera, renderer, player, clock, and audioListener
+ * @param {Object} gameState - The game state object containing game configuration
+ * @returns {Object} Object containing scene, camera, renderer, player, clock, and other game objects
  */
 export function initializeGame(gameState) {
     // Create scene, camera, and renderer with error handling
     let scene, camera, renderer, audioListener;
+    
+    // Configure sound control settings if not already set
+    if (!gameState.sound) {
+        gameState.sound = {
+            lastZombieSoundTime: 0,     // Last time any zombie made a sound
+            zombieSoundCheckInterval: 600, // Check for zombie sounds every 600ms
+            zombieSoundChance: {         // Chance that a zombie type will make a sound (per check)
+                zombie: 0.03,            // 3% chance for regular zombies
+                skeletonArcher: 0.02,    // 2% chance for archers
+                exploder: 0.05,          // 5% chance for exploders
+                zombieKing: 0.15         // 15% chance for zombie kings
+            },
+            maxZombieSoundsPerInterval: 1 // Maximum number of zombie sounds per interval
+        };
+        
+        logger.info('Initializing sound control settings with default values');
+    }
+    
     try {
         // Create scene
         scene = createScene();
@@ -64,23 +85,23 @@ export function initializeGame(gameState) {
         }
 
         // Initialize audio listener
-try {
-    audioListener = initAudio(camera);
-    setAudioEnabled(true);
-    logger.info('B: Audio system initialized and enabled');
-  
-    // Test audio loading and playback
-    console.log('Starting audio test...');
-    loadAudio('pulseControl', '/music/Pulse Control.mp3', true, 0.5, 'music')
-      .then(() => {
-        console.log('Audio loaded, attempting to play...');
-        playSound('pulseControl');
-      })
-      .catch(err => console.error('Audio test failed:', err));
-  } catch (audioError) {
-    logger.error('Audio initialization failed:', audioError);
-    console.error('Audio initialization failed:', audioError);
-  }
+        try {
+            audioListener = initAudio(camera);
+            setAudioEnabled(true);
+            logger.info('B: Audio system initialized and enabled');
+          
+            // Test audio loading and playback
+            console.log('Starting audio test...');
+            loadAudio('pulseControl', './music/Pulse Control.mp3', true, 0.5, 'music')
+              .then(() => {
+                console.log('Audio loaded, attempting to play...');
+                playSound('pulseControl');
+              })
+              .catch(err => console.error('Audio test failed:', err));
+          } catch (audioError) {
+            logger.error('Audio initialization failed:', audioError);
+            console.error('Audio initialization failed:', audioError);
+          }
         
         // Add lighting
         const lights = createLighting(scene);
@@ -219,10 +240,22 @@ try {
         try {
             logger.info('Loading game audio files...');
             
+            // First check if audio files exist and can be loaded
+            const audioCheckResults = await checkAudioFiles();
+            
+            if (!audioCheckResults.success) {
+                logger.error('Audio check failed. Some required audio files are missing:', audioCheckResults.failures);
+                showMessage('Some audio files could not be loaded. Game may have limited sound.', 3000);
+            }
+            
+            if (audioCheckResults.warnings.length > 0) {
+                logger.warn('Some optional audio files are missing:', audioCheckResults.warnings);
+            }
+            
             // Load all music tracks from the music directory
             await loadMusicTracks();
             
-            // Load weapon sounds
+            // Load weapon sounds with correct VITE paths
             await loadAudio('gunshot', './sfx/gunshot.mp3', false, 0.8);
             
             // Load zombie sounds
@@ -234,6 +267,11 @@ try {
             
             // Load explosion sound
             await loadPositionalAudio('explosion', './sfx/explosion.mp3', 20, 1.0);
+            
+            // Verify sounds were loaded properly
+            const audioState = getAudioState();
+            const loadedSounds = audioState.loadedSounds || [];
+            logger.info('Loaded audio:', loadedSounds.join(', '));
             
             // Start playing random background music
             playRandomMusicTrack();
@@ -247,8 +285,21 @@ try {
         }
     };
 
-    // Load game audio
-    loadGameAudio();
+    // Load game audio - make sure to await the promise
+    // We still return immediately because we don't want to block game initialization
+    (async () => {
+        try {
+            await loadGameAudio();
+            logger.info('Audio system ready - all sounds loaded');
+            // Optional: Set a flag in gameState to indicate audio is ready
+            if (gameState) {
+                gameState.audioReady = true;
+            }
+        } catch (audioError) {
+            logger.error('Audio loading error:', audioError);
+            console.error('Audio loading error:', audioError);
+        }
+    })();
 
     return { scene, camera, renderer, player, clock, audioListener, powerupTimer,innerCircle,powerupTimerMaterial,powerupTimerGeometry,innerCircleGeometry,innerCircleMaterial };
 } 

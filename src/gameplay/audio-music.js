@@ -32,7 +32,7 @@ export let isRandomMusicEnabled = true;
  * @param {string} directory - Path to the music directory
  * @returns {Promise} Promise that resolves when all tracks are loaded
  */
-export const loadMusicTracks = async (directory = './audio/music/') => {
+export const loadMusicTracks = async (directory = './music/') => {
   try {
     // List of music files to load
     const musicFiles = [

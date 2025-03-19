@@ -180,50 +180,50 @@ export const createLaserShotPowerup = (position) => {
     const powerup = new THREE.Group();
 
     // Laser emitter (futuristic rod with glowing tip)
-    const emitterGeometry = new THREE.CylinderGeometry(0.2, 0.2, 0.5, 8);
+    const emitterGeometry = new THREE.CylinderGeometry(0.25, 0.25, 0.6, 8);
     const emitterMaterial = new THREE.MeshStandardMaterial({
         color: 0x00ffff, // Cyan for sci-fi laser
         emissive: 0x00ffff,
-        emissiveIntensity: 0.6,
-        roughness: 0.5
+        emissiveIntensity: 0.8, // Increased from 0.6
+        roughness: 0.3 // Reduced for more shine
     });
     const emitter = new THREE.Mesh(emitterGeometry, emitterMaterial);
-    emitter.position.y = 0.25;
+    emitter.position.y = 0.3; // Raised slightly
     emitter.castShadow = true;
     powerup.add(emitter);
 
     // Glowing tip
-    const tipGeometry = new THREE.SphereGeometry(0.12, 8, 8);
+    const tipGeometry = new THREE.SphereGeometry(0.18, 12, 12); // Larger and more detailed
     const tipMaterial = new THREE.MeshStandardMaterial({
         color: 0xffffff,
         emissive: 0xffffff,
-        emissiveIntensity: 1.0,
-        roughness: 0.4
+        emissiveIntensity: 1.2, // Increased from 1.0
+        roughness: 0.3
     });
     const tip = new THREE.Mesh(tipGeometry, tipMaterial);
-    tip.position.y = 0.5;
+    tip.position.y = 0.6; // Raised to match new emitter height
     tip.castShadow = true;
     powerup.add(tip);
 
     // Energy rings (visual flair)
-    const ringGeometry = new THREE.RingGeometry(0.15, 0.2, 16);
+    const ringGeometry = new THREE.RingGeometry(0.2, 0.28, 16);
     const ringMaterial = new THREE.MeshBasicMaterial({
         color: 0x00ffff,
         transparent: true,
-        opacity: 0.7,
+        opacity: 0.8, // More visible
         side: THREE.DoubleSide
     });
     const ring1 = new THREE.Mesh(ringGeometry, ringMaterial);
     ring1.rotation.x = Math.PI / 2;
-    ring1.position.y = 0.3;
+    ring1.position.y = 0.4;
     powerup.add(ring1);
 
     const ring2 = ring1.clone();
     ring2.position.y = 0.2;
     powerup.add(ring2);
 
-    // Cyan halo
-    const halo = createHalo(0x00ffff);
+    // Larger cyan halo
+    const halo = createHalo(0x00ffff, 0.7); // Increased radius
     powerup.add(halo);
 
     powerup.position.set(position.x, 0, position.z);
@@ -361,23 +361,41 @@ export const createPlayerExplosion = (gameState, position, radius = 4, damage = 
  * @param {number} gravity - The gravity effect on the projectile (default: 0.01)
  */
 export const createGrenadeProjectile = (scene, startPosition, direction, gameState, speed = 0.5, gravity = 0.01) => {
-    // Create grenade mesh
-    const grenadeGeometry = new THREE.SphereGeometry(0.15, 8, 8);
+    // Create grenade mesh - made larger and more visible
+    const grenadeGeometry = new THREE.SphereGeometry(0.25, 12, 12); // Increased from 0.15
     const grenadeMaterial = new THREE.MeshStandardMaterial({
-        color: 0x333333,
-        roughness: 0.7
+        color: 0x444444, // Slightly lighter to be more visible
+        emissive: 0x111111, // Slight emissive to make it stand out
+        emissiveIntensity: 0.3,
+        metalness: 0.6, // Added metalness for better visibility
+        roughness: 0.4 // Less rough for better light reflection
     });
     const grenade = new THREE.Mesh(grenadeGeometry, grenadeMaterial);
     grenade.position.copy(startPosition);
     grenade.castShadow = true;
     scene.add(grenade);
     
-    // Add pin detail
-    const pinGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.1, 6);
-    const pinMaterial = new THREE.MeshStandardMaterial({ color: 0xffff00 });
+    // Add pin detail - made more visible
+    const pinGeometry = new THREE.CylinderGeometry(0.03, 0.03, 0.15, 6);
+    const pinMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0xffff00,
+        emissive: 0xffff00,
+        emissiveIntensity: 0.5 // Added emissive for visibility
+    });
     const pin = new THREE.Mesh(pinGeometry, pinMaterial);
-    pin.position.y = 0.12;
+    pin.position.y = 0.2; // Raised to be more visible
     grenade.add(pin);
+    
+    // Add red band for better visibility
+    const bandGeometry = new THREE.TorusGeometry(0.25, 0.04, 8, 16);
+    const bandMaterial = new THREE.MeshStandardMaterial({
+        color: 0xff0000,
+        emissive: 0xff0000,
+        emissiveIntensity: 0.3
+    });
+    const band = new THREE.Mesh(bandGeometry, bandMaterial);
+    band.rotation.x = Math.PI / 2;
+    grenade.add(band);
     
     // Projectile properties
     const velocity = direction.clone().normalize().multiplyScalar(speed);

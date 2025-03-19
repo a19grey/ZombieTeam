@@ -1,0 +1,25 @@
+---
+description: 
+globs: *.js, *.ts
+alwaysApply: false
+---
+--- 
+Description: General project coding standards
+Globs: *.js, *.ts
+---
+
+This is 
+- Use TypeScript for all new code
+- Prefer functional components over class-based ones
+
+- Logging should be handled in the style of logger.js which handles debug levels and debug categories
+* // With categories/sections
+ * logger.info('renderer', 'Initializing WebGL context');
+ * logger.debug('physics', 'Collision detected', { objectA: 'player', objectB: 'enemy' });
+ * logger.warn('physics', 'BAD STUFF', { objectA: 'player', objectB: 'enemy' });
+ * 
+ * // Custom log level
+ * logger.log(6, 'Super detailed logs', { extraData: 'value' });
+
+- Make minimal edits to the code when possible. You can only see a narrow slice of full context at any one time, so do not modify unrelated code.
+- Preserve comments in code where possible, lots of comments are good, yay!
