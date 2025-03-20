@@ -87,6 +87,10 @@ const parseURLParameters = () => {
             config.level = level;
             console.log(`Logger: Debug level set to ${level} from URL parameter`);
         }
+    } else {
+        // Set default debug level to INFO (2) if not specified
+        config.level = DEFAULT_LOG_LEVELS.INFO;
+        console.log(`Logger: Debug level set to INFO (${DEFAULT_LOG_LEVELS.INFO}) by default`);
     }
     
     // Check for debug sections parameter
@@ -97,6 +101,10 @@ const parseURLParameters = () => {
             config.enabledSections = new Set(sections);
             console.log(`Logger: Enabled debug sections from URL: ${sections.join(', ')}`);
         }
+    } else {
+        // Always enable combat and powerup sections by default
+        config.enabledSections = new Set(['combat', 'powerup', 'collision']);
+        console.log('Logger: Enabled combat, powerup, and collision debug sections by default');
     }
     
     // Check for debug all parameter

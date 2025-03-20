@@ -47,6 +47,7 @@ const shootBullet = (scene, player, gameState) => {
     let actualFireRate = fireRateCooldown;
     if (gameState.player.activePowerup === 'rapidFire') {
         actualFireRate = fireRateCooldown / 3; // 3x faster fire rate
+        logger.info('combat', 'Rapid fire powerup active! Fire rate boosted');
     }
     
     if (currentTime - gameState.lastShotTime < actualFireRate) {
@@ -54,6 +55,11 @@ const shootBullet = (scene, player, gameState) => {
     }
     
     gameState.lastShotTime = currentTime;
+    
+    // Log active powerup when shooting
+    if (gameState.player.activePowerup) {
+        logger.info('combat', `Shooting with active powerup: ${gameState.player.activePowerup}, duration: ${gameState.player.powerupDuration.toFixed(2)}`);
+    }
     
     // Play gunshot 
     playSound('gunshot');

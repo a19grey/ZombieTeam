@@ -7,6 +7,9 @@
  * collected, all others will disappear, encouraging team coordination in
  * multiplayer.
  * 
+ * Powerups now have health that must be depleted (by shooting them) before
+ * they can be collected. A visual ring indicator shows the unlock progress.
+ * 
  * Example usage:
  * ```
  * // In your game loop
@@ -19,6 +22,9 @@
 import * as THREE from 'three';
 import { createRapidFirePowerup, createShotgunBlastPowerup, createExplosionPowerup, createLaserShotPowerup, createGrenadeLauncherPowerup } from './powerups2.js';
 import { logger } from '../utils/logger.js';
+import { playSound } from './audio.js';
+import { showMessage } from '../ui/ui.js';
+import { activatePowerup } from '../gameplay/physics.js';
 
 // Constants for powerup spawning
 const POWERUP_MIN_DISTANCE = 10; // Minimum distance from player
@@ -26,6 +32,16 @@ const POWERUP_MAX_DISTANCE = 20; // Maximum distance from player
 const POWERUP_SPAWN_CHANCE_PER_SECOND = 0.1; // 30% chance per second to spawn a powerup
 const POWERUP_TYPES = ['rapidFire', 'shotgunBlast', 'explosion', 'laserShot', 'grenadeLauncher','shotgunBlast'];
 const MIN_TIME_BETWEEN_POWERUPS = 1000; // Minimum time between powerup spawns (10 seconds)
+
+// Constants for powerup health
+const DEFAULT_POWERUP_HEALTH = 100; // Default health for powerups
+const POWERUP_HEALTH_BY_TYPE = {
+    'rapidFire': 80,        // Easier to unlock
+    'shotgunBlast': 100,
+    'explosion': 150,       // Harder to unlock
+    'laserShot': 120,
+    'grenadeLauncher': 130
+};
 
 /**
  * Determines if a powerup should spawn based on time and probability
@@ -130,6 +146,76 @@ export const getPositionBehindPlayer = (player, zDistance, isRightSide = false) 
 };
 
 /**
+ * Creates a health ring indicator for the powerup
+ * @param {THREE.Object3D} powerupMesh - The powerup mesh
+ * @param {string} powerupType - The type of powerup
+ * @param {number} maxHealth - The maximum health of the powerup
+ * @returns {Object} The health ring object
+ */
+const createHealthRing = (powerupMesh, powerupType, maxHealth) => {
+    // Determine color based on powerup type
+    let ringColor;
+    switch (powerupType) {
+        case 'rapidFire':
+            ringColor = 0xffa500; // Orange
+            break;
+        case 'shotgunBlast':
+            ringColor = 0x4682b4; // Steel blue
+            break;
+        case 'explosion':
+            ringColor = 0xff0000; // Red
+            break;
+        case 'laserShot':
+            ringColor = 0x00ffff; // Cyan
+            break;
+        case 'grenadeLauncher':
+            ringColor = 0x228b22; // Forest green
+            break;
+        default:
+            ringColor = 0xffffff; // White default
+    }
+    
+    // Create an empty ring geometry initially (0 angle)
+    const ringGeometry = new THREE.RingGeometry(0.8, 1.0, 32, 1, 0, 0.001);
+    const ringMaterial = new THREE.MeshBasicMaterial({
+        color: ringColor,
+        transparent: true,
+        opacity: 0.7,
+        side: THREE.DoubleSide
+    });
+    
+    const healthRing = new THREE.Mesh(ringGeometry, ringMaterial);
+    healthRing.rotation.x = -Math.PI / 2; // Lay flat
+    healthRing.position.y = 0.05; // Just above ground
+    
+    // Add to powerup
+    powerupMesh.add(healthRing);
+    
+    return {
+        mesh: healthRing,
+        maxHealth: maxHealth,
+        currentHealth: maxHealth,
+        update: function(currentHealth) {
+            // Remove old geometry
+            this.mesh.geometry.dispose();
+            
+            // Calculate angle based on health percentage
+            const healthPercent = 1 - (currentHealth / this.maxHealth);
+            const angle = healthPercent * Math.PI * 2;
+            
+            // Create new geometry with updated angle
+            this.mesh.geometry = new THREE.RingGeometry(0.8, 1.0, 32, 1, 0, angle);
+            
+            // Update current health
+            this.currentHealth = currentHealth;
+            
+            // Return if powerup is unlocked
+            return currentHealth <= 0;
+        }
+    };
+};
+
+/**
  * Creates a powerup of specified type
  * @param {THREE.Scene} scene - The Three.js scene
  * @param {THREE.Vector3} position - Position to spawn the powerup
@@ -163,13 +249,23 @@ export const createPowerup = (scene, position, gameState, powerupType) => {
     // Add to scene
     scene.add(powerupMesh);
     
+    // Set health based on powerup type
+    const maxHealth = POWERUP_HEALTH_BY_TYPE[powerupType] || DEFAULT_POWERUP_HEALTH;
+    
+    // Create health ring indicator
+    const healthRing = createHealthRing(powerupMesh, powerupType, maxHealth);
+    
     // Create powerup object for tracking
     const powerup = {
         mesh: powerupMesh,
         type: powerupType,
         active: true,
         createdAt: Date.now(),
-        spawnGroup: gameState.currentPowerupGroup || Date.now() // Group identifier
+        spawnGroup: gameState.currentPowerupGroup || Date.now(), // Group identifier
+        health: maxHealth,
+        maxHealth: maxHealth,
+        healthRing: healthRing,
+        unlocked: false
     };
     
     // Add to gameState
@@ -177,10 +273,112 @@ export const createPowerup = (scene, position, gameState, powerupType) => {
     
     // Log powerup creation
     logger.info('powerup', `Spawned ${powerupType} powerup`, { 
-        position: { x: position.x.toFixed(2), z: position.z.toFixed(2) }
+        position: { x: position.x.toFixed(2), z: position.z.toFixed(2) },
+        health: maxHealth
     });
     
     return powerup;
+};
+
+/**
+ * Damages a powerup and updates its health ring
+ * @param {Object} powerup - The powerup object
+ * @param {number} damage - Amount of damage to apply
+ * @param {Object} gameState - The game state
+ * @param {THREE.Scene} scene - The Three.js scene
+ * @returns {boolean} Whether the powerup is now unlocked
+ */
+export const damagePowerup = (powerup, damage, gameState, scene) => {
+    // Skip if already unlocked
+    if (powerup.unlocked) return true;
+    
+    // Apply damage
+    powerup.health -= damage;
+    
+    // Track last hit time for visual effects
+    powerup.lastHitTime = Date.now();
+    
+    // Prevent negative health
+    if (powerup.health < 0) powerup.health = 0;
+    
+    // Update health ring
+    const unlocked = powerup.healthRing.update(powerup.health);
+    
+    // Mark the health ring material for identification in visual effects
+    if (powerup.healthRing && powerup.healthRing.mesh && powerup.healthRing.mesh.material) {
+        powerup.healthRing.mesh.material._isHealthRing = true;
+    }
+    
+    // If newly unlocked, update powerup state and apply effect
+    if (unlocked) {
+        powerup.unlocked = true;
+        
+        // Apply powerup effect immediately when unlocked
+        if (gameState && gameState.player) {
+            // Activate the powerup
+            logger.info('powerup', `Auto-activating powerup ${powerup.type} on unlock`);
+            
+            // Activate the powerup
+            activatePowerup(gameState, powerup.type, 'unlock');
+            
+            // Direct property assignment as backup
+            gameState.player.activePowerup = powerup.type;
+            gameState.player.powerupDuration = 10;
+            
+            // Play powerup pickup sound
+            playSound('powerupPickup');
+            
+            // Show message
+            showMessage(`${powerup.type} activated!`, 2000);
+            
+            // Remove all other powerups from the same spawn group
+            removeOtherPowerups(scene, gameState, powerup);
+            
+            // Remove this powerup from scene
+            scene.remove(powerup.mesh);
+            powerup.active = false;
+        }
+        
+        // Add a visual effect for unlock
+        if (powerup.mesh) {
+            // Create a pulse effect
+            const pulseGeometry = new THREE.RingGeometry(0.8, 1.2, 32);
+            const pulseMaterial = new THREE.MeshBasicMaterial({
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.8,
+                side: THREE.DoubleSide
+            });
+            
+            const pulse = new THREE.Mesh(pulseGeometry, pulseMaterial);
+            pulse.rotation.x = -Math.PI / 2; // Lay flat
+            pulse.position.y = 0.05; // Just above ground
+            
+            powerup.mesh.add(pulse);
+            
+            // Animate the pulse
+            let scale = 1.0;
+            const animatePulse = () => {
+                scale += 0.05;
+                pulse.scale.set(scale, scale, 1);
+                pulse.material.opacity = 1 - (scale - 1) / 1.5;
+                
+                if (scale < 2.5 && powerup.mesh) {
+                    requestAnimationFrame(animatePulse);
+                } else if (powerup.mesh) {
+                    powerup.mesh.remove(pulse);
+                    pulse.geometry.dispose();
+                    pulse.material.dispose();
+                }
+            };
+            
+            animatePulse();
+        }
+        
+        logger.info('powerup', `Powerup ${powerup.type} unlocked!`);
+    }
+    
+    return unlocked;
 };
 
 /**

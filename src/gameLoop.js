@@ -433,6 +433,43 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTi
         for (const powerup of gameState.powerups) {
             if (powerup.active && powerup.mesh) {
                 animatePowerup(powerup.mesh, clock.elapsedTime);
+                
+                // Add special effects for unlocked powerups
+                if (powerup.unlocked) {
+                    // Add a pulsing glow effect to unlocked powerups
+                    const pulseIntensity = 0.5 + 0.2 * Math.sin(clock.elapsedTime * 4);
+                    
+                    // Find core parts of the powerup to apply the glow
+                    powerup.mesh.traverse((child) => {
+                        if (child.isMesh && child.material && child.material.emissiveIntensity !== undefined) {
+                            // Increase emissive intensity for a pulse effect
+                            child.material.emissiveIntensity = pulseIntensity;
+                        }
+                    });
+                }
+                else if (powerup.health < powerup.maxHealth) {
+                    // Add a subtle hit effect that fades quickly for damaged powerups
+                    if (powerup.lastHitTime && currentTime - powerup.lastHitTime < 300) {
+                        const fadeIntensity = 1 - ((currentTime - powerup.lastHitTime) / 300);
+                        
+                        // Apply a brief flash effect
+                        powerup.mesh.traverse((child) => {
+                            if (child.isMesh && child.material && !child.material._isHealthRing) {
+                                // Store original color if not already stored
+                                if (!child.material._originalColor) {
+                                    if (child.material.color) {
+                                        child.material._originalColor = child.material.color.clone();
+                                    }
+                                }
+                                
+                                // Flash with white, fading back to original color
+                                if (child.material._originalColor) {
+                                    child.material.color.lerp(new THREE.Color(0xffffff), fadeIntensity * 0.7);
+                                }
+                            }
+                        });
+                    }
+                }
             }
         }
         
@@ -453,10 +490,17 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTi
         if (gameState.player.activePowerup && gameState.player.powerupDuration > 0) {
             gameState.player.powerupDuration -= delta;
             
+            // Debug log to track powerup duration
+            if (gameState.debug.enabled) {
+                logger.debug('powerup', `Powerup active: ${gameState.player.activePowerup}, duration: ${gameState.player.powerupDuration.toFixed(2)}`);
+            }
+            
             // Update powerup timer indicator
             if (!powerupTimer.visible) {
                 powerupTimer.visible = true;
                 innerCircle.visible = true;
+                
+                logger.info('powerup', `Showing powerup timer for ${gameState.player.activePowerup}`);
                 
                 // Set color based on powerup type
                 let timerColor, innerColor;

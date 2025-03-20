@@ -15,7 +15,7 @@ import { damageZombie, isZombieDead } from './zombie.js';
 import { logger } from '../utils/logger.js';
 import { showMessage } from '../ui/ui.js';
 import { playSound } from './audio.js'; // Import audio system
-import { removeOtherPowerups } from './powerupSpawner.js';
+import { removeOtherPowerups, damagePowerup } from './powerupSpawner.js';
 
 // Create audio for damage sound
 let damageSound = null;
@@ -215,6 +215,7 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
         const COLLISION_DISTANCE = 1.5; // Increased from 1.0 to better detect nearby enemies
         const DAMAGE_DISTANCE = 1.2;
         const POWERUP_PICKUP_DISTANCE = 1.5; // Distance for player to pick up powerups
+        const BULLET_POWERUP_COLLISION_DISTANCE = 0.8; // Distance for bullet to hit powerup
         
         // Initialize damage sound if not already done
         if (!damageSound && gameState.camera && gameState.camera.children[0]) {
@@ -223,27 +224,141 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
         
         const ZOMBIE_COLLISION_DISTANCE = 1.0; // Also reduced zombie-zombie collision distance
         
+        // Check for bullet-powerup collisions
+        for (let b = bullets.length - 1; b >= 0; b--) {
+            const bullet = bullets[b];
+            
+            // Skip if bullet doesn't exist
+            if (!bullet) {
+                logger.debug('collision', 'Skipping bullet: bullet is null');
+                continue;
+            }
+            
+            // Get bullet position - handle both tracer and non-tracer bullets
+            const bulletPosition = bullet.mesh ? bullet.mesh.position : bullet.position;
+            if (!bulletPosition) {
+                logger.debug('collision', 'Skipping bullet: no position found');
+                continue;
+            }
+            
+            // Log bullet properties for debugging
+            logger.debug('collision', 'Processing bullet for powerup collision', { 
+                position: bulletPosition, 
+                isTracer: bullet.isTracer,
+                damage: bullet.damage || bullet.userData?.damage
+            });
+            
+            for (let p = 0; p < powerups.length; p++) {
+                const powerup = powerups[p];
+                
+                // Skip if powerup is not active or already unlocked
+                if (!powerup || !powerup.active || powerup.unlocked) {
+                    if (powerup) {
+                        logger.debug('collision', `Skipping powerup: active=${powerup.active}, unlocked=${powerup.unlocked}`);
+                    }
+                    continue;
+                }
+                
+                // Log powerup being checked
+                logger.debug('collision', 'Checking powerup collision', { 
+                    type: powerup.type, 
+                    position: powerup.mesh.position,
+                    health: powerup.health
+                });
+                
+                // Using a much larger collision distance for better hit detection
+                const INCREASED_COLLISION_DISTANCE = 2.0; // Increased from 0.8
+                
+                // Check if bullet hits powerup
+                if (checkCollision(bulletPosition, powerup.mesh.position, INCREASED_COLLISION_DISTANCE)) {
+                    // Get the damage from the bullet or use default
+                    const bulletDamage = bullet.damage || bullet.userData?.damage || 20;
+                    
+                    logger.info('collision', `Bullet hit powerup!`, {
+                        bulletPos: [bulletPosition.x.toFixed(2), bulletPosition.y.toFixed(2), bulletPosition.z.toFixed(2)],
+                        powerupPos: [powerup.mesh.position.x.toFixed(2), powerup.mesh.position.y.toFixed(2), powerup.mesh.position.z.toFixed(2)],
+                        distance: INCREASED_COLLISION_DISTANCE,
+                        damage: bulletDamage
+                    });
+                    
+                    // Damage the powerup and pass gameState and scene for activation
+                    const isUnlocked = damagePowerup(powerup, bulletDamage, gameState, scene);
+                    
+                    // Log powerup hit
+                    logger.info('powerup', `Powerup hit by bullet`, {
+                        type: powerup.type,
+                        damage: bulletDamage,
+                        remainingHealth: powerup.health,
+                        unlocked: isUnlocked
+                    });
+                    
+                    // Create a small hit effect
+                    createHitEffect(scene, bulletPosition.clone(), 0.3);
+                    
+                    // Remove the bullet
+                    if (bullet.mesh) {
+                        scene.remove(bullet.mesh);
+                    }
+                    bullets.splice(b, 1);
+                    
+                    // Break out of powerup loop since bullet is now gone
+                    break;
+                }
+            }
+        }
+        
         // Check player-powerup collisions
         for (let i = powerups.length - 1; i >= 0; i--) {
             const powerup = powerups[i];
             if (!powerup || !powerup.mesh || !powerup.active) continue;
             
             if (checkCollision(player.position, powerup.mesh.position, POWERUP_PICKUP_DISTANCE)) {
-                // Activate powerup
-                activatePowerup(gameState, powerup.type, 'walk');
-                
-                // Remove all other powerups from the same spawn group
-                removeOtherPowerups(scene, gameState, powerup);
-                
-                // Remove collected powerup from scene
-                scene.remove(powerup.mesh);
-                powerup.active = false;
-                
-                // Log powerup activation
-                logger.debug(`Player collected powerup: ${powerup.type}`);
-                
-                // Show message
-                showMessage(`${powerup.type} activated!`, 2000);
+                // Only allow pickup if powerup is unlocked
+                if (powerup.unlocked) {
+                    // Log powerup state before activation
+                    logger.info('powerup', `About to activate powerup`, { 
+                        type: powerup.type, 
+                        unlocked: powerup.unlocked,
+                        playerPos: [player.position.x.toFixed(2), player.position.y.toFixed(2), player.position.z.toFixed(2)],
+                        powerupPos: [powerup.mesh.position.x.toFixed(2), powerup.mesh.position.y.toFixed(2), powerup.mesh.position.z.toFixed(2)]
+                    });
+                    
+                    // Explicitly call the exported activatePowerup function
+                    activatePowerup(gameState, powerup.type, 'walk');
+                    
+                    // Emergency direct property assignment (backup approach)
+                    gameState.player.activePowerup = powerup.type;
+                    gameState.player.powerupDuration = 10;
+                    
+                    // Log player state after activation
+                    logger.info('powerup', `Player powerup state after direct assignment`, {
+                        activePowerup: gameState.player.activePowerup,
+                        powerupDuration: gameState.player.powerupDuration
+                    });
+                    
+                    // Remove all other powerups from the same spawn group
+                    removeOtherPowerups(scene, gameState, powerup);
+                    
+                    // Remove collected powerup from scene
+                    scene.remove(powerup.mesh);
+                    powerup.active = false;
+                    
+                    // Log powerup activation
+                    logger.info('powerup', `Player collected powerup: ${powerup.type}`);
+                    
+                    // Show message
+                    showMessage(`${powerup.type} activated!`, 2000);
+                    
+                    // Play powerup pickup sound 
+                    playSound('powerupPickup');
+                }
+                else {
+                    // Show a message that powerup needs to be shot first
+                    if (!powerup.lastUnlockMessage || Date.now() - powerup.lastUnlockMessage > 3000) {
+                        showMessage(`Shoot the ${powerup.type} to unlock it!`, 1500);
+                        powerup.lastUnlockMessage = Date.now();
+                    }
+                }
             }
         }
         
@@ -362,43 +477,6 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
             
             let bulletHit = false;
             
-            // Check bullet-powerup collisions first
-            for (let p = powerups.length - 1; p >= 0; p--) {
-                const powerup = powerups[p];
-                if (!powerup || !powerup.mesh || !powerup.active) continue;
-                
-                // Use a slightly larger collision distance for non-tracer bullets to improve hit detection
-                const bulletCollisionDistance = bullet.mesh ? 1.0 : 1.5;
-                
-                if (checkCollision(bulletPosition, powerup.mesh.position, bulletCollisionDistance)) {
-                    // Activate powerup
-                    activatePowerup(gameState, powerup.type, 'shoot');
-                    
-                    // Remove bullet
-                    if (bullet.mesh) {
-                        scene.remove(bullet.mesh);
-                    }
-                    bullets.splice(i, 1);
-                    
-                    // Remove all other powerups from the same spawn group
-                    removeOtherPowerups(scene, gameState, powerup);
-                    
-                    // Remove collected powerup from scene
-                    scene.remove(powerup.mesh);
-                    powerup.active = false;
-                    
-                    // Log powerup activation
-                    logger.debug(`Powerup activated by bullet: ${powerup.type}`);
-                    
-                    // Mark bullet as hit
-                    bulletHit = true;
-                    break;
-                }
-            }
-            
-            // If bullet already hit a powerup, skip zombie collision checks
-            if (bulletHit) continue;
-            
             // Check bullet-zombie collisions
             for (let j = zombies.length - 1; j >= 0; j--) {
                 const zombie = zombies[j];
@@ -464,21 +542,54 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
  * @param {string} activationMethod - How the powerup was activated ('walk' or 'shoot')
  */
 export const activatePowerup = (gameState, powerupType, activationMethod = 'walk') => {
-    if (!gameState || !powerupType) return;
-    
-    // Set the active powerup in the game state
-    gameState.player.activePowerup = powerupType;
-    gameState.player.powerupDuration = 10; // 10 seconds duration
-    
-    // Log powerup activation (for debugging only)
-    if (activationMethod === 'walk') {
-        logger.debug(`Powerup collected by walking: ${powerupType}`);
-    } else {
-        logger.debug(`Powerup activated by shooting: ${powerupType}`);
+    if (!gameState || !powerupType) {
+        logger.error('powerup', 'Failed to activate powerup - invalid parameters', { 
+            hasGameState: !!gameState, 
+            powerupType 
+        });
+        return;
     }
     
-    // Play powerup pickup sound
-    playSound('powerupPickup');
+    try {
+        // Set the active powerup in the game state
+        if (!gameState.player) {
+            logger.error('powerup', 'Cannot activate powerup - gameState.player is undefined');
+            return;
+        }
+        
+        // Ensure the player object has the required properties
+        if (typeof gameState.player !== 'object') {
+            logger.error('powerup', 'gameState.player is not an object', { 
+                playerType: typeof gameState.player 
+            });
+            return;
+        }
+        
+        // Initialize player powerup properties if they don't exist
+        if (!gameState.player.hasOwnProperty('activePowerup')) {
+            gameState.player.activePowerup = null;
+        }
+        
+        if (!gameState.player.hasOwnProperty('powerupDuration')) {
+            gameState.player.powerupDuration = 0;
+        }
+        
+        // Set the active powerup values
+        gameState.player.activePowerup = powerupType;
+        gameState.player.powerupDuration = 10; // 10 seconds duration
+        
+        // Log powerup activation
+        logger.info('powerup', `Powerup activated successfully`, {
+            type: powerupType,
+            method: activationMethod,
+            duration: gameState.player.powerupDuration
+        });
+        
+        // Play powerup pickup sound
+        playSound('powerupPickup');
+    } catch (error) {
+        logger.error('powerup', 'Error activating powerup:', error);
+    }
 };
 
 /**
@@ -661,4 +772,42 @@ export const applyPowerupEffect = (gameState, position, direction, scene) => {
             scene.add(defaultBullet);
             break;
     }
+};
+
+/**
+ * Creates a small hit effect at the given position
+ * @param {THREE.Scene} scene - The scene to add the effect to
+ * @param {THREE.Vector3} position - Position for the effect
+ * @param {number} size - Size of the effect
+ */
+const createHitEffect = (scene, position, size = 0.5) => {
+    // Create a small particle effect
+    const geometry = new THREE.SphereGeometry(size, 8, 8);
+    const material = new THREE.MeshBasicMaterial({
+        color: 0xffffff,
+        transparent: true,
+        opacity: 0.8
+    });
+    
+    const effect = new THREE.Mesh(geometry, material);
+    effect.position.copy(position);
+    scene.add(effect);
+    
+    // Animate and remove the effect
+    let scale = 1;
+    const fadeOut = () => {
+        scale -= 0.1;
+        effect.scale.set(scale, scale, scale);
+        effect.material.opacity = scale;
+        
+        if (scale > 0) {
+            requestAnimationFrame(fadeOut);
+        } else {
+            scene.remove(effect);
+            effect.geometry.dispose();
+            effect.material.dispose();
+        }
+    };
+    
+    fadeOut();
 }; 
