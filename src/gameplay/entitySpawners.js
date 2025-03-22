@@ -16,7 +16,7 @@
  */
 
 import * as THREE from 'three';
-import { createbaseZombie, createSkeletonArcher, createExploder, createZombieKing } from '../enemies/enemyindex.js';
+import { createbaseZombie, createSkeletonArcher, createExploder, createZombieKing, createPlagueTitan, createNecrofiend, createRotBehemoth, createSkittercrab } from '../enemies/enemyindex.js';
 import { createBuilding, createRock, createDeadTree } from '../rendering/environment.js';
 import { setupDismemberment } from './dismemberment.js';
 import { playSound } from './audio.js';
@@ -62,6 +62,100 @@ const spawnEnvironmentObjects = (scene, gameState) => {
     }
     
     //logger.debug('Environment objects spawned');
+};
+
+/**
+ * Enemy registry containing all enemy types with their spawn configuration
+ * This makes it easy to add new enemy types and adjust spawn probabilities
+ */
+const enemyRegistry = [
+    {
+        type: 'zombie',
+        chance: 45,  // Reduced from 60%
+        createFn: createbaseZombie,
+        speedVariation: 0.04,  // +/- 0.02 variation
+        playSpawnSfx: false,
+        healthOverride: 50  // Optional override if needed
+    },
+    {
+        type: 'skeletonArcher',
+        chance: 15,  // Reduced from 20%
+        createFn: createSkeletonArcher,
+        speedVariation: 0.02,  // +/- 0.01 variation
+        playSpawnSfx: false,
+        additionalProps: {
+            lastShotTime: 0
+        }
+    },
+    {
+        type: 'exploder',
+        chance: 12,  // Reduced from 15%
+        createFn: createExploder,
+        speedVariation: 0.03,  // +/- 0.015 variation
+        playSpawnSfx: false
+    },
+    {
+        type: 'zombieKing',
+        chance: 4,  // Reduced from 5%
+        createFn: createZombieKing,
+        speedVariation: 0.02,  // +/- 0.01 variation
+        playSpawnSfx: true
+    },
+    {
+        type: 'plagueTitan',
+        chance: 0,  // New enemy
+        createFn: createPlagueTitan,
+        speedVariation: 0.02,
+        playSpawnSfx: true
+    },
+    {
+        type: 'necrofiend',
+        chance: 0,  // New enemy
+        createFn: createNecrofiend,
+        speedVariation: 0.03,
+        playSpawnSfx: true
+    },
+    {
+        type: 'rotBehemoth',
+        chance: 0,  // New enemy - rare/powerful
+        createFn: createRotBehemoth,
+        speedVariation: 0.02,
+        playSpawnSfx: true
+    },
+    {
+        type: 'skittercrab',
+        chance: 0,  // New enemy
+        createFn: createSkittercrab,
+        speedVariation: 0.05,  // More variation for fast erratic movement
+        playSpawnSfx: false
+    }
+];
+
+/**
+ * Selects an enemy type based on relative spawn chances
+ * 
+ * @returns {Object} The selected enemy configuration
+ */
+const selectEnemyType = () => {
+    // Calculate total chance sum
+    const totalChance = enemyRegistry.reduce((sum, enemy) => sum + enemy.chance, 0);
+    
+    // Generate a random number between 0 and totalChance
+    const roll = Math.random() * totalChance;
+    
+    // Find which enemy type this roll selects
+    let cumulativeChance = 0;
+    
+    for (const enemy of enemyRegistry) {
+        cumulativeChance += enemy.chance;
+        if (roll < cumulativeChance) {
+            return enemy;
+        }
+    }
+    
+    // Fallback to first enemy type (should never happen unless totalChance is 0)
+    logger.warn('spawn', 'Failed to select enemy type, using default');
+    return enemyRegistry[0];
 };
 
 /**
@@ -111,76 +205,37 @@ const spawnEnemy = (playerPos, scene, gameState) => {
         }
     }
     
-    // Determine which enemy type to spawn based on game state
-    let enemyObj;
-    const enemyTypeRoll = Math.random();
-    
     // Get the base speed from gameState with a small random variation
     const globalBaseSpeed = gameState.baseSpeed;
     logger.debug('speed', `Using global base speed: ${globalBaseSpeed} for enemy spawn`);
     
-    if (enemyTypeRoll < 0.6) {
-        // Regular zombie (60% chance)
-        const zombie = createbaseZombie(position, globalBaseSpeed);
-        // Add small random variation to speed
-        const baseSpeed = zombie.speed + (Math.random() * 0.04 - 0.02); // +/- 0.02 variation
-        enemyObj = {
-            mesh: zombie,
-            health: 50,
-            speed: baseSpeed,
-            gameState: gameState,
-            baseSpeed: baseSpeed,
-            type: 'zombie',
-            playSpawnSfx: false // Default to false for regular zombies
-        };
-        logger.debug('speed', `Regular zombie spawned with speed: ${baseSpeed}`);
-    } else if (enemyTypeRoll < 0.8) {
-        // Skeleton Archer (20% chance)
-        const skeletonArcher = createSkeletonArcher(position, globalBaseSpeed);
-        // Add small random variation to speed
-        const baseSpeed = skeletonArcher.speed + (Math.random() * 0.02 - 0.01); // Small variation
-        enemyObj = {
-            mesh: skeletonArcher,
-            health: 40, // Less health than zombie
-            speed: baseSpeed,
-            gameState: gameState,
-            baseSpeed: baseSpeed,
-            type: 'skeletonArcher',
-            lastShotTime: 0,
-            playSpawnSfx: false // Default to false for skeleton archers
-        };
-        logger.debug('speed', `Skeleton Archer spawned with speed: ${baseSpeed}`);
-    } else if (enemyTypeRoll < 0.95) {
-        // Exploder (15% chance)
-        const exploder = createExploder(position, globalBaseSpeed);
-        // Add small random variation to speed
-        const baseSpeed = exploder.speed + (Math.random() * 0.03 - 0.015); // Small variation
-        enemyObj = {
-            mesh: exploder,
-            health: 30, // Less health
-            speed: baseSpeed,
-            gameState: gameState,
-            baseSpeed: baseSpeed,
-            type: 'exploder',
-            playSpawnSfx: false // Default to false for exploders
-        };
-        logger.debug('speed', `Exploder spawned with speed: ${baseSpeed}`);
-    } else {
-        // Zombie King (5% chance - rare but powerful)
-        const zombieKing = createZombieKing(position, globalBaseSpeed);
-        // Add small random variation to speed
-        const baseSpeed = zombieKing.speed + (Math.random() * 0.02 - 0.01); // Small variation
-        enemyObj = {
-            mesh: zombieKing,
-            health: 200, // Reduced from 500 to make dismemberment more visible
-            speed: baseSpeed,
-            gameState: gameState,
-            baseSpeed: baseSpeed,
-            type: 'zombieKing',
-            playSpawnSfx: true // Enable spawn sound for rare Zombie Kings only
-        };
-        logger.debug('speed', `Zombie King spawned with speed: ${baseSpeed}`);
+    // Select enemy type based on chances
+    const selectedEnemy = selectEnemyType();
+    
+    // Create the enemy mesh
+    const enemyMesh = selectedEnemy.createFn(position, globalBaseSpeed);
+    
+    // Add small random variation to speed
+    const variation = selectedEnemy.speedVariation || 0.02;
+    const baseSpeed = enemyMesh.speed + (Math.random() * variation - variation/2);
+    
+    // Create the enemy object with common properties
+    const enemyObj = {
+        mesh: enemyMesh,
+        health: selectedEnemy.healthOverride || enemyMesh.health,
+        speed: baseSpeed,
+        gameState: gameState,
+        baseSpeed: baseSpeed,
+        type: selectedEnemy.type,
+        playSpawnSfx: selectedEnemy.playSpawnSfx || false
+    };
+    
+    // Add any additional properties specific to this enemy type
+    if (selectedEnemy.additionalProps) {
+        Object.assign(enemyObj, selectedEnemy.additionalProps);
     }
+    
+    logger.debug('speed', `${selectedEnemy.type} spawned with speed: ${baseSpeed}`);
     
     // Ensure the mesh has the same type property for consistency
     enemyObj.mesh.type = enemyObj.type;

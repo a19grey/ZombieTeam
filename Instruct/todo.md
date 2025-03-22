@@ -7,20 +7,23 @@
 -- basespeed is correctly updated and used in the game -- done 3/16/2025
 -- Player should not be damaged by grenade launcher explosion -- done 03/17/2025
 -- Launch game -- done 3.18/2025 - already on Vercel!
--- Music not play over and over again ugh
--- Music controls actually work...
+-- Music not play over and over again ugh -- done 3/18/2025 
+-- Add use the bigger badder bosses zombies that are new in zombies.js -- done 3/18/2025
+-- Zombie spawn selection is better more scalable method - if have boss new boss less likely -- done 3/18/2025
+-- Update enemy generation percentages
+-- Make new enemies look cooler not lame
+-- Fix new enemies don't move and are larger
 -- Player should not be damaged by grenade launcher explosion (again)
 -- Works on mobile 
--- test improved speed options I fear above broke
--- Implement working SFX 
+-- Music controls actually work... 
+-- Implement more working SFX for gun
+-- turn off all logging in prod version
 -- Adapt the generated world.js to work with our assets and zombies and use it as the procedurally generated world
 -- Tune zombie and gun rates and power up rates, camera angle
--- Add use the bigger badder bosses zombies that are new in zombies.js
--- zombie archer works
--- Zombie spawn selection is better more scalable method - if have boss new boss less likely
--- Multiplayer with not websockets but that other thing - Socket.io webrtc UDP
--- Experience value and  time of game and game length saved to some tiny DB
--- Implement zustand for better global state
+-- zombie archer works 
+-- Multiplayer with not websockets but that other thing - Socket.io webrtc UDP 
+-- Experience value and  time of game and game length saved to some tiny DB 
+-- Implement zustand for better global state 
 -- Users score is displayed as a line overlaid on a 'mountain' shape of the score distribution flipped to be rarest up high
 -- Flocking behavior works - hordeflocking.md has notes here
 -- player's gun takes on the powerup gun form
