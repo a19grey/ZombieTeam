@@ -21,6 +21,16 @@ import { debugWebGL, fixWebGLContext, monitorRenderingPerformance, createFallbac
 import { checkAudioFiles, suggestAudioFix } from './utils/audioChecker.js';
 import { spawnEnvironmentObjects, spawnEnemy } from './gameplay/entitySpawners.js';
 import { setupEventListeners } from './eventHandlers.js';
+import { isMobileDevice, isTouchDevice, getDeviceInfo } from './utils/deviceDetection.js';
+
+// Get device information
+const deviceInfo = getDeviceInfo();
+logger.info('device', `Device detected: ${deviceInfo.type} (Mobile: ${deviceInfo.isMobile}, Touch: ${deviceInfo.isTouch})`);
+
+// Variables for joystick control
+let leftJoystick, rightJoystick;
+let leftJoystickData = { x: 0, y: 0 };
+let rightJoystickData = { x: 0, y: 0 };
 
 // Set log level based on environment
 const DEBUG_MODE = window.NODE_ENV === 'development';
@@ -187,6 +197,229 @@ function createStartupScreen() {
 // Initialize game components but don't start animation loop yet
 let gameComponents = null;
 
+/**
+ * Creates and initializes joystick controls for mobile devices
+ */
+function setupMobileControls() {
+    if (!deviceInfo.isMobile && !deviceInfo.isTouch) {
+        logger.info('controls', 'Skipping mobile controls setup for non-mobile/non-touch device');
+        return;
+    }
+    
+    logger.info('controls', 'Setting up mobile joystick controls');
+    
+    // Create joystick container elements
+    const leftJoystickEl = document.createElement('div');
+    leftJoystickEl.id = 'leftJoystick';
+    leftJoystickEl.className = 'joystick';
+    
+    const rightJoystickEl = document.createElement('div');
+    rightJoystickEl.id = 'rightJoystick';
+    rightJoystickEl.className = 'joystick';
+    
+    // Add joystick elements to document
+    document.body.appendChild(leftJoystickEl);
+    document.body.appendChild(rightJoystickEl);
+    
+    // Initialize nipplejs joysticks with better options for mobile
+    leftJoystick = nipplejs.create({
+        zone: leftJoystickEl,
+        mode: 'static',
+        position: { left: '50px', bottom: (deviceInfo.orientation === 'landscape' ? '50px' : '100px') },
+        color: 'rgba(255, 255, 255, 0.7)',
+        size: 120,
+        dynamicPage: true,
+        lockX: false,
+        lockY: false,
+        restJoystick: false,     // Keep tracking after releasing the joystick
+        restOpacity: 0.8,        // Opacity when not touched
+        fadeTime: 100,           // Faster fade transitions
+        multitouch: true,        // Allow multiple simultaneous touches
+        maxNumberOfNipples: 2,   // Max of 2 joysticks
+        dataOnly: false,         // We need the UI
+        threshold: 0.1           // Lower threshold to detect movement (more sensitive)
+    });
+    
+    rightJoystick = nipplejs.create({
+        zone: rightJoystickEl,
+        mode: 'static',
+        position: { right: '50px', bottom: (deviceInfo.orientation === 'landscape' ? '50px' : '100px') },
+        color: 'rgba(255, 255, 255, 0.7)',
+        size: 120,
+        dynamicPage: true,
+        lockX: false,
+        lockY: false,
+        restJoystick: false,     // Keep tracking after releasing the joystick
+        restOpacity: 0.8,        // Opacity when not touched  
+        fadeTime: 100,           // Faster fade transitions
+        multitouch: true,        // Allow multiple simultaneous touches
+        maxNumberOfNipples: 2,   // Max of 2 joysticks
+        dataOnly: false,         // We need the UI
+        threshold: 0.1           // Lower threshold to detect movement (more sensitive)
+    });
+    
+    // Set up joystick event handlers
+    setupJoystickEventHandlers(leftJoystick, rightJoystick);
+    
+    // Add mobile controls info
+    const mobileControlsInfo = document.createElement('div');
+    mobileControlsInfo.innerHTML = `
+        <p>Left stick: Move | Right stick: Aim</p>
+    `;
+    Object.assign(mobileControlsInfo.style, {
+        position: 'fixed',
+        top: '10px',
+        left: '0',
+        width: '100%',
+        color: '#aaa',
+        fontSize: '0.9rem',
+        textAlign: 'center',
+        zIndex: '1000'
+    });
+    document.body.appendChild(mobileControlsInfo);
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+        mobileControlsInfo.style.opacity = '0';
+        mobileControlsInfo.style.transition = 'opacity 1s ease-in-out';
+        setTimeout(() => {
+            document.body.removeChild(mobileControlsInfo);
+        }, 1000);
+    }, 5000);
+    
+    // Make gameState aware of joystick data
+    gameState.controls = gameState.controls || {};
+    gameState.controls.leftJoystickData = leftJoystickData;
+    gameState.controls.rightJoystickData = rightJoystickData;
+    gameState.controls.isMobileDevice = deviceInfo.isMobile;
+    gameState.controls.isTouchDevice = deviceInfo.isTouch;
+    
+    // Listen for orientation changes to reposition joysticks if needed
+    window.addEventListener('orientationchange', () => {
+        logger.info('controls', 'Orientation changed, updating joystick positions');
+        
+        // Allow time for the orientation change to complete
+        setTimeout(() => {
+            // Destroy and recreate joysticks with updated positions
+            leftJoystick.destroy();
+            rightJoystick.destroy();
+            
+            leftJoystick = nipplejs.create({
+                zone: leftJoystickEl,
+                mode: 'static',
+                position: { left: '50px', bottom: (window.innerHeight > window.innerWidth ? '100px' : '50px') },
+                color: 'rgba(255, 255, 255, 0.7)',
+                size: 120,
+                dynamicPage: true,
+                lockX: false,
+                lockY: false,
+                restJoystick: false,
+                restOpacity: 0.8,
+                fadeTime: 100,
+                multitouch: true,
+                maxNumberOfNipples: 2,
+                dataOnly: false,
+                threshold: 0.1
+            });
+            
+            rightJoystick = nipplejs.create({
+                zone: rightJoystickEl,
+                mode: 'static',
+                position: { right: '50px', bottom: (window.innerHeight > window.innerWidth ? '100px' : '50px') },
+                color: 'rgba(255, 255, 255, 0.7)',
+                size: 120,
+                dynamicPage: true,
+                lockX: false,
+                lockY: false,
+                restJoystick: false,
+                restOpacity: 0.8,
+                fadeTime: 100,
+                multitouch: true,
+                maxNumberOfNipples: 2,
+                dataOnly: false,
+                threshold: 0.1
+            });
+            
+            // Reattach event handlers
+            setupJoystickEventHandlers(leftJoystick, rightJoystick);
+        }, 300);
+    });
+    
+    logger.info('controls', 'Mobile joystick controls initialized');
+}
+
+/**
+ * Sets up event handlers for joysticks
+ * @param {Object} leftStick - Left joystick instance
+ * @param {Object} rightStick - Right joystick instance
+ */
+function setupJoystickEventHandlers(leftStick, rightStick) {
+    // Left joystick for movement
+    leftStick.on('start', (evt, data) => {
+        logger.debug('joystick', 'Left joystick start');
+        // Make sure leftJoystickData is initialized at start
+        leftJoystickData = { x: 0, y: 0 };
+    });
+    
+    leftStick.on('move', (evt, data) => {
+        const side = data.vector.x;
+        // Invert the Y value for Z movement (forward is negative in the game)
+        const forward = -data.vector.y; // INVERTED to fix directional control
+        
+        // Apply directly to the leftJoystickData object (not creating a new reference)
+        leftJoystickData.x = side;
+        leftJoystickData.y = forward;
+        
+        // Force update the gameState controls reference
+        if (gameState.controls && gameState.controls.leftJoystickData) {
+            gameState.controls.leftJoystickData = leftJoystickData;
+        }
+        
+        logger.debug('joystick', `Left joystick move: x=${side.toFixed(2)}, z=${forward.toFixed(2)}`);
+    });
+    
+    leftStick.on('end', () => {
+        // Reset values directly on the existing object
+        leftJoystickData.x = 0;
+        leftJoystickData.y = 0;
+        
+        // Force update the gameState controls reference
+        if (gameState.controls && gameState.controls.leftJoystickData) {
+            gameState.controls.leftJoystickData = leftJoystickData;
+        }
+        
+        logger.debug('joystick', 'Left joystick end');
+    });
+    
+    // Right joystick for aiming and shooting
+    rightStick.on('start', (evt, data) => {
+        // Enable shooting when right joystick is active
+        gameState.mouseDown = true;
+        logger.debug('joystick', 'Right joystick start - shooting enabled');
+    });
+    
+    rightStick.on('move', (evt, data) => {
+        const x = data.vector.x;
+        const y = data.vector.y;
+        rightJoystickData.x = x;
+        rightJoystickData.y = y;
+        
+        // Keep shooting enabled while joystick is active
+        gameState.mouseDown = true;
+        
+        logger.debug('joystick', 'Right joystick move:', rightJoystickData);
+    });
+    
+    rightStick.on('end', () => {
+        rightJoystickData = { x: 0, y: 0 };
+        
+        // Disable shooting when right joystick is released
+        gameState.mouseDown = false;
+        
+        logger.debug('joystick', 'Right joystick end - shooting disabled');
+    });
+}
+
 // Main initialization function
 async function startGame() {
    // Initialize game
@@ -198,6 +431,8 @@ async function startGame() {
     // Wait for player to enter their name before starting the game
     await createStartupScreen();
 
+    // Set up mobile controls if on a mobile device
+    setupMobileControls();
    
     // Initialize menu system with error handling
     try {

@@ -181,15 +181,43 @@ export const createPlayerWeapon = () => {
 };
 
 /**
- * Handles player movement based on keyboard input (unchanged from original)
+ * Handles player movement based on keyboard input or joystick on mobile
  * @param {THREE.Group} player - The player object
  * @param {Object} keys - Object containing the state of keyboard keys
  * @param {number} baseSpeed - Base movement speed
  * @param {Object} mouse - Mouse position for aiming
  */
 export const handlePlayerMovement = (player, keys, baseSpeed, mouse) => {
-    const moveX = ((keys['a'] || keys['arrowleft']) ? -1 : 0) + ((keys['d'] || keys['arrowright']) ? 1 : 0);
-    const moveZ = ((keys['w'] || keys['arrowup']) ? -1 : 0) + ((keys['s'] || keys['arrowdown']) ? 1 : 0);
+    // Check if joystick data is available in gameState for mobile devices
+    const joystickData = window.gameState?.controls?.leftJoystickData;
+    const isMobile = window.gameState?.controls?.isMobileDevice;
+    const isTouch = window.gameState?.controls?.isTouchDevice;
+    
+    // Use joystick input on mobile/touch devices, keyboard input on desktop
+    let moveX, moveZ;
+    
+    if ((isMobile || isTouch) && joystickData) {
+        // Use joystick data for movement on mobile
+        // Joystick x is side-to-side, y is forward/backward (already inverted in the joystick handler)
+        moveX = joystickData.x;
+        moveZ = joystickData.y;
+        
+        // Apply a dead zone to prevent drift from minor joystick movement
+        const deadZone = 0.15;
+        if (Math.abs(moveX) < deadZone) moveX = 0;
+        if (Math.abs(moveZ) < deadZone) moveZ = 0;
+        
+        // Log joystick movement occasionally
+        const currentTime = Date.now();
+        if (!handlePlayerMovement.lastJoystickLogTime || currentTime - handlePlayerMovement.lastJoystickLogTime > 2000) {
+            logger.debug('joystick', `Mobile movement applied: x=${moveX.toFixed(2)}, z=${moveZ.toFixed(2)}`);
+            handlePlayerMovement.lastJoystickLogTime = currentTime;
+        }
+    } else {
+        // Use keyboard for movement on desktop
+        moveX = ((keys['a'] || keys['arrowleft']) ? -1 : 0) + ((keys['d'] || keys['arrowright']) ? 1 : 0);
+        moveZ = ((keys['w'] || keys['arrowup']) ? -1 : 0) + ((keys['s'] || keys['arrowdown']) ? 1 : 0);
+    }
     
     // Use the baseSpeed parameter instead of hardcoded values
     // Apply slight modifiers for different directions
@@ -211,13 +239,16 @@ export const handlePlayerMovement = (player, keys, baseSpeed, mouse) => {
     let newX = player.position.x;
     let newZ = player.position.z;
     
-    if (moveX !== 0 && moveZ !== 0) {
-        const normalizer = 1 / Math.sqrt(2);
-        newX += moveX * speedX * normalizer;
-        newZ += moveZ * speedZ * normalizer;
-    } else {
-        newX += moveX * speedX;
-        newZ += moveZ * speedZ;
+    // Only apply movement if there actually is movement input
+    if (moveX !== 0 || moveZ !== 0) {
+        if (moveX !== 0 && moveZ !== 0) {
+            const normalizer = 1 / Math.sqrt(2);
+            newX += moveX * speedX * normalizer;
+            newZ += moveZ * speedZ * normalizer;
+        } else {
+            newX += moveX * speedX;
+            newZ += moveZ * speedZ;
+        }
     }
     
     // Check collision with environment objects before applying movement
@@ -286,26 +317,51 @@ export const handlePlayerMovement = (player, keys, baseSpeed, mouse) => {
 };
 
 /**
- * Aims the player and weapon based on mouse position
+ * Aims the player and weapon based on mouse position or right joystick on mobile
  * @param {THREE.Group} player - The player object
  * @param {Object} mouse - Mouse position for aiming
  * @param {THREE.Camera} camera - The camera for raycasting
  */
 export const aimPlayerWithMouse = (player, mouse, camera) => {
-    const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(mouse, camera);
+    // Check if using mobile joystick controls
+    const joystickData = window.gameState?.controls?.rightJoystickData;
+    const isMobile = window.gameState?.controls?.isMobileDevice;
+    const isTouch = window.gameState?.controls?.isTouchDevice;
     
-    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-    
-    const intersectionPoint = new THREE.Vector3();
-    raycaster.ray.intersectPlane(plane, intersectionPoint);
-    
-    const direction = new THREE.Vector3();
-    direction.subVectors(intersectionPoint, player.position);
-    direction.y = 0;
-    
-    if (direction.length() > 0.1) {
-        // Make player face the mouse pointer directly
-        player.rotation.y = Math.atan2(direction.x, direction.z);
+    if ((isMobile || isTouch) && joystickData && (Math.abs(joystickData.x) > 0.2 || Math.abs(joystickData.y) > 0.2)) {
+        // Use right joystick for aiming on mobile
+        // Convert joystick data to direction
+        const joystickDirection = new THREE.Vector3(joystickData.x, 0, -joystickData.y); // Invert Y for proper directional control
+        
+        // Only apply rotation if the joystick is moved far enough
+        if (joystickDirection.length() > 0.2) {
+            // Calculate the angle based on joystick direction
+            player.rotation.y = Math.atan2(joystickDirection.x, joystickDirection.z);
+            
+            // Log joystick aiming occasionally
+            const currentTime = Date.now();
+            if (!aimPlayerWithMouse.lastJoystickLogTime || currentTime - aimPlayerWithMouse.lastJoystickLogTime > 2000) {
+                logger.debug('joystick', `Mobile aiming: angle=${(player.rotation.y * 180 / Math.PI).toFixed(2)}°, x=${joystickData.x.toFixed(2)}, y=${joystickData.y.toFixed(2)}`);
+                aimPlayerWithMouse.lastJoystickLogTime = currentTime;
+            }
+        }
+    } else {
+        // Use mouse for aiming on desktop
+        const raycaster = new THREE.Raycaster();
+        raycaster.setFromCamera(mouse, camera);
+        
+        const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+        
+        const intersectionPoint = new THREE.Vector3();
+        raycaster.ray.intersectPlane(plane, intersectionPoint);
+        
+        const direction = new THREE.Vector3();
+        direction.subVectors(intersectionPoint, player.position);
+        direction.y = 0;
+        
+        if (direction.length() > 0.1) {
+            // Make player face the mouse pointer directly
+            player.rotation.y = Math.atan2(direction.x, direction.z);
+        }
     }
 };

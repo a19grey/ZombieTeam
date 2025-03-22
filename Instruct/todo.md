@@ -11,10 +11,10 @@
 -- Add use the bigger badder bosses zombies that are new in zombies.js -- done 3/18/2025
 -- Zombie spawn selection is better more scalable method - if have boss new boss less likely -- done 3/18/2025
 -- Update enemy generation percentages -- done 3/22/2025
--- Make new enemies look cooler not lame 
--- Fix new enemies don't move and are larger
--- Player should not be damaged by grenade launcher explosion (again)
+-- Fix new enemies don't move and are larger -- done 3/22/2025
 -- Works on mobile 
+-- Make new enemies look cooler not lame 
+-- Player should not be damaged by grenade launcher explosion (again)
 -- Music controls actually work... 
 -- Implement more working SFX for gun
 -- turn off all logging in prod version

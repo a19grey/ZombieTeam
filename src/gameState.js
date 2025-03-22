@@ -97,9 +97,88 @@ const handleGameOver = () => {
         Score: ${gameState.player.exp}<br><br>
         <span style="font-size: 24px">Press R to restart</span>
     `;
+    
+    // Create restart button for mobile users
+    const restartButton = document.createElement('button');
+    restartButton.textContent = 'RESTART GAME';
+    restartButton.id = 'restartButton';
+    Object.assign(restartButton.style, {
+        backgroundColor: '#ff3030',
+        color: 'white',
+        border: 'none',
+        padding: '15px 30px',
+        borderRadius: '5px',
+        fontSize: '20px',
+        fontWeight: 'bold',
+        cursor: 'pointer',
+        marginTop: '20px',
+        boxShadow: '0 0 10px rgba(0, 0, 0, 0.5)',
+        display: 'block',
+        margin: '20px auto',
+        transition: 'all 0.2s ease',
+        WebkitTapHighlightColor: 'transparent', // Remove tap highlight on mobile
+        touchAction: 'manipulation', // Optimize for touch
+        userSelect: 'none' // Prevent text selection
+    });
+    
+    // Add hover effects for desktop
+    restartButton.onmouseover = () => {
+        Object.assign(restartButton.style, {
+            backgroundColor: '#ff5050',
+            transform: 'scale(1.05)'
+        });
+    };
+    
+    restartButton.onmouseout = () => {
+        Object.assign(restartButton.style, {
+            backgroundColor: '#ff3030',
+            transform: 'scale(1)'
+        });
+    };
+    
+    // Add mobile touch feedback
+    restartButton.addEventListener('touchstart', (e) => {
+        e.preventDefault(); // Prevent double-tap zoom on mobile
+        Object.assign(restartButton.style, {
+            backgroundColor: '#ff5050',
+            transform: 'scale(1.05)'
+        });
+    }, { passive: false });
+    
+    restartButton.addEventListener('touchend', () => {
+        Object.assign(restartButton.style, {
+            backgroundColor: '#ff3030',
+            transform: 'scale(1)'
+        });
+        
+        // Delay the reload slightly to show the button press animation
+        setTimeout(() => {
+            location.reload();
+        }, 100);
+    });
+    
+    // Add click event for desktop
+    restartButton.addEventListener('click', (e) => {
+        // Only trigger on real mouse clicks, not on touch events that generate click events
+        if (e.pointerType !== 'touch') {
+            location.reload();
+        }
+    });
+    
+    // Make button bigger on mobile
+    if (window.gameState?.controls?.isMobileDevice || window.gameState?.controls?.isTouchDevice) {
+        Object.assign(restartButton.style, {
+            padding: '20px 40px',
+            fontSize: '24px',
+            marginTop: '30px'
+        });
+    }
+    
+    // Add button to game over div
+    gameOverDiv.appendChild(restartButton);
     document.body.appendChild(gameOverDiv);
     
-    // Add event listener for restart
+    // Add event listener for restart via keyboard (keep this for desktop users)
     document.addEventListener('keydown', (event) => {
         if (event.key.toLowerCase() === 'r' && gameState.gameOver) {
             location.reload(); // Simple reload to restart

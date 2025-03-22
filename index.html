@@ -26,11 +26,48 @@
         #message {
             display: none;
         }
+        
+        /* Mobile control styling */
+        .joystick {
+            position: fixed;
+            bottom: 100px;
+            width: 120px;
+            height: 120px;
+            z-index: 1000;
+            opacity: 0.7;
+            pointer-events: auto !important;
+        }
+        
+        #leftJoystick {
+            left: 50px;
+        }
+        
+        #rightJoystick {
+            right: 50px;
+        }
+        
+        /* Only show joysticks on mobile devices */
+        body:not(.mobile-device) .joystick {
+            display: none;
+        }
+        
+        /* Landscape orientation adjustments */
+        @media (orientation: landscape) {
+            .joystick {
+                bottom: 50px;
+            }
+        }
     </style>
 </head>
 <body>
     <div id="app"></div>
     <script type="module" src="./src/debugCheck.js"></script>
+    <!-- Add nipplejs library for mobile joystick controls -->
+    <script src="https://cdn.jsdelivr.net/npm/nipplejs@0.10.1/dist/nipplejs.min.js"></script>
+    <!-- Make nipplejs available to ES modules -->
+    <script type="module">
+        window.nipplejs = nipplejs;
+    </script>
     <script type="module" src="./src/main.js"></script>
 </body>
 </html> 
