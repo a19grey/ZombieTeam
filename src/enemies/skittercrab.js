@@ -30,7 +30,7 @@ logger.addSection('enemy');
 
 export const createSkittercrab = (position, baseSpeed) => {
     // Configuration parameters
-    const scale = new THREE.Vector3(1.0, 1.0, 1.0); // Scale vector for easy adjustment
+    const scale = new THREE.Vector3(0.6, 0.6, 0.6); // Scale vector for easy adjustment
     
     const crab = new THREE.Group();
 
@@ -91,8 +91,8 @@ export const createSkittercrab = (position, baseSpeed) => {
     // Set properties
     crab.mesh = crab;
     crab.enemyType = 'skittercrab';
-    crab.health = 50; // Low health
-    crab.speed = baseSpeed * 2.0; // Very fast
+    crab.health = 10; // Low health
+    crab.speed = baseSpeed * 1.5; // Very fast
     crab.mass = 0.5; // Very light
     crab.lastDashTime = 0;
     crab.dashCooldown = 3000; // 3 seconds between dashes
@@ -104,29 +104,112 @@ export const createSkittercrab = (position, baseSpeed) => {
     crab.update = (context) => {
         logger.verbose('enemy', `Skittercrab update at ${crab.position.x.toFixed(2)},${crab.position.z.toFixed(2)}`);
         
-        const { playerPosition, delta } = context;
+        const { 
+            playerPosition, 
+            delta, 
+            collisionSettings,
+            environmentObjects,
+            nearbyZombies,
+            gameState,
+            checkCollision,
+            pushAway,
+            damagePlayer
+        } = context;
+        
+        // Calculate direction to player
+        const direction = new THREE.Vector3(
+            playerPosition.x - crab.position.x,
+            0,
+            playerPosition.z - crab.position.z
+        );
+        
+        const distanceToPlayer = direction.length();
+        let finalDirection = direction.clone().normalize();
         
         // Special dash ability
+        let moveSpeed = crab.speed;
         const now = Date.now();
         if (now - crab.lastDashTime > crab.dashCooldown) {
-            // Calculate distance to player
-            const distanceToPlayer = new THREE.Vector3(
-                playerPosition.x - crab.position.x,
-                0,
-                playerPosition.z - crab.position.z
-            ).length();
-            
             // Dash when at medium range
             if (distanceToPlayer > 5 && distanceToPlayer < 10) {
                 logger.info('enemy', `Skittercrab performing dash attack toward player`);
                 crab.lastDashTime = now;
-                // Dash logic - move quickly toward player
-                // ...
+                // Dash gives temporary speed boost
+                moveSpeed = crab.speed * 3.0;
             }
         }
         
-        // Regular movement is already fast
-        // ...
+        // Add slight randomness to movement (less than zombie because crabs are more precise)
+        const randomFactor = Math.min(0.05, distanceToPlayer * 0.003);
+        const randomAngle = (Math.random() - 0.5) * Math.PI * randomFactor;
+        finalDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), randomAngle);
+        
+        // Calculate intended position
+        const moveDistance = moveSpeed * delta * 60;
+        const intendedPosition = new THREE.Vector3()
+            .copy(crab.position)
+            .addScaledVector(finalDirection, moveDistance);
+        
+        // Handle collisions if collision settings are available
+        if (collisionSettings) {
+            const { COLLISION_DISTANCE, DAMAGE_DISTANCE, DAMAGE_PER_SECOND, ZOMBIE_COLLISION_DISTANCE } = collisionSettings;
+            
+            if (checkCollision && pushAway) {
+                if (checkCollision(intendedPosition, playerPosition, COLLISION_DISTANCE)) {
+                    const newPosition = pushAway(intendedPosition, playerPosition, COLLISION_DISTANCE);
+                    intendedPosition.x = newPosition.x;
+                    intendedPosition.z = newPosition.z;
+                    
+                    if (checkCollision(intendedPosition, playerPosition, DAMAGE_DISTANCE)) {
+                        const damageAmount = DAMAGE_PER_SECOND * delta;
+                        if (gameState) damagePlayer(gameState, damageAmount);
+                    }
+                }
+            }
+            
+            // Zombie collisions
+            if (nearbyZombies && checkCollision && pushAway) {
+                for (let i = 0; i < nearbyZombies.length; i++) {
+                    const otherZombie = nearbyZombies[i];
+                    if (!otherZombie || !otherZombie.mesh || otherZombie.mesh.isExploding) continue;
+                    
+                    if (checkCollision(intendedPosition, otherZombie.mesh.position, ZOMBIE_COLLISION_DISTANCE)) {
+                        const thisSize = crab.mass || 1.0;
+                        const otherSize = otherZombie.mesh.mass || 1.0;
+                        
+                        const avoidancePosition = pushAway(
+                            intendedPosition, 
+                            otherZombie.mesh.position, 
+                            ZOMBIE_COLLISION_DISTANCE
+                        );
+                        intendedPosition.x = (intendedPosition.x + avoidancePosition.x) * 0.5;
+                        intendedPosition.z = (intendedPosition.z + avoidancePosition.z) * 0.5;
+                    }
+                }
+            }
+        }
+        
+        // Environment collisions
+        if (environmentObjects) {
+            for (const object of environmentObjects) {
+                if (object && object.isObstacle) {
+                    const dx = intendedPosition.x - object.position.x;
+                    const dz = intendedPosition.z - object.position.z;
+                    const distance = Math.sqrt(dx * dx + dz * dz);
+                    if (distance < (object.boundingRadius || 2.5)) {
+                        const pushDirection = new THREE.Vector3(dx, 0, dz).normalize();
+                        const pushDistance = (object.boundingRadius || 2.5) - distance + 0.1;
+                        intendedPosition.x += pushDirection.x * pushDistance;
+                        intendedPosition.z += pushDirection.z * pushDistance;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // Apply final position and rotation
+        crab.position.copy(intendedPosition);
+        crab.rotation.y = Math.atan2(finalDirection.x, finalDirection.z);
     };
     
     return crab;

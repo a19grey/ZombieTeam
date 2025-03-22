@@ -103,28 +103,28 @@ const enemyRegistry = [
     },
     {
         type: 'plagueTitan',
-        chance: 0,  // New enemy
+        chance: 5,  // New enemy
         createFn: createPlagueTitan,
         speedVariation: 0.02,
         playSpawnSfx: true
     },
     {
         type: 'necrofiend',
-        chance: 0,  // New enemy
+        chance: 5,  // New enemy
         createFn: createNecrofiend,
         speedVariation: 0.03,
         playSpawnSfx: true
     },
     {
         type: 'rotBehemoth',
-        chance: 0,  // New enemy - rare/powerful
+        chance: 5,  // New enemy - rare/powerful
         createFn: createRotBehemoth,
         speedVariation: 0.02,
         playSpawnSfx: true
     },
     {
         type: 'skittercrab',
-        chance: 0,  // New enemy
+        chance: 10,  // New enemy
         createFn: createSkittercrab,
         speedVariation: 0.05,  // More variation for fast erratic movement
         playSpawnSfx: false

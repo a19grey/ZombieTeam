@@ -108,11 +108,102 @@ export const createPlagueTitan = (position, baseSpeed) => {
     titan.update = (context) => {
         logger.verbose('enemy', `Plague titan update at ${titan.position.x.toFixed(2)},${titan.position.z.toFixed(2)}`);
         
-        // Standard movement behavior
-        // ...
+        // Get context variables
+        const { 
+            playerPosition, 
+            delta, 
+            collisionSettings,
+            environmentObjects,
+            nearbyZombies,
+            gameState,
+            checkCollision,
+            pushAway,
+            damagePlayer
+        } = context;
+        
+        // Calculate direction to player
+        const direction = new THREE.Vector3(
+            playerPosition.x - titan.position.x,
+            0,
+            playerPosition.z - titan.position.z
+        );
+        
+        const distance = direction.length();
+        const finalDirection = direction.clone().normalize();
+        
+        // Add slight randomness to movement
+        const randomFactor = Math.min(0.1, distance * 0.005);
+        const randomAngle = (Math.random() - 0.5) * Math.PI * randomFactor;
+        finalDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), randomAngle);
+        
+        // Calculate intended position
+        const moveDistance = titan.speed * delta * 60;
+        const intendedPosition = new THREE.Vector3()
+            .copy(titan.position)
+            .addScaledVector(finalDirection, moveDistance);
+        
+        // Handle collisions if collision settings are available
+        if (collisionSettings) {
+            const { COLLISION_DISTANCE, DAMAGE_DISTANCE, DAMAGE_PER_SECOND, ZOMBIE_COLLISION_DISTANCE } = collisionSettings;
+            
+            if (checkCollision && pushAway) {
+                if (checkCollision(intendedPosition, playerPosition, COLLISION_DISTANCE)) {
+                    const newPosition = pushAway(intendedPosition, playerPosition, COLLISION_DISTANCE);
+                    intendedPosition.x = newPosition.x;
+                    intendedPosition.z = newPosition.z;
+                    
+                    if (checkCollision(intendedPosition, playerPosition, DAMAGE_DISTANCE)) {
+                        const damageAmount = DAMAGE_PER_SECOND * delta;
+                        if (gameState) damagePlayer(gameState, damageAmount);
+                    }
+                }
+            }
+            
+            // Zombie collisions
+            if (nearbyZombies && checkCollision && pushAway) {
+                for (let i = 0; i < nearbyZombies.length; i++) {
+                    const otherZombie = nearbyZombies[i];
+                    if (!otherZombie || !otherZombie.mesh || otherZombie.mesh.isExploding) continue;
+                    
+                    if (checkCollision(intendedPosition, otherZombie.mesh.position, ZOMBIE_COLLISION_DISTANCE)) {
+                        const thisSize = titan.mass || 1.0;
+                        const otherSize = otherZombie.mesh.mass || 1.0;
+                        
+                        const avoidancePosition = pushAway(
+                            intendedPosition, 
+                            otherZombie.mesh.position, 
+                            ZOMBIE_COLLISION_DISTANCE
+                        );
+                        intendedPosition.x = (intendedPosition.x + avoidancePosition.x) * 0.5;
+                        intendedPosition.z = (intendedPosition.z + avoidancePosition.z) * 0.5;
+                    }
+                }
+            }
+        }
+        
+        // Environment collisions
+        if (environmentObjects) {
+            for (const object of environmentObjects) {
+                if (object && object.isObstacle) {
+                    const dx = intendedPosition.x - object.position.x;
+                    const dz = intendedPosition.z - object.position.z;
+                    const distance = Math.sqrt(dx * dx + dz * dz);
+                    if (distance < (object.boundingRadius || 2.5)) {
+                        const pushDirection = new THREE.Vector3(dx, 0, dz).normalize();
+                        const pushDistance = (object.boundingRadius || 2.5) - distance + 0.1;
+                        intendedPosition.x += pushDirection.x * pushDistance;
+                        intendedPosition.z += pushDirection.z * pushDistance;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // Apply final position and rotation
+        titan.position.copy(intendedPosition);
+        titan.rotation.y = Math.atan2(finalDirection.x, finalDirection.z);
         
         // Poison effect
-        const { playerPosition, delta, damagePlayer, gameState } = context;
         const distanceToPlayer = new THREE.Vector3(
             playerPosition.x - titan.position.x,
             0,
