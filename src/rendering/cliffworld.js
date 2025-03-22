@@ -8,10 +8,10 @@ Obstacles: Random boulders and holes on the path for challenge.
 Outlying Land: Lower ground planes on both sides for future giant monster placement.
 Chunk Management: Generates chunks based on player.position.z, removing those too far ahead.
 Removed Features
-Player addition/updating, zombie spawning, and giant monster logic are removed, as they’ll live in gameLoop.js’s animate() and gameState.
+Player addition/updating, zombie spawning, and giant monster logic are removed, as they'll live in gameLoop.js's animate() and gameState.
 The World class now only handles geometry and procedural generation.
 Integration with main.js
-Here’s how to integrate this into your existing setup:
+Here's how to integrate this into your existing setup:
 
  In main.js, after initializeGame
 import { World } from './gameplay/world.js';
@@ -34,8 +34,10 @@ import { createRock, createTexturedGround, createDeadTree } from '../rendering/e
 const CHUNK_SIZE = 50; // Size of each terrain chunk along Z-axis
 const VIEW_DISTANCE = 3; // Chunks visible in each direction
 const CLIFF_HEIGHT = 20; // Height of the raised cliff path
-const MIN_PATH_WIDTH = 10; // Minimum width of the cliff path
-const MAX_PATH_WIDTH = 20; // Maximum width of the cliff path
+const MIN_PATH_WIDTH = 14; // Minimum width of the cliff path (40% wider)
+const MAX_PATH_WIDTH = 28; // Maximum width of the cliff path (40% wider)
+const EDGE_HEIGHT = 1.2; // Height of edge barriers to prevent falling
+const EDGE_THICKNESS = 0.8; // Thickness of edge barriers
 
 // Custom cliff face for world edges
 const createCliffFace = (position, length, height = CLIFF_HEIGHT) => {
@@ -60,6 +62,56 @@ const createLowerGround = (position, width, length) => {
     ground.position.set(position.x, 0, position.z);
     ground.receiveShadow = true;
     return ground;
+};
+
+/**
+ * Creates edge barriers to prevent player from falling off cliff path
+ * @param {number} centerX - X coordinate of path center
+ * @param {number} pathWidth - Width of the path
+ * @param {number} z - Z coordinate of the barrier
+ * @param {number} length - Length of the barrier
+ * @returns {Object} - Left and right barrier objects
+ */
+const createPathEdges = (centerX, pathWidth, z, length) => {
+    // Material with a slightly different color from the path
+    const edgeMaterial = new THREE.MeshStandardMaterial({ 
+        color: 0x6A5042, // Slightly lighter than the path
+        roughness: 0.9,
+        metalness: 0.2
+    });
+    
+    // Create rounded left edge using cylinder
+    const segments = 8; // Number of segments for rounding
+    const leftEdge = new THREE.Mesh(
+        new THREE.CylinderGeometry(EDGE_THICKNESS/2, EDGE_THICKNESS/2, length, segments, 1, false, Math.PI/2, Math.PI),
+        edgeMaterial
+    );
+    // Rotate to align cylinder with Z-axis (along the path)
+    leftEdge.rotation.x = Math.PI/2;
+    leftEdge.position.set(
+        centerX - (pathWidth / 2), // Exactly at the path edge
+        CLIFF_HEIGHT + (EDGE_HEIGHT / 2), 
+        z
+    );
+    leftEdge.receiveShadow = true;
+    leftEdge.castShadow = true;
+    
+    // Create rounded right edge
+    const rightEdge = new THREE.Mesh(
+        new THREE.CylinderGeometry(EDGE_THICKNESS/2, EDGE_THICKNESS/2, length, segments, 1, false, -Math.PI/2, Math.PI),
+        edgeMaterial
+    );
+    // Rotate to align cylinder with Z-axis (along the path)
+    rightEdge.rotation.x = Math.PI/2;
+    rightEdge.position.set(
+        centerX + (pathWidth / 2), // Exactly at the path edge
+        CLIFF_HEIGHT + (EDGE_HEIGHT / 2), 
+        z
+    );
+    rightEdge.receiveShadow = true;
+    rightEdge.castShadow = true;
+    
+    return { leftEdge, rightEdge };
 };
 
 /**
@@ -95,6 +147,15 @@ export class World {
         path.position.set(centerX, CLIFF_HEIGHT, chunkZ * CHUNK_SIZE + CHUNK_SIZE / 2);
         path.receiveShadow = true;
         chunk.add(path);
+
+        // Add path edges to prevent falling
+        const { leftEdge, rightEdge } = createPathEdges(
+            centerX, 
+            pathWidth, 
+            chunkZ * CHUNK_SIZE + CHUNK_SIZE / 2, 
+            CHUNK_SIZE
+        );
+        chunk.add(leftEdge, rightEdge);
 
         // Add cliff faces on both sides
         const leftCliff = createCliffFace({ x: centerX - pathWidth / 2 - 2.5, z: chunkZ * CHUNK_SIZE + CHUNK_SIZE / 2 }, CHUNK_SIZE);
@@ -159,6 +220,10 @@ export class World {
         const cliffLeft = createCliffFace({ x: -50, z: 0 }, 100);
         const cliffRight = createCliffFace({ x: 50, z: 0 }, 100);
         this.scene.add(cliffLeft, cliffRight);
+        
+        // Add initial path edges at the start
+        const { leftEdge, rightEdge } = createPathEdges(0, MIN_PATH_WIDTH, 0, 100);
+        this.scene.add(leftEdge, rightEdge);
     }
 
     // Get the current path center X at a given Z position (for external use, e.g., spawning)

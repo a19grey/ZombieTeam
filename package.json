@@ -10,6 +10,7 @@
     "run": "vite preview",
     "prod": "vite preview",
     "dev": "vite",
+    "dev-cliff": "vite --open cliffworld-test.html",
     "serve": "vite preview",
     "check-env": "./check-env.sh",
     "test": "echo \"Error: no test specified\" && exit 1",
