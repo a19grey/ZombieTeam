@@ -328,13 +328,13 @@ export const aimPlayerWithMouse = (player, mouse, camera) => {
     const isMobile = window.gameState?.controls?.isMobileDevice;
     const isTouch = window.gameState?.controls?.isTouchDevice;
     
-    if ((isMobile || isTouch) && joystickData && (Math.abs(joystickData.x) > 0.2 || Math.abs(joystickData.y) > 0.2)) {
+    if ((isMobile || isTouch) && joystickData && (Math.abs(joystickData.x) > 0.1 || Math.abs(joystickData.y) > 0.1)) {
         // Use right joystick for aiming on mobile
         // Convert joystick data to direction
         const joystickDirection = new THREE.Vector3(joystickData.x, 0, -joystickData.y); // Invert Y for proper directional control
         
-        // Only apply rotation if the joystick is moved far enough
-        if (joystickDirection.length() > 0.2) {
+        // Only apply rotation if the joystick is moved far enough (reduced dead zone)
+        if (joystickDirection.length() > 0.1) {
             // Calculate the angle based on joystick direction
             player.rotation.y = Math.atan2(joystickDirection.x, joystickDirection.z);
             

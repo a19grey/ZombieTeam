@@ -395,14 +395,22 @@ function setupJoystickEventHandlers(leftStick, rightStick) {
     rightStick.on('start', (evt, data) => {
         // Enable shooting when right joystick is active
         gameState.mouseDown = true;
+        // Make sure rightJoystickData is initialized at start
+        rightJoystickData = { x: 0, y: 0 };
         logger.debug('joystick', 'Right joystick start - shooting enabled');
     });
     
     rightStick.on('move', (evt, data) => {
         const x = data.vector.x;
         const y = data.vector.y;
+        // Apply directly to the rightJoystickData object (not creating a new reference)
         rightJoystickData.x = x;
         rightJoystickData.y = y;
+        
+        // Force update the gameState controls reference
+        if (gameState.controls && gameState.controls.rightJoystickData) {
+            gameState.controls.rightJoystickData = rightJoystickData;
+        }
         
         // Keep shooting enabled while joystick is active
         gameState.mouseDown = true;
@@ -411,7 +419,14 @@ function setupJoystickEventHandlers(leftStick, rightStick) {
     });
     
     rightStick.on('end', () => {
-        rightJoystickData = { x: 0, y: 0 };
+        // Reset values directly on the existing object
+        rightJoystickData.x = 0;
+        rightJoystickData.y = 0;
+        
+        // Force update the gameState controls reference
+        if (gameState.controls && gameState.controls.rightJoystickData) {
+            gameState.controls.rightJoystickData = rightJoystickData;
+        }
         
         // Disable shooting when right joystick is released
         gameState.mouseDown = false;
