@@ -22,6 +22,9 @@ import { logger } from '../utils/logger.js';
 logger.addSection('enemy');
 
 export const createExploder = (position, baseSpeed ) => {
+    // Configuration parameters
+    const scale = new THREE.Vector3(1.0, 1.0, 1.0); // Scale vector for easy adjustment
+    
     const exploder = new THREE.Group();
 
     // Blocky head/body combo
@@ -78,6 +81,9 @@ export const createExploder = (position, baseSpeed ) => {
     
     // Set default health
     exploder.health = 75;
+    
+    // Scale the exploder according to scale parameter
+    exploder.scale.copy(scale);
     
     /**
      * Updates the exploder's position and behavior

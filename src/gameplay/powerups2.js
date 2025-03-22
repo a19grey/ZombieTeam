@@ -59,7 +59,7 @@ export const createRapidFirePowerup = (position) => {
 
     powerup.position.set(position.x, 0, position.z);
     powerup.userData.type = 'rapidFire';
-    powerup.userData.health = 100; // Standard health value
+    powerup.userData.health = 175*15; // Standard health value
     return powerup;
 };
 
@@ -116,7 +116,7 @@ export const createShotgunBlastPowerup = (position) => {
 
     powerup.position.set(position.x, 0, position.z);
     powerup.userData.type = 'shotgunBlast';
-    powerup.userData.health = 150; // Higher health value - harder to unlock
+    powerup.userData.health = 250*15; // Higher health value - harder to unlock
     return powerup;
 };
 
@@ -177,7 +177,7 @@ export const createExplosionPowerup = (position) => {
 
     powerup.position.set(position.x, 0, position.z);
     powerup.userData.type = 'explosion';
-    powerup.userData.health = 200; // High health value - hard to unlock
+    powerup.userData.health = 200*15; // High health value - hard to unlock
     return powerup;
 };
 
@@ -241,7 +241,7 @@ export const createLaserShotPowerup = (position) => {
 
     powerup.position.set(position.x, 0, position.z);
     powerup.userData.type = 'laserShot';
-    powerup.userData.health = 180; // High health value
+    powerup.userData.health = 250*15; // High health value
     return powerup;
 };
 
@@ -320,7 +320,7 @@ export const createGrenadeLauncherPowerup = (position) => {
 
     powerup.position.set(position.x, 0, position.z);
     powerup.userData.type = 'grenadeLauncher';
-    powerup.userData.health = 175; // High health value
+    powerup.userData.health = 225*15; // High health value
     return powerup;
 };
 

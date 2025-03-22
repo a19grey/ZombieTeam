@@ -84,7 +84,7 @@ export function initializeGame(gameState) {
             // Continue without audio
         }
 
-        // Initialize audio listener
+        /* Initialize audio listener
         try {
             audioListener = initAudio(camera);
             setAudioEnabled(true);
@@ -102,7 +102,7 @@ export function initializeGame(gameState) {
             logger.error('Audio initialization failed:', audioError);
             console.error('Audio initialization failed:', audioError);
           }
-        
+        */ 
         // Add lighting
         const lights = createLighting(scene);
         

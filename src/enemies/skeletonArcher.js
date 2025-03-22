@@ -22,6 +22,9 @@ import { logger } from '../utils/logger.js';
 logger.addSection('enemy');
 
 export const createSkeletonArcher = (position, baseSpeed) => {
+    // Configuration parameters
+    const scale = new THREE.Vector3(1.0, 1.0, 1.0); // Scale vector for easy adjustment
+    
     const skeleton = new THREE.Group();
 
     // Head with hollow eyes
@@ -99,6 +102,9 @@ export const createSkeletonArcher = (position, baseSpeed) => {
     
     // Set default health
     skeleton.health = 100;
+    
+    // Scale the skeleton according to scale parameter
+    skeleton.scale.copy(scale);
     
     /**
      * Updates the skeleton archer's position and behavior

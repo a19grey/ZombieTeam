@@ -36,11 +36,11 @@ const MIN_TIME_BETWEEN_POWERUPS = 1000; // Minimum time between powerup spawns (
 // Constants for powerup health
 const DEFAULT_POWERUP_HEALTH = 100; // Default health for powerups
 const POWERUP_HEALTH_BY_TYPE = {
-    'rapidFire': 80,        // Easier to unlock
-    'shotgunBlast': 100,
-    'explosion': 150,       // Harder to unlock
-    'laserShot': 120,
-    'grenadeLauncher': 130
+    'rapidFire': 80*3,        // Easier to unlock
+    'shotgunBlast': 100*3,
+    'explosion': 150*3,       // Harder to unlock
+    'laserShot': 120*3,
+    'grenadeLauncher': 130*3
 };
 
 /**
@@ -250,7 +250,7 @@ export const createPowerup = (scene, position, gameState, powerupType) => {
     scene.add(powerupMesh);
     
     // Set health based on powerup type
-    const maxHealth = POWERUP_HEALTH_BY_TYPE[powerupType] || DEFAULT_POWERUP_HEALTH;
+    const maxHealth = POWERUP_HEALTH_BY_TYPE[powerupType];
     
     // Create health ring indicator
     const healthRing = createHealthRing(powerupMesh, powerupType, maxHealth);
@@ -272,7 +272,7 @@ export const createPowerup = (scene, position, gameState, powerupType) => {
     gameState.powerups.push(powerup);
     
     // Log powerup creation
-    logger.info('powerup', `Spawned ${powerupType} powerup`, { 
+    logger.info('powerup', `Spawned powerup ${powerupType}`, { 
         position: { x: position.x.toFixed(2), z: position.z.toFixed(2) },
         health: maxHealth
     });

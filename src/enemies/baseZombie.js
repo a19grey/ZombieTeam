@@ -28,6 +28,9 @@ export const createbaseZombie = (position, baseSpeed) => {
  * @param {number} baseSpeed - Base movement speed (zombie will move at exactly this speed)
  * @returns {THREE.Group} The zombie object
  */
+    // Configuration parameters
+    const scale = new THREE.Vector3(1.0, 1.0, 1.0); // Scale vector for easy adjustment
+    
     const basezombie = new THREE.Group();
     
     // Head (cube with "scary" offset eyes)
@@ -123,6 +126,9 @@ export const createbaseZombie = (position, baseSpeed) => {
     
     // Set default health
     basezombie.health = 100;
+
+    // Scale the zombie according to scale parameter
+    basezombie.scale.copy(scale);
 
     /**
      * Updates the zombie's position and behavior

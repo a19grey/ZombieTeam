@@ -29,6 +29,9 @@ import { logger } from '../utils/logger.js';
 logger.addSection('enemy');
 
 export const createSkittercrab = (position, baseSpeed) => {
+    // Configuration parameters
+    const scale = new THREE.Vector3(1.0, 1.0, 1.0); // Scale vector for easy adjustment
+    
     const crab = new THREE.Group();
 
     // Low, wide body
@@ -93,6 +96,9 @@ export const createSkittercrab = (position, baseSpeed) => {
     crab.mass = 0.5; // Very light
     crab.lastDashTime = 0;
     crab.dashCooldown = 3000; // 3 seconds between dashes
+    
+    // Scale the skittercrab according to scale parameter
+    crab.scale.copy(scale);
 
     // Update method
     crab.update = (context) => {

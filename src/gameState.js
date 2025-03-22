@@ -39,7 +39,7 @@ const gameState = {
         lastZombieSoundTime: 0,     // Last time any zombie made a sound
         zombieSoundCheckInterval: 600, // Check for zombie sounds every 600ms
         zombieSoundChance: {         // Chance that a zombie type will make a sound (per check)
-            zombie: 0.03,            // 3% chance for regular zombies
+            zombie: 0.04,            // 3% chance for regular zombies
             skeletonArcher: 0.02,    // 2% chance for archers
             exploder: 0.05,          // 5% chance for exploders
             zombieKing: 0.15         // 15% chance for zombie kings

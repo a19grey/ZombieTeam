@@ -21,6 +21,9 @@ import { logger } from '../utils/logger.js';
 logger.addSection('enemy');
 
 export const createNecrofiend = (position, baseSpeed) => {
+    // Configuration parameters
+    const scale = new THREE.Vector3(1.0, 1.0, 1.0); // Scale vector for easy adjustment
+    
     const necro = new THREE.Group();
 
     // Elongated body
@@ -87,6 +90,9 @@ export const createNecrofiend = (position, baseSpeed) => {
     necro.speed = baseSpeed * 0.7; // Slower than standard zombies
     necro.mass = 3.0; // Heavy
     necro.nextSummonTime = Date.now() + 5000; // First summon after 5 seconds
+    
+    // Scale the necrofiend according to scale parameter
+    necro.scale.copy(scale);
     
     // Update method
     necro.update = (context) => {

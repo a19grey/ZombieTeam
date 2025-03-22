@@ -23,7 +23,8 @@
  *   level: 5,                           // Show everything up to level 5
  *   sections: ['renderer', 'physics'],  // Only show logs from these sections
  *   includeTimestamp: true,
- *   logToConsole: true
+ *   logToConsole: true,
+ *   includeCallerInfo: true             // Show calling function/file information
  * });
  * 
  * // Custom log level
@@ -33,6 +34,7 @@
  * // ?debug=5                           // Set debug level to 5
  * // ?debugSection=audio,physics        // Only show logs from audio and physics sections
  * // ?debugAll=true                     // Enable all debug sections
+ * // ?debugCaller=true                  // Show calling function/file information
  */
 
 // Default log levels (higher number = more verbose/detailed)
@@ -63,10 +65,11 @@ const DEFAULT_SECTIONS = [
 // Default configuration
 let config = {
     level: DEFAULT_LOG_LEVELS.ERROR,  // Default to ERROR level (only show errors)
-    includeTimestamp: true,
-    logToConsole: true,
+    includeTimestamp: false, // disable timestamps in production
+    logToConsole: true, // 
     sections: DEFAULT_SECTIONS,      // All available sections
-    enabledSections: new Set()       // No sections enabled by default
+    enabledSections: new Set(),      // No sections enabled by default
+    includeCallerInfo: false         // Whether to include caller information
 };
 
 /**
@@ -114,10 +117,88 @@ const parseURLParameters = () => {
         config.enabledSections = new Set(config.sections);
         console.log('Logger: All debug sections enabled from URL parameter');
     }
+    
+    // Check for debug caller parameter
+    const debugCaller = urlParams.get('debugCaller');
+    if (debugCaller === 'true') {
+        config.includeCallerInfo = true;
+        console.log('Logger: Caller information enabled from URL parameter');
+    }
 };
 
 // Run URL parameter parsing on module load
 parseURLParameters();
+
+/**
+ * Get information about the calling function or file
+ * @returns {string} Calling function or file information
+ */
+const getCallerInfo = () => {
+    try {
+        // Create an error to get the stack trace
+        const err = new Error();
+        
+        // Parse the stack trace to extract caller information
+        // The first two lines are this function and the log function, so we want the third line (index 2)
+        const stackLines = err.stack.split('\n');
+        
+        // We need to skip the first 3 lines which are:
+        // - The Error message line
+        // - This function (getCallerInfo)
+        // - The log function
+        // - The logger method (error, info, debug, etc.)
+        // So we want the 4th or 5th line typically
+        
+        // Find the first line that's not part of the logger
+        let callerLine = '';
+        for (let i = 1; i < stackLines.length; i++) {
+            if (!stackLines[i].includes('logger.js')) {
+                callerLine = stackLines[i];
+                break;
+            }
+        }
+        
+        if (!callerLine) return '';
+        
+        // Extract function name and/or file info from the line
+        // Format typically looks like: "    at FunctionName (file:line:column)"
+        // or "    at file:line:column"
+        let callerInfo = callerLine.trim();
+        
+        // Remove the "at " prefix
+        callerInfo = callerInfo.substring(callerInfo.indexOf('at ') + 3);
+        
+        // Extract function name if available
+        let functionName = '';
+        if (callerInfo.includes('(')) {
+            functionName = callerInfo.substring(0, callerInfo.indexOf('(')).trim();
+            
+            // If we found a function name, use that
+            if (functionName) {
+                return `[${functionName}]`;
+            }
+        }
+        
+        // If no function name or couldn't parse, extract file name
+        let fileName = callerInfo;
+        
+        // If there's a path, extract just the file name
+        if (fileName.includes('/')) {
+            fileName = fileName.substring(fileName.lastIndexOf('/') + 1);
+        }
+        
+        // Remove line and column numbers
+        if (fileName.includes(':')) {
+            fileName = fileName.substring(0, fileName.lastIndexOf(':'));
+            fileName = fileName.substring(0, fileName.lastIndexOf(':'));
+        }
+        
+        return `[${fileName}]`;
+    } catch (e) {
+        // If anything goes wrong, return an empty string
+        return '';
+    }
+};
 
 /**
  * Formats a log message with optional timestamp and section
@@ -143,6 +224,11 @@ const formatLogMessage = (level, section, message, data) => {
     // Add section if provided
     if (section) {
         formattedMessage += ` (${section})`;
+    }
+    
+    // Add caller info if configured
+    if (config.includeCallerInfo) {
+        formattedMessage += ` ${getCallerInfo()}`;
     }
     
     // Add message
@@ -239,6 +325,7 @@ export const logger = {
      * @param {boolean} newConfig.includeTimestamp - Whether to include timestamps
      * @param {boolean} newConfig.logToConsole - Whether to log to console
      * @param {Array<string>} newConfig.sections - Array of sections to enable
+     * @param {boolean} newConfig.includeCallerInfo - Whether to include caller information
      */
     configure: (newConfig) => {
         // Apply the new config
@@ -298,6 +385,14 @@ export const logger = {
      */
     disableSection: (section) => {
         config.enabledSections.delete(section);
+    },
+    
+    /**
+     * Enable or disable caller information
+     * @param {boolean} enable - Whether to enable caller information
+     */
+    setCallerInfo: (enable) => {
+        config.includeCallerInfo = enable;
     },
     
     /**

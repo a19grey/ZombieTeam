@@ -21,6 +21,9 @@ import { logger } from '../utils/logger.js';
 logger.addSection('enemy');
 
 export const createPlagueTitan = (position, baseSpeed) => {
+    // Configuration parameters
+    const scale = new THREE.Vector3(1.0, 1.0, 1.0); // Scale vector for easy adjustment
+    
     const titan = new THREE.Group();
 
     // Massive body
@@ -97,6 +100,9 @@ export const createPlagueTitan = (position, baseSpeed) => {
     titan.mass = 4.0; // Very heavy
     titan.poisonRadius = 5.0; // Radius of poison effect
     titan.poisonDamage = 10; // Damage per second from poison
+    
+    // Scale the plague titan according to scale parameter
+    titan.scale.copy(scale);
 
     // Update method
     titan.update = (context) => {

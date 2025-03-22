@@ -29,6 +29,9 @@ import { logger } from '../utils/logger.js';
 logger.addSection('enemy');
 
 export const createZombieKing = (position, baseSpeed) => {
+    // Configuration parameters
+    const scale = new THREE.Vector3(2.0, 2.0, 2.0); // Scale vector for easy adjustment
+    
     const king = new THREE.Group();
 
     // Larger head with crown
@@ -111,7 +114,10 @@ export const createZombieKing = (position, baseSpeed) => {
     king.mass = 2.0;
     
     // Set default health - zombie king has high health
-    king.health = 350;
+    king.health = 650;
+    
+    // Scale the zombie king according to scale parameter
+    king.scale.copy(scale);
     
     /**
      * Updates the zombie king's position and behavior
