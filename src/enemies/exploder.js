@@ -64,7 +64,7 @@ export const createExploder = (position, baseSpeed ) => {
     exploder.position.set(position.x, 0, position.z);
     
     // Debug log for exploder creation
-    logger.debug('enemy', `Creating exploder at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
+    logger.debug('enemyspawner', `Creating exploder at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
     
     exploder.mesh = exploder;
     

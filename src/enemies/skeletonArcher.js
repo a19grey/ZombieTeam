@@ -86,7 +86,7 @@ export const createSkeletonArcher = (position, baseSpeed) => {
     skeleton.position.set(position.x, 0, position.z);
     
     // Debug log for skeleton creation
-    logger.debug('enemy', `Creating skeleton archer at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
+    logger.debug('enemyspawner', `Creating skeleton archer at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
     
     skeleton.mesh = skeleton;
     

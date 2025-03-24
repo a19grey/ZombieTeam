@@ -12,12 +12,14 @@
 -- Zombie spawn selection is better more scalable method - if have boss new boss less likely -- done 3/18/2025
 -- Update enemy generation percentages -- done 3/22/2025
 -- Fix new enemies don't move and are larger -- done 3/22/2025
--- Works on mobile 
+-- Works on mobile -- done 3/22/2025
+-- turn off all logging in prod version -- done 3/23/2025
 -- Make new enemies look cooler not lame 
+-- Bullets I think 'skip over' some enemies since they update and flu past before collision check
 -- Player should not be damaged by grenade launcher explosion (again)
 -- Music controls actually work... 
 -- Implement more working SFX for gun
--- turn off all logging in prod version
+
 -- Adapt the generated world.js to work with our assets and zombies and use it as the procedurally generated world
 -- Tune zombie and gun rates and power up rates, camera angle
 -- zombie archer works 

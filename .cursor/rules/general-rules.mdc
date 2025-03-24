@@ -8,10 +8,13 @@ Description: General project coding standards
 Globs: *.js, *.ts
 ---
 
-This is 
-- Use TypeScript for all new code
-- Prefer functional components over class-based ones
+This is a Zombie Horde Team battle shooter. Player is presented with powerup options to shoot while backing up from a horde of zombies. 
 
+- Use TypeScript for all new code
+
+- Prefer functional components over class-based ones
+- don't try to run the actual game after testing - user will always run the game in terminal
+- Project uses VITE package manager and launchs with npm run but do not try to run the game. user will launch it. 
 - Logging should be handled in the style of logger.js which handles debug levels and debug categories
 * // With categories/sections
  * logger.info('renderer', 'Initializing WebGL context');
@@ -23,3 +26,5 @@ This is
 
 - Make minimal edits to the code when possible. You can only see a narrow slice of full context at any one time, so do not modify unrelated code.
 - Preserve comments in code where possible, lots of comments are good, yay!
+
+- Code is organized in /src with /enemies /gameplay /rendering /ui /utils folders for functional code separation 

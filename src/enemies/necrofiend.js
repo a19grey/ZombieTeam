@@ -81,7 +81,7 @@ export const createNecrofiend = (position, baseSpeed) => {
     necro.position.set(position.x, 0, position.z);
     
     // Log the creation
-    logger.info('enemy', `Creating necrofiend at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
+    logger.info('enemyspawner', `Creating necrofiend at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
     
     // Set properties
     necro.mesh = necro;

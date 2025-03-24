@@ -34,8 +34,8 @@ export const createSkittercrab = (position, baseSpeed) => {
     
     const crab = new THREE.Group();
 
-    // Low, wide body
-    const bodyGeometry = new THREE.BoxGeometry(1, 0.5, 0.8);
+    // Low, wide body - made slightly wider and more oval-shaped
+    const bodyGeometry = new THREE.BoxGeometry(1.2, 0.5, 1);
     const bodyMaterial = new THREE.MeshStandardMaterial({
         color: 0x696969, // Dark gray carapace
         roughness: 0.9
@@ -45,48 +45,96 @@ export const createSkittercrab = (position, baseSpeed) => {
     body.castShadow = true;
     crab.add(body);
 
-    // Spiky shell
-    const spikeGeometry = new THREE.BoxGeometry(0.2, 0.4, 0.2);
+    // Spiky shell with more details
+    const spikeGeometry = new THREE.ConeGeometry(0.1, 0.4, 4);
     const spikeMaterial = new THREE.MeshStandardMaterial({
         color: 0x8b0000, // Dark red spikes
         roughness: 0.9
     });
-    const spike1 = new THREE.Mesh(spikeGeometry, spikeMaterial);
-    spike1.position.set(0, 0.65, 0);
-    crab.add(spike1);
-    const spike2 = new THREE.Mesh(spikeGeometry, spikeMaterial);
-    spike2.position.set(0.3, 0.55, 0);
-    crab.add(spike2);
+    
+    // Add multiple spikes in a pattern
+    const spikePositions = [
+        {x: 0, y: 0.65, z: 0},
+        {x: 0.3, y: 0.55, z: 0.2},
+        {x: -0.3, y: 0.55, z: 0.2},
+        {x: 0.2, y: 0.55, z: -0.2},
+        {x: -0.2, y: 0.55, z: -0.2}
+    ];
+    
+    spikePositions.forEach(pos => {
+        const spike = new THREE.Mesh(spikeGeometry, spikeMaterial);
+        spike.position.set(pos.x, pos.y, pos.z);
+        crab.add(spike);
+    });
 
-    // Pincer legs
-    const pincerGeometry = new THREE.BoxGeometry(0.3, 0.3, 0.6);
-    const leftPincer = new THREE.Mesh(pincerGeometry, bodyMaterial);
-    leftPincer.position.set(-0.65, 0.15, 0.2);
-    leftPincer.rotation.z = Math.PI / 4;
-    leftPincer.castShadow = true;
-    crab.add(leftPincer);
-    const rightPincer = new THREE.Mesh(pincerGeometry, bodyMaterial);
-    rightPincer.position.set(0.65, 0.15, 0.2);
-    rightPincer.rotation.z = -Math.PI / 4;
-    rightPincer.castShadow = true;
-    crab.add(rightPincer);
+    // Create leg pairs (4 pairs total = 8 legs)
+    const legPairs = [];
+    const legGeometry = new THREE.BoxGeometry(0.15, 0.3, 0.6);
+    
+    // Define leg positions - each entry is [x-offset, z-position]
+    const legPositions = [
+        [0.8, 0.4],  // Front legs
+        [0.7, 0.1],  // Mid-front legs
+        [0.7, -0.1], // Mid-back legs
+        [0.6, -0.4]  // Back legs
+    ];
 
-    // Back legs
-    const legGeometry = new THREE.BoxGeometry(0.2, 0.3, 0.4);
-    const leftLeg = new THREE.Mesh(legGeometry, bodyMaterial);
-    leftLeg.position.set(-0.4, 0.15, -0.2);
-    leftLeg.castShadow = true;
-    crab.add(leftLeg);
-    const rightLeg = new THREE.Mesh(legGeometry, bodyMaterial);
-    rightLeg.position.set(0.4, 0.15, -0.2);
-    rightLeg.castShadow = true;
-    crab.add(rightLeg);
+    for (let i = 0; i < 4; i++) {
+        const leftLeg = new THREE.Mesh(legGeometry, bodyMaterial);
+        const rightLeg = new THREE.Mesh(legGeometry, bodyMaterial);
+        
+        const xOffset = legPositions[i][0];
+        const zOffset = legPositions[i][1];
+        
+        leftLeg.position.set(-xOffset, 0.15, zOffset);
+        rightLeg.position.set(xOffset, 0.15, zOffset);
+        
+        leftLeg.rotation.z = Math.PI / 4;
+        rightLeg.rotation.z = -Math.PI / 4;
+        
+        leftLeg.castShadow = true;
+        rightLeg.castShadow = true;
+        
+        crab.add(leftLeg);
+        crab.add(rightLeg);
+        
+        legPairs.push({left: leftLeg, right: rightLeg});
+    }
+
+    // Enhanced pincers
+    const pincerGroup = new THREE.Group();
+    
+    // Main pincer arm
+    const pincerArmGeometry = new THREE.BoxGeometry(0.4, 0.2, 0.8);
+    const leftPincerArm = new THREE.Mesh(pincerArmGeometry, bodyMaterial);
+    const rightPincerArm = new THREE.Mesh(pincerArmGeometry, bodyMaterial);
+    
+    // Pincer claw
+    const pincerClawGeometry = new THREE.BoxGeometry(0.3, 0.25, 0.4);
+    const leftPincerClaw = new THREE.Mesh(pincerClawGeometry, spikeMaterial);
+    const rightPincerClaw = new THREE.Mesh(pincerClawGeometry, spikeMaterial);
+    
+    // Position pincers
+    leftPincerArm.position.set(-0.9, 0.3, 0.4);
+    rightPincerArm.position.set(0.9, 0.3, 0.4);
+    leftPincerClaw.position.set(-1.2, 0.3, 0.6);
+    rightPincerClaw.position.set(1.2, 0.3, 0.6);
+    
+    leftPincerArm.rotation.y = -Math.PI / 6;
+    rightPincerArm.rotation.y = Math.PI / 6;
+    leftPincerClaw.rotation.y = -Math.PI / 4;
+    rightPincerClaw.rotation.y = Math.PI / 4;
+    
+    crab.add(leftPincerArm);
+    crab.add(rightPincerArm);
+    crab.add(leftPincerClaw);
+    crab.add(rightPincerClaw);
 
     // Position the skittercrab
     crab.position.set(position.x, 0, position.z);
 
     // Log the creation
-    logger.info('enemy', `Creating skittercrab at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
+    logger.info('enemyspawner', `Creating skittercrab at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
 
     // Set properties
     crab.mesh = crab;
@@ -96,6 +144,7 @@ export const createSkittercrab = (position, baseSpeed) => {
     crab.mass = 0.5; // Very light
     crab.lastDashTime = 0;
     crab.dashCooldown = 3000; // 3 seconds between dashes
+    crab.animationTime = 0; // Track time for leg animation
     
     // Scale the skittercrab according to scale parameter
     crab.scale.copy(scale);
@@ -115,6 +164,22 @@ export const createSkittercrab = (position, baseSpeed) => {
             pushAway,
             damagePlayer
         } = context;
+        
+        // Animate legs
+        crab.animationTime += delta * 5;
+        legPairs.forEach((pair, index) => {
+            const offset = index * (Math.PI / 4); // Phase offset for each pair
+            const leftHeight = Math.sin(crab.animationTime + offset) * 0.1;
+            const rightHeight = Math.sin(crab.animationTime + offset + Math.PI) * 0.1;
+            
+            pair.left.position.y = 0.15 + leftHeight;
+            pair.right.position.y = 0.15 + rightHeight;
+        });
+        
+        // Animate pincers slightly
+        const pincerWave = Math.sin(crab.animationTime * 0.5) * 0.1;
+        leftPincerArm.rotation.z = pincerWave;
+        rightPincerArm.rotation.z = -pincerWave;
         
         // Calculate direction to player
         const direction = new THREE.Vector3(

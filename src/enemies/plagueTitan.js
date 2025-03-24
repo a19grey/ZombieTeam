@@ -22,87 +22,355 @@ logger.addSection('enemy');
 
 export const createPlagueTitan = (position, baseSpeed) => {
     // Configuration parameters
-    const scale = new THREE.Vector3(1.0, 1.0, 1.0); // Scale vector for easy adjustment
+    const scale = new THREE.Vector3(1.0, 1.0, 1.0); // Increased scale for more imposing presence
     
     const titan = new THREE.Group();
 
-    // Massive body
-    const bodyGeometry = new THREE.BoxGeometry(2, 6, 1.5);
-    const bodyMaterial = new THREE.MeshStandardMaterial({
-        color: 0x3c2f2f, // Dark reddish-brown, festering flesh
-        roughness: 0.9
-    });
-    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.position.y = 3;
-    body.castShadow = true;
-    titan.add(body);
+    // Create base humanoid structure
+    const bodyGroup = new THREE.Group();
+    titan.add(bodyGroup);
 
-    // Head with oozing sores
-    const headGeometry = new THREE.BoxGeometry(1, 1, 1);
-    const headMaterial = new THREE.MeshStandardMaterial({
+    // Torso - deformed and asymmetrical
+    const torsoGeometry = new THREE.SphereGeometry(1.5, 16, 16);
+    const torsoMaterial = new THREE.MeshStandardMaterial({
+        color: 0x3c2f2f, // Dark reddish-brown
+        roughness: 0.9,
+        metalness: 0.2,
+        bumpScale: 0.5
+    });
+    const torso = new THREE.Mesh(torsoGeometry, torsoMaterial);
+    torso.position.y = 3.5;
+    torso.scale.set(1.2, 1.5, 1.0); // Asymmetrical scaling
+    torso.castShadow = true;
+    bodyGroup.add(torso);
+
+    // Secondary torso growth - asymmetrical bulbous growth
+    const growth1Geometry = new THREE.SphereGeometry(1.2, 16, 16);
+    const growthMaterial = new THREE.MeshStandardMaterial({
         color: 0x2e8b57, // Greenish decay
-        roughness: 0.9
+        roughness: 0.7,
+        metalness: 0.1,
+        transparent: true,
+        opacity: 0.9
+    });
+    const growth1 = new THREE.Mesh(growth1Geometry, growthMaterial);
+    growth1.position.set(-0.8, 3.8, 0.5);
+    growth1.scale.set(1.1, 0.8, 0.9);
+    growth1.castShadow = true;
+    bodyGroup.add(growth1);
+
+    // Third bulbous growth
+    const growth2Geometry = new THREE.SphereGeometry(0.9, 16, 16);
+    const growth2 = new THREE.Mesh(growth2Geometry, growthMaterial);
+    growth2.position.set(0.7, 4.2, -0.4);
+    growth2.scale.set(0.9, 1.1, 0.8);
+    growth2.castShadow = true;
+    bodyGroup.add(growth2);
+
+    // Deformed head with multiple features
+    const headGeometry = new THREE.SphereGeometry(1, 16, 16);
+    const headMaterial = new THREE.MeshStandardMaterial({
+        color: 0x2e6b47, // Darker greenish decay
+        roughness: 0.8,
+        metalness: 0.2
     });
     const head = new THREE.Mesh(headGeometry, headMaterial);
-    head.position.y = 7;
+    head.position.y = 6.5;
+    head.scale.set(1.2, 1.3, 1.1);
     head.castShadow = true;
-    titan.add(head);
+    bodyGroup.add(head);
 
-    // Glowing sores (emissive)
-    const soreGeometry = new THREE.BoxGeometry(0.3, 0.3, 0.3);
+    // Second deformed head-like growth (conjoined twin effect)
+    const head2Geometry = new THREE.SphereGeometry(0.7, 16, 16);
+    const head2 = new THREE.Mesh(head2Geometry, headMaterial);
+    head2.position.set(-0.6, 6.3, 0.4);
+    head2.scale.set(0.8, 0.7, 0.6);
+    head2.castShadow = true;
+    bodyGroup.add(head2);
+
+    // Eyes - glowing and ominous
+    const eyeGeometry = new THREE.SphereGeometry(0.3, 8, 8); // Increased size
+    const eyeMaterial = new THREE.MeshStandardMaterial({
+        color: 0x00ff00, // Bright green color
+        emissive: 0x00ff00, // Bright green emissive
+        emissiveIntensity: 1.0
+    });
+    
+    const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+    leftEye.position.set(-0.3, 6.7, 0.8);
+    bodyGroup.add(leftEye);
+    
+    const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+    rightEye.position.set(0.3, 6.7, 0.8);
+    bodyGroup.add(rightEye);
+    
+    // Smaller eyes on second head
+    const smallEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+    smallEye.position.set(-0.7, 6.4, 0.9);
+    smallEye.scale.set(0.7, 0.7, 0.7);
+    bodyGroup.add(smallEye);
+
+    // Mouth - misshapen and gaping
+    const jawGeometry = new THREE.BoxGeometry(0.8, 0.4, 0.5);
+    const jawMaterial = new THREE.MeshStandardMaterial({
+        color: 0x330000,
+        roughness: 1.0,
+        metalness: 0.0
+    });
+    const jaw = new THREE.Mesh(jawGeometry, jawMaterial);
+    jaw.position.set(0, 6.1, 0.7);
+    bodyGroup.add(jaw);
+
+    // Teeth - jagged and deformed
+    const teethGeometry = new THREE.ConeGeometry(0.08, 0.2, 3);
+    const teethMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffffcc,
+        roughness: 0.5
+    });
+    
+    for (let i = 0; i < 6; i++) {
+        const tooth = new THREE.Mesh(teethGeometry, teethMaterial);
+        const position = [-0.3 + i * 0.12, 6.0 + (Math.random() * 0.1), 0.7 + (Math.random() * 0.1)];
+        tooth.position.set(...position);
+        tooth.rotation.set(Math.random() * 0.5, Math.random() * 0.5, Math.random() * 0.5);
+        bodyGroup.add(tooth);
+    }
+
+    // Glowing sores and boils all over body
+    const soreGeometry = new THREE.SphereGeometry(0.2, 8, 8);
     const soreMaterial = new THREE.MeshStandardMaterial({
         color: 0xffff00, // Yellow pus
         emissive: 0xffff00,
-        emissiveIntensity: 0.5
+        emissiveIntensity: 0.8,
+        transparent: true,
+        opacity: 0.9
     });
-    const sore1 = new THREE.Mesh(soreGeometry, soreMaterial);
-    sore1.position.set(0.8, 4, 0.8);
-    titan.add(sore1);
-    const sore2 = new THREE.Mesh(soreGeometry, soreMaterial);
-    sore2.position.set(-0.8, 2, 0.8);
-    titan.add(sore2);
+    
+    // Add multiple sores across the body
+    const sorePositions = [
+        [0.8, 4.5, 0.8],
+        [-0.8, 2.8, 0.8],
+        [0.6, 3.6, -0.7],
+        [-0.6, 5.2, -0.5],
+        [1.0, 5.0, 0.4],
+        [-0.3, 4.2, 0.9],
+        [0.4, 3.0, -0.3],
+        [-1.1, 3.5, 0.2]
+    ];
+    
+    const sores = [];
+    for (const pos of sorePositions) {
+        const sore = new THREE.Mesh(soreGeometry, soreMaterial);
+        sore.position.set(...pos);
+        const randomScale = 0.7 + Math.random() * 0.6;
+        sore.scale.set(randomScale, randomScale, randomScale);
+        bodyGroup.add(sore);
+        sores.push(sore);
+    }
 
-    // Club-like arms
-    const armGeometry = new THREE.BoxGeometry(1, 3, 1);
-    const leftArm = new THREE.Mesh(armGeometry, bodyMaterial);
-    leftArm.position.set(-1.5, 4, 0);
-    leftArm.rotation.x = Math.PI / 4;
+    // Arms - asymmetrical and mutated
+    // Left arm - massive and club-like
+    const leftArmGeometry = new THREE.CylinderGeometry(0.6, 0.9, 3.5, 8);
+    const armMaterial = new THREE.MeshStandardMaterial({
+        color: 0x3c2f2f,
+        roughness: 0.9,
+        metalness: 0.1
+    });
+    const leftArm = new THREE.Mesh(leftArmGeometry, armMaterial);
+    leftArm.position.set(-1.8, 4, 0);
+    leftArm.rotation.set(Math.PI / 3, 0, Math.PI / 12);
     leftArm.castShadow = true;
-    titan.add(leftArm);
-    const rightArm = new THREE.Mesh(armGeometry, bodyMaterial);
-    rightArm.position.set(1.5, 4, 0);
-    rightArm.rotation.x = Math.PI / 4;
+    bodyGroup.add(leftArm);
+    
+    // Left hand - mutated claw
+    const leftHandGeometry = new THREE.BoxGeometry(1.2, 0.8, 1.2);
+    const leftHand = new THREE.Mesh(leftHandGeometry, headMaterial);
+    leftHand.position.set(-2.8, 2.5, 0.8);
+    leftHand.rotation.set(Math.PI / 6, Math.PI / 8, 0);
+    leftHand.castShadow = true;
+    bodyGroup.add(leftHand);
+    
+    // Left hand claws
+    const clawGeometry = new THREE.ConeGeometry(0.15, 0.6, 4);
+    const clawMaterial = new THREE.MeshStandardMaterial({
+        color: 0x222222,
+        roughness: 0.7,
+        metalness: 0.3
+    });
+    
+    for (let i = 0; i < 3; i++) {
+        const claw = new THREE.Mesh(clawGeometry, clawMaterial);
+        claw.position.set(-3.0 - (i * 0.2), 2.3 - (i * 0.15), 1.0 + (i * 0.1));
+        claw.rotation.set(Math.PI / 2, 0, Math.PI / 4);
+        bodyGroup.add(claw);
+    }
+    
+    // Right arm - elongated and tentacle-like
+    const rightArmGeometry = new THREE.CylinderGeometry(0.3, 0.5, 4.5, 8);
+    const rightArm = new THREE.Mesh(rightArmGeometry, growthMaterial);
+    rightArm.position.set(1.8, 4.2, 0);
+    rightArm.rotation.set(Math.PI / 4, 0, -Math.PI / 6);
     rightArm.castShadow = true;
-    titan.add(rightArm);
+    bodyGroup.add(rightArm);
+    
+    // Right arm additional segment
+    const rightForearmGeometry = new THREE.CylinderGeometry(0.25, 0.3, 3, 8);
+    const rightForearm = new THREE.Mesh(rightForearmGeometry, growthMaterial);
+    rightForearm.position.set(2.6, 2.5, 1.0);
+    rightForearm.rotation.set(Math.PI / 3, Math.PI / 10, -Math.PI / 8);
+    rightForearm.castShadow = true;
+    bodyGroup.add(rightForearm);
+    
+    // Tentacle-like fingers on right hand
+    const tentacleGeometry = new THREE.CylinderGeometry(0.1, 0.05, 1.5, 6);
+    
+    for (let i = 0; i < 5; i++) {
+        const tentacle = new THREE.Mesh(tentacleGeometry, growthMaterial);
+        const angle = (i / 5) * Math.PI;
+        tentacle.position.set(
+            3.0 + Math.cos(angle) * 0.3,
+            1.5 - (i % 2) * 0.2,
+            1.5 + Math.sin(angle) * 0.3
+        );
+        tentacle.rotation.set(Math.PI / 2 + (Math.random() - 0.5) * 0.4, 0, angle);
+        bodyGroup.add(tentacle);
+    }
 
-    // Legs
-    const legGeometry = new THREE.BoxGeometry(0.8, 4, 0.8);
-    const leftLeg = new THREE.Mesh(legGeometry, bodyMaterial);
-    leftLeg.position.set(-0.6, 2, 0);
+    // Legs - thick and powerful
+    const leftLegGeometry = new THREE.CylinderGeometry(0.5, 0.4, 3, 8);
+    const legMaterial = new THREE.MeshStandardMaterial({
+        color: 0x2a1f1f,
+        roughness: 0.8
+    });
+    const leftLeg = new THREE.Mesh(leftLegGeometry, legMaterial);
+    leftLeg.position.set(-0.8, 1.5, 0);
     leftLeg.castShadow = true;
-    titan.add(leftLeg);
-    const rightLeg = new THREE.Mesh(legGeometry, bodyMaterial);
-    rightLeg.position.set(0.6, 2, 0);
+    bodyGroup.add(leftLeg);
+    
+    // Left foot
+    const leftFootGeometry = new THREE.BoxGeometry(0.7, 0.4, 1.1);
+    const leftFoot = new THREE.Mesh(leftFootGeometry, legMaterial);
+    leftFoot.position.set(-0.8, 0.2, 0.3);
+    leftFoot.castShadow = true;
+    bodyGroup.add(leftFoot);
+    
+    const rightLegGeometry = new THREE.CylinderGeometry(0.5, 0.4, 3, 8);
+    const rightLeg = new THREE.Mesh(rightLegGeometry, legMaterial);
+    rightLeg.position.set(0.8, 1.5, 0);
     rightLeg.castShadow = true;
-    titan.add(rightLeg);
+    bodyGroup.add(rightLeg);
+    
+    // Right foot
+    const rightFootGeometry = new THREE.BoxGeometry(0.7, 0.4, 1.1);
+    const rightFoot = new THREE.Mesh(rightFootGeometry, legMaterial);
+    rightFoot.position.set(0.8, 0.2, 0.3);
+    rightFoot.castShadow = true;
+    bodyGroup.add(rightFoot);
+
+    // Toxic aura effect - particle-like geometries in a cloud
+    const auraGroup = new THREE.Group();
+    const auraParticleGeometry = new THREE.SphereGeometry(0.15, 4, 4);
+    const auraMaterial = new THREE.MeshStandardMaterial({
+        color: 0x00ff00,
+        emissive: 0x00ff00,
+        emissiveIntensity: 0.5,
+        transparent: true,
+        opacity: 0.4
+    });
+    
+    // Create multiple aura particles
+    for (let i = 0; i < 40; i++) {
+        const particle = new THREE.Mesh(auraParticleGeometry, auraMaterial);
+        const radius = 2 + Math.random() * 3;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.random() * Math.PI;
+        
+        particle.position.set(
+            radius * Math.sin(phi) * Math.cos(theta),
+            2 + Math.random() * 5,
+            radius * Math.sin(phi) * Math.sin(theta)
+        );
+        
+        const particleScale = 0.5 + Math.random() * 1.5;
+        particle.scale.set(particleScale, particleScale, particleScale);
+        auraGroup.add(particle);
+    }
+    
+    titan.add(auraGroup);
 
     // Position the titan
     titan.position.set(position.x, 0, position.z);
 
     // Log the creation
-    logger.info('enemy', `Creating plague titan at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
+    logger.info('enemyspawner', `Creating plague titan at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
 
     // Set properties
     titan.mesh = titan;
     titan.enemyType = 'plagueTitan';
-    titan.health = 500; // Very high health
+    titan.health = 1000; // Increased health for a truly challenging boss
     titan.speed = baseSpeed * 0.5; // Much slower than standard zombies
-    titan.mass = 4.0; // Very heavy
-    titan.poisonRadius = 5.0; // Radius of poison effect
-    titan.poisonDamage = 10; // Damage per second from poison
+    titan.mass = 6.0; // Very heavy
+    titan.poisonRadius = 8.0; // Increased radius of poison effect
+    titan.poisonDamage = 15; // Increased damage per second from poison
     
     // Scale the plague titan according to scale parameter
     titan.scale.copy(scale);
+
+    // Animation properties
+    titan.animationTime = 0;
+    
+    // Animations and special effects
+    const updateAnimations = (delta) => {
+        // Update animation time
+        titan.animationTime += delta;
+        
+        // Pulsating body effect
+        const pulseScale = 1.0 + Math.sin(titan.animationTime * 2) * 0.05;
+        torso.scale.set(1.2 * pulseScale, 1.5 * pulseScale, 1.0 * pulseScale);
+        
+        // Breathing effect on growths
+        const breatheScale = 1.0 + Math.sin(titan.animationTime * 3) * 0.08;
+        growth1.scale.set(1.1 * breatheScale, 0.8 * breatheScale, 0.9 * breatheScale);
+        growth2.scale.set(0.9 * breatheScale, 1.1 * breatheScale, 0.8 * breatheScale);
+        
+        // Eyes pulsating
+        const eyePulse = 1.0 + Math.sin(titan.animationTime * 5) * 0.2;
+        eyeMaterial.emissiveIntensity = eyePulse;
+        
+        // Sores pulsating
+        sores.forEach((sore, i) => {
+            const soreScale = 1.0 + Math.sin(titan.animationTime * 4 + i) * 0.15;
+            soreMaterial.emissiveIntensity = 0.8 + Math.sin(titan.animationTime * 3) * 0.2;
+            sore.scale.set(soreScale, soreScale, soreScale);
+        });
+        
+        // Toxic aura movement
+        auraGroup.children.forEach((particle, i) => {
+            // Orbit around the titan
+            const orbitSpeed = 0.2 + (i % 5) * 0.05;
+            const orbitRadius = 2 + (i % 3);
+            const heightPhase = titan.animationTime * 0.5 + (i * 0.1);
+            
+            particle.position.x = Math.sin(titan.animationTime * orbitSpeed + i) * orbitRadius;
+            particle.position.z = Math.cos(titan.animationTime * orbitSpeed + i) * orbitRadius;
+            particle.position.y = 2 + Math.sin(heightPhase) * 2.5;
+            
+            // Fade in and out
+            particle.material.opacity = 0.2 + Math.sin(titan.animationTime * 2 + i) * 0.2;
+        });
+        
+        // Swinging arm animations
+        leftArm.rotation.x = Math.PI / 3 + Math.sin(titan.animationTime * 0.8) * 0.2;
+        rightArm.rotation.x = Math.PI / 4 + Math.cos(titan.animationTime * 0.8) * 0.3;
+        
+        // Tentacle wiggling
+        for (let i = 0; i < 5; i++) {
+            if (bodyGroup.children[25 + i]) {
+                const tentacle = bodyGroup.children[25 + i];
+                tentacle.rotation.z = (i / 5) * Math.PI + Math.sin(titan.animationTime * 2 + i) * 0.5;
+            }
+        }
+    };
 
     // Update method
     titan.update = (context) => {
@@ -120,6 +388,9 @@ export const createPlagueTitan = (position, baseSpeed) => {
             pushAway,
             damagePlayer
         } = context;
+        
+        // Update animations
+        updateAnimations(delta);
         
         // Calculate direction to player
         const direction = new THREE.Vector3(

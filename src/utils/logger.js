@@ -60,6 +60,7 @@ const DEFAULT_SECTIONS = [
     ,'enemy'
     ,'audio'
     ,'powerup'
+    ,'enemyspawner'
 ];
 
 // Default configuration
@@ -105,9 +106,8 @@ const parseURLParameters = () => {
             console.log(`Logger: Enabled debug sections from URL: ${sections.join(', ')}`);
         }
     } else {
-        // Always enable combat and powerup sections by default
-        config.enabledSections = new Set(['combat', 'powerup', 'collision']);
-        console.log('Logger: Enabled combat, powerup, and collision debug sections by default');
+        // Never enable anything default
+        console.log('Logger: Nothing enabled by default');
     }
     
     // Check for debug all parameter

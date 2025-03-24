@@ -30,12 +30,12 @@ logger.addSection('enemy');
 
 export const createZombieKing = (position, baseSpeed) => {
     // Configuration parameters
-    const scale = new THREE.Vector3(2.0, 2.0, 2.0); // Scale vector for easy adjustment
+    const scale = new THREE.Vector3(1.75, 1.75, 1.75); // Scale vector for easy adjustment
     
     const king = new THREE.Group();
 
     // Larger head with crown
-    const headGeometry = new THREE.BoxGeometry(0.7, 0.7, 0.7);
+    const headGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
     const headMaterial = new THREE.MeshStandardMaterial({
         color: 0x2e8b57,
         roughness: 0.9
@@ -70,13 +70,13 @@ export const createZombieKing = (position, baseSpeed) => {
     king.add(rightEye);
 
     // Larger body
-    const bodyGeometry = new THREE.BoxGeometry(0.8, 1.0, 0.4);
+    const bodyGeometry = new THREE.BoxGeometry(0.8, 1.7, 0.4);
     const bodyMaterial = new THREE.MeshStandardMaterial({
         color: 0x1a3c34,
         roughness: 0.9
     });
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.position.y = 1.0;
+    body.position.y = 1.35;
     body.castShadow = true;
     king.add(body);
 
@@ -241,7 +241,7 @@ export const createZombieKing = (position, baseSpeed) => {
     };
     
     // Add logging statements at appropriate places
-    logger.info('enemy', `Creating zombie king at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
+    logger.info('enemyspawner', `Creating zombie king at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
     
     return king;
 };

@@ -110,7 +110,7 @@ export const createbaseZombie = (position, baseSpeed) => {
     basezombie.position.set(position.x, 0, position.z);
     
     // Debug log for zombie creation
-    logger.debug('enemy', `Creating base zombie at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
+    logger.debug('enemyspawner', `Creating base zombie at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
     
     // Store mesh reference for updateZombies compatibility
     basezombie.mesh = basezombie;

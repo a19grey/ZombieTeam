@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>WebRTC Game Client</title>
+</head>
+<body>
+  <h1>WebRTC Game Client</h1>
+  <script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+  <script>
+    const socket = io('http://134.199.217.245:3000');
+    let peerConnection;
+    let movementChannel;
+    let criticalChannel;
+
+    // Set up WebRTC peer connection
+    peerConnection = new RTCPeerConnection({
+      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+    });
+
+    // Handle ICE candidates from the server
+    socket.on('candidate', (candidate) => {
+      peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+    });
+
+    // Handle answer from the server
+    socket.on('answer', (answer) => {
+      peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+    });
+
+    // Send ICE candidates to the server
+    peerConnection.onicecandidate = ({ candidate }) => {
+      if (candidate) socket.emit('candidate', candidate);
+    };
+
+    // Handle data channels
+    peerConnection.ondatachannel = (event) => {
+      const channel = event.channel;
+      if (channel.label === 'movement') {
+        movementChannel = channel;
+        movementChannel.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          if (data.serverTimestamp > (window.lastProcessedTimestamp || 0)) {
+            window.lastProcessedTimestamp = data.serverTimestamp;
+            console.log('Received movement:', data);
+            // Update other player position in your game
+          }
+        };
+      } else if (channel.label === 'critical') {
+        criticalChannel = channel;
+        criticalChannel.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          console.log('Received critical:', data);
+          // Handle critical updates (e.g., hit, death)
+        };
+      }
+    };
+
+    // Create and send an offer to the server
+    async function connect() {
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+      socket.emit('offer', offer);
+    }
+
+    // Simulate sending movement updates
+    function sendMovementUpdate() {
+      if (movementChannel && movementChannel.readyState === 'open') {
+        const position = { x: Math.random() * 100, y: Math.random() * 100 };
+        movementChannel.send(JSON.stringify({ type: 'movement', position }));
+      }
+    }
+
+    // Simulate sending critical updates
+    function sendCriticalUpdate() {
+      if (criticalChannel && criticalChannel.readyState === 'open') {
+        const event = { type: 'hit', damage: 10 };
+        criticalChannel.send(JSON.stringify({ type: 'critical', event }));
+      }
+    }
+
+    // Connect to the server
+    socket.on('connect', () => {
+      console.log('Connected to server');
+      connect();
+    });
+
+    // Simulate game loop
+    setInterval(() => {
+      sendMovementUpdate();
+      if (Math.random() < 0.1) sendCriticalUpdate(); // Simulate occasional hits
+    }, 100);
+  </script>
+</body>
+</html>

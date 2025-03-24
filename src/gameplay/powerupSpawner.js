@@ -73,7 +73,7 @@ export const shouldSpawnPowerup = (gameState, currentTime) => {
     
     // Always spawn if enough time has passed (guaranteed spawn after 1.5x the spawn rate)
     if (currentTime - gameState.lastPowerupSpawnTime > spawnRate * 1.5) {
-        logger.info('powerup', 'Forcing powerup spawn after extended time without spawn', { 
+        logger.debug('powerup', 'Forcing powerup spawn after extended time without spawn', { 
             timeSinceLastSpawn: currentTime - gameState.lastPowerupSpawnTime
         });
         gameState.lastPowerupCheckTime = currentTime;
