@@ -79,7 +79,7 @@ const enemyRegistry = [
     },
     {
         type: 'skeletonArcher',
-        chance: 15,  // Reduced from 20%
+        chance: 4,  // Reduced from 20%
         createFn: createSkeletonArcher,
         speedVariation: 0.02,  // +/- 0.01 variation
         playSpawnSfx: false,
@@ -89,42 +89,42 @@ const enemyRegistry = [
     },
     {
         type: 'exploder',
-        chance: 12,  // Reduced from 15%
+        chance: 10,  // Reduced from 15%
         createFn: createExploder,
         speedVariation: 0.03,  // +/- 0.015 variation
         playSpawnSfx: false
     },
     {
         type: 'zombieKing',
-        chance: 4,  // Reduced from 5%
+        chance: 2,  // Reduced from 5%
         createFn: createZombieKing,
         speedVariation: 0.02,  // +/- 0.01 variation
         playSpawnSfx: true
     },
     {
         type: 'plagueTitan',
-        chance: 5,  // New enemy
+        chance: 0.05,  // New enemy
         createFn: createPlagueTitan,
         speedVariation: 0.02,
         playSpawnSfx: true
     },
     {
         type: 'necrofiend',
-        chance: 5,  // New enemy
+        chance: 1,  // New enemy
         createFn: createNecrofiend,
         speedVariation: 0.03,
         playSpawnSfx: true
     },
     {
         type: 'rotBehemoth',
-        chance: 5,  // New enemy - rare/powerful
+        chance: 0.1,  // New enemy - rare/powerful
         createFn: createRotBehemoth,
         speedVariation: 0.02,
         playSpawnSfx: true
     },
     {
         type: 'skittercrab',
-        chance: 10,  // New enemy
+        chance: 2,  // New enemy
         createFn: createSkittercrab,
         speedVariation: 0.05,  // More variation for fast erratic movement
         playSpawnSfx: false
@@ -174,36 +174,35 @@ const spawnEnemy = (playerPos, scene, gameState) => {
     
     // Generate a position away from the player, primarily in front of the player
     let position;
-    let tooClose = true;
+    const minDistanceToPlayer = 15; // Minimum distance from player
     
-    // Keep trying until we find a suitable position
-    while (tooClose) {
-        // Generate a random angle, biased towards the front of the player
-        // Front is considered to be the positive Z direction (top of screen)
-        let theta;
+    // Generate a random angle, biased towards the front of the player
+    // Front is considered to be the positive Z direction (top of screen)
+    let theta;
+    
+    // Rejection sampling for angle - higher probability in front of player
+    // This will generate angles primarily in the range of π/2 to 3π/2 (top half)
+    do {
+        theta = Math.random() * 2 * Math.PI; // Random angle between 0 and 2π
         
-        // Rejection sampling for angle - higher probability in front of player
-        // This will generate angles primarily in the range of π/2 to 3π/2 (top half)
-        do {
-            theta = Math.random() * 2 * Math.PI; // Random angle between 0 and 2π
-        } while (Math.random() > (1 + Math.cos(theta + Math.PI)) / 2); // Rejection sampling with flipped direction
+        // Check if angle is in the rear 120-degree arc (2π/3 radians on each side)
+        const isRearArc = Math.abs(theta - Math.PI) < Math.PI/3;
         
-        // Calculate position based on angle and distance
-        const distance = 20 + Math.random() * 10; // Distance from player
-        position = {
-            x: playerPos.x + distance * Math.sin(theta),
-            z: playerPos.z + distance * Math.cos(theta)
-        };
-        
-        // Check if position is far enough from player
-        const dx = position.x - playerPos.x;
-        const dz = position.z - playerPos.z;
-        const distanceToPlayer = Math.sqrt(dx * dx + dz * dz);
-        
-        if (distanceToPlayer > 15) {
-            tooClose = false;
+        // If in rear arc, only allow 5% chance of acceptance
+        if (isRearArc && Math.random() > 0.05) {
+            continue;
         }
-    }
+        
+        // For all other angles, use cosine-based rejection sampling
+        // This creates a bias towards the front (top of screen)
+    } while (Math.random() > (1 + Math.cos(theta + Math.PI)) / 2);
+    
+    // Calculate position with guaranteed minimum distance
+    const distance = minDistanceToPlayer + Math.random() * 15; // 15-30 units from player
+    position = {
+        x: playerPos.x + distance * Math.sin(theta),
+        z: playerPos.z + distance * Math.cos(theta)
+    };
     
     // Get the base speed from gameState with a small random variation
     const globalBaseSpeed = gameState.baseSpeed;

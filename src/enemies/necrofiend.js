@@ -3,8 +3,9 @@
  * 
  * This module contains the function to create a Necrofiend, a boss-level enemy
  * with minion-summoning abilities. The Necrofiend is an elongated, ghastly zombie
- * with a gaping maw and long limbs. It moves at a moderate pace, has substantial
- * health, and can periodically summon lesser zombies to fight for it.
+ * with a distinctive tall hat-like structure, ethereal flowing limbs, and mystical
+ * patterns on its body. It moves at a moderate pace, has substantial health, and
+ * can periodically summon lesser zombies to fight for it.
  * 
  * Example usage:
  *   import { createNecrofiend } from './enemies/necrofiend.js';
@@ -22,62 +23,139 @@ logger.addSection('enemy');
 
 export const createNecrofiend = (position, baseSpeed) => {
     // Configuration parameters
-    const scale = new THREE.Vector3(1.0, 1.0, 1.0); // Scale vector for easy adjustment
+    const scale = new THREE.Vector3(1.4, 0.9, 1.4); // Slightly taller
     
     const necro = new THREE.Group();
 
-    // Elongated body
-    const bodyGeometry = new THREE.BoxGeometry(0.8, 4, 0.6);
+    // Main body - taller and more slender
+    const bodyGeometry = new THREE.BoxGeometry(0.7, 3.5, 0.5);
     const bodyMaterial = new THREE.MeshStandardMaterial({
-        color: 0x483c32, // Dark grayish-brown
-        roughness: 0.9
+        color: 0x2F4F4F, // Darker slate gray
+        roughness: 0.7,
+        metalness: 0.3
     });
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
     body.position.y = 2;
     body.castShadow = true;
     necro.add(body);
 
-    // Head with gaping maw
-    const headGeometry = new THREE.BoxGeometry(0.6, 0.8, 0.6);
-    const headMaterial = new THREE.MeshStandardMaterial({
-        color: 0x2e8b57, // Greenish decay
-        roughness: 0.9
+    // Decorative patterns on body
+    const patternMaterial = new THREE.MeshStandardMaterial({
+        color: 0x4A766E, // Slightly lighter accent color
+        roughness: 0.6,
+        metalness: 0.4
     });
-    const head = new THREE.Mesh(headGeometry, headMaterial);
-    head.position.y = 5;
-    head.castShadow = true;
-    necro.add(head);
-    const mouth = new THREE.Mesh(
-        new THREE.BoxGeometry(0.4, 0.4, 0.1),
-        new THREE.MeshStandardMaterial({ color: 0x000000 })
-    );
-    mouth.position.set(0, 4.8, 0.31);
-    necro.add(mouth);
+    
+    // Add pattern details to body
+    const patternGeometry = new THREE.BoxGeometry(0.8, 0.1, 0.6);
+    for (let i = 0; i < 5; i++) {
+        const pattern = new THREE.Mesh(patternGeometry, patternMaterial);
+        pattern.position.y = 1 + (i * 0.8);
+        pattern.position.z = 0.01;
+        body.add(pattern);
+    }
 
-    // Claw-like arms
-    const armGeometry = new THREE.BoxGeometry(0.3, 2, 0.3);
-    const leftArm = new THREE.Mesh(armGeometry, bodyMaterial);
-    leftArm.position.set(-0.6, 3, 0.2);
-    leftArm.rotation.x = Math.PI / 3;
-    leftArm.castShadow = true;
+    // Distinctive tall hat/head structure
+    const hatGroup = new THREE.Group();
+    
+    // Base of the hat
+    const hatBaseGeometry = new THREE.BoxGeometry(0.8, 0.4, 0.6);
+    const hatBase = new THREE.Mesh(hatBaseGeometry, bodyMaterial);
+    hatBase.position.y = 4;
+    hatGroup.add(hatBase);
+    
+    // Tall part of hat
+    const hatTopGeometry = new THREE.BoxGeometry(0.6, 1.2, 0.4);
+    const hatTop = new THREE.Mesh(hatTopGeometry, bodyMaterial);
+    hatTop.position.y = 4.8;
+    hatGroup.add(hatTop);
+    
+    // Horizontal bar on hat
+    const hatBarGeometry = new THREE.BoxGeometry(1.2, 0.15, 0.15);
+    const hatBar = new THREE.Mesh(hatBarGeometry, patternMaterial);
+    hatBar.position.y = 4.4;
+    hatGroup.add(hatBar);
+    
+    // Add glowing pink eyes
+    const eyeGeometry = new THREE.SphereGeometry(0.08, 16, 16);
+    const eyeMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFF69B4, // Hot pink
+        emissive: 0xFF1493, // Deep pink
+        emissiveIntensity: 2.0,
+        roughness: 0.1,
+        metalness: 0.8
+    });
+    
+    const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+    const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+    
+    // Position eyes in the middle of the hat base
+    leftEye.position.set(-0.15, 4.1, 0.25);
+    rightEye.position.set(0.15, 4.1, 0.25);
+    
+    // Add subtle glow animation
+    leftEye.userData.baseIntensity = 2.0;
+    rightEye.userData.baseIntensity = 2.0;
+    
+    necro.add(leftEye);
+    necro.add(rightEye);
+    
+    // Store eye references for animation
+    necro.eyes = {
+        left: leftEye,
+        right: rightEye,
+        material: eyeMaterial
+    };
+    
+    necro.add(hatGroup);
+
+    // Ethereal flowing arms
+    const createEtherealLimb = (isLeft, isArm = true) => {
+        const segments = 4;
+        const limbGroup = new THREE.Group();
+        const segmentSize = isArm ? 0.5 : 0.7;
+        const baseWidth = isArm ? 0.25 : 0.3;
+        
+        for (let i = 0; i < segments; i++) {
+            const segmentGeometry = new THREE.BoxGeometry(
+                baseWidth * (1 - i * 0.15),
+                segmentSize,
+                baseWidth * (1 - i * 0.15)
+            );
+            const segment = new THREE.Mesh(segmentGeometry, new THREE.MeshStandardMaterial({
+                color: 0x8794a3,
+                transparent: true,
+                opacity: 1 - (i * 0.2),
+                roughness: 0.4,
+                metalness: 0.6
+            }));
+            
+            segment.position.y = -segmentSize * i;
+            limbGroup.add(segment);
+        }
+        
+        if (isArm) {
+            limbGroup.position.set(isLeft ? -0.7 : 0.7, 3.5, 0);
+            limbGroup.rotation.z = isLeft ? Math.PI / 6 : -Math.PI / 6;
+        } else {
+            limbGroup.position.set(isLeft ? -0.3 : 0.3, 1.8, 0);
+        }
+        
+        return limbGroup;
+    };
+
+    // Add ethereal limbs
+    const leftArm = createEtherealLimb(true, true);
+    const rightArm = createEtherealLimb(false, true);
+    const leftLeg = createEtherealLimb(true, false);
+    const rightLeg = createEtherealLimb(false, false);
+    
     necro.add(leftArm);
-    const rightArm = new THREE.Mesh(armGeometry, bodyMaterial);
-    rightArm.position.set(0.6, 3, 0.2);
-    rightArm.rotation.x = Math.PI / 3;
-    rightArm.castShadow = true;
     necro.add(rightArm);
-
-    // Legs
-    const legGeometry = new THREE.BoxGeometry(0.4, 2, 0.4);
-    const leftLeg = new THREE.Mesh(legGeometry, bodyMaterial);
-    leftLeg.position.set(-0.2, 1, 0);
-    leftLeg.castShadow = true;
     necro.add(leftLeg);
-    const rightLeg = new THREE.Mesh(legGeometry, bodyMaterial);
-    rightLeg.position.set(0.2, 1, 0);
-    rightLeg.castShadow = true;
     necro.add(rightLeg);
 
+    // Position the necrofiend
     necro.position.set(position.x, 0, position.z);
     
     // Log the creation
@@ -90,9 +168,18 @@ export const createNecrofiend = (position, baseSpeed) => {
     necro.speed = baseSpeed * 0.7; // Slower than standard zombies
     necro.mass = 3.0; // Heavy
     necro.nextSummonTime = Date.now() + 5000; // First summon after 5 seconds
+    necro.animationTime = 0; // For limb animations
     
     // Scale the necrofiend according to scale parameter
     necro.scale.copy(scale);
+    
+    // Store limb references for animation
+    necro.limbs = {
+        leftArm,
+        rightArm,
+        leftLeg,
+        rightLeg
+    };
     
     // Update method
     necro.update = (context) => {
@@ -110,6 +197,21 @@ export const createNecrofiend = (position, baseSpeed) => {
             damagePlayer,
             summonZombie
         } = context;
+        
+        // Animate ethereal limbs
+        necro.animationTime += delta * 2;
+        
+        // Animate eye glow
+        const glowPulse = (Math.sin(necro.animationTime * 1.5) * 0.5 + 1.5) * necro.eyes.left.userData.baseIntensity;
+        necro.eyes.material.emissiveIntensity = glowPulse;
+        
+        // Gentle floating motion for arms
+        necro.limbs.leftArm.rotation.z = Math.PI / 6 + Math.sin(necro.animationTime) * 0.1;
+        necro.limbs.rightArm.rotation.z = -Math.PI / 6 + Math.sin(necro.animationTime) * 0.1;
+        
+        // Subtle leg movement
+        necro.limbs.leftLeg.rotation.x = Math.sin(necro.animationTime) * 0.05;
+        necro.limbs.rightLeg.rotation.x = Math.sin(necro.animationTime + Math.PI) * 0.05;
         
         // Calculate direction to player
         const direction = new THREE.Vector3(
@@ -159,8 +261,8 @@ export const createNecrofiend = (position, baseSpeed) => {
                     if (!otherZombie || !otherZombie.mesh || otherZombie.mesh.isExploding) continue;
                     
                     if (checkCollision(intendedPosition, otherZombie.mesh.position, ZOMBIE_COLLISION_DISTANCE)) {
-                        const thisSize = necro.mass || 1.0;
-                        const otherSize = otherZombie.mesh.mass || 1.0;
+                        const thisSize = necro.mass;
+                        const otherSize = otherZombie.mesh.mass;
                         
                         const avoidancePosition = pushAway(
                             intendedPosition, 

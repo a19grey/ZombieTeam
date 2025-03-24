@@ -14,12 +14,12 @@
 -- Fix new enemies don't move and are larger -- done 3/22/2025
 -- Works on mobile -- done 3/22/2025
 -- turn off all logging in prod version -- done 3/23/2025
--- Make new enemies look cooler not lame 
--- Bullets I think 'skip over' some enemies since they update and flu past before collision check
+-- Make new enemies look cooler not lame -- done 3/24/2025
 -- Player should not be damaged by grenade launcher explosion (again)
+-- Game stutters and then time is weird and laggy 
+-- Bullets I think 'skip over' some enemies since they update and flu past before collision check 
 -- Music controls actually work... 
 -- Implement more working SFX for gun
-
 -- Adapt the generated world.js to work with our assets and zombies and use it as the procedurally generated world
 -- Tune zombie and gun rates and power up rates, camera angle
 -- zombie archer works 

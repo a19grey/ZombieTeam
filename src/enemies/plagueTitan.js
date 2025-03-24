@@ -308,7 +308,7 @@ export const createPlagueTitan = (position, baseSpeed) => {
     titan.mesh = titan;
     titan.enemyType = 'plagueTitan';
     titan.health = 1000; // Increased health for a truly challenging boss
-    titan.speed = baseSpeed * 0.5; // Much slower than standard zombies
+    titan.speed = baseSpeed * 0.95; // Much slower than standard zombies
     titan.mass = 6.0; // Very heavy
     titan.poisonRadius = 8.0; // Increased radius of poison effect
     titan.poisonDamage = 15; // Increased damage per second from poison
@@ -437,8 +437,8 @@ export const createPlagueTitan = (position, baseSpeed) => {
                     if (!otherZombie || !otherZombie.mesh || otherZombie.mesh.isExploding) continue;
                     
                     if (checkCollision(intendedPosition, otherZombie.mesh.position, ZOMBIE_COLLISION_DISTANCE)) {
-                        const thisSize = titan.mass || 1.0;
-                        const otherSize = otherZombie.mesh.mass || 1.0;
+                        const thisSize = titan.mass;
+                        const otherSize = otherZombie.mesh.mass;
                         
                         const avoidancePosition = pushAway(
                             intendedPosition, 

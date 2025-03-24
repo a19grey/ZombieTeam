@@ -108,7 +108,7 @@ export const createZombieKing = (position, baseSpeed) => {
     king.summonCooldown = 0; // For tracking when the king can summon minions
     
     // Set initial speed relative to baseSpeed (slower than standard zombie, but will increase over time)
-    king.speed = baseSpeed * 0.7; // 70% of base speed initially
+    king.speed = baseSpeed * 0.85; // 70% of base speed initially
     
     // Set mass for physics calculations - zombieKing is heavy
     king.mass = 2.0;

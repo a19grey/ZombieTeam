@@ -215,7 +215,7 @@ export const createRotBehemoth = (position, baseSpeed) => {
     behemoth.mesh = behemoth;
     behemoth.enemyType = 'rotBehemoth';
     behemoth.health = 800; // Extremely high health
-    behemoth.speed = baseSpeed * 0.3; // Extremely slow
+    behemoth.speed = baseSpeed * 0.9; // Extremely slow
     behemoth.mass = 5.0; // Extremely heavy
     behemoth.damageMultiplier = 3.0; // Deals 3x normal damage
     
