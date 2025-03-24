@@ -15,7 +15,8 @@ import { damageZombie, isZombieDead } from './zombie.js';
 import { logger } from '../utils/logger.js';
 import { showMessage } from '../ui/ui.js';
 import { playSound } from './audio.js'; // Import audio system
-import { removeOtherPowerups, damagePowerup } from './powerupSpawner.js';
+import { damagePowerup } from './powerupSpawner.js';
+import { createExplosion } from './zombieUtils.js';
 
 // Create audio for damage sound
 let damageSound = null;
@@ -285,11 +286,12 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
                     const isUnlocked = damagePowerup(powerup, bulletDamage, gameState, scene);
                     
                     // Log powerup hit
-                    logger.info('powerup', `Powerup hit by bullet`, {
+                    logger.info('powerup', `B: Powerup hit by bullet`, {
                         type: powerup.type,
                         damage: bulletDamage,
                         remainingHealth: powerup.health,
-                        unlocked: isUnlocked
+                        unlocked: powerup.unlocked,
+                        active: powerup.active
                     });
                     
                     // Create a small hit effect
@@ -310,9 +312,18 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
         // Check player-powerup collisions
         for (let i = powerups.length - 1; i >= 0; i--) {
             const powerup = powerups[i];
+
+            if (powerup.type === 'explosion' && powerup.unlocked) {
+                logger.info('powerup', `Checking collision for powerup with state type/unlock/active: ${powerup.type} ${powerup.unlocked} ${powerup.active}`);
+                }
+
+            // Skip the current powerup if it is not defined, does not have a mesh, or is not active
             if (!powerup || !powerup.mesh || !powerup.active) continue;
             
-            if (checkCollision(player.position, powerup.mesh.position, POWERUP_PICKUP_DISTANCE)) {
+
+
+            if (true) {
+                
                 // Only allow pickup if powerup is unlocked
                 if (powerup.unlocked) {
                     // Log powerup state before activation
@@ -324,7 +335,7 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
                     });
                     
                     // Explicitly call the exported activatePowerup function
-                    activatePowerup(gameState, powerup.type, 'walk');
+                    activatePowerup(gameState, powerup.type, 'walk', scene);
                     
                     // Emergency direct property assignment (backup approach)
                     gameState.player.activePowerup = powerup.type;
@@ -335,13 +346,6 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
                         activePowerup: gameState.player.activePowerup,
                         powerupDuration: gameState.player.powerupDuration
                     });
-                    
-                    // Remove all other powerups from the same spawn group
-                    removeOtherPowerups(scene, gameState, powerup);
-                    
-                    // Remove collected powerup from scene
-                    scene.remove(powerup.mesh);
-                    powerup.active = false;
                     
                     // Log powerup activation
                     logger.info('powerup', `Player collected powerup: ${powerup.type}`);
@@ -540,8 +544,10 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
  * @param {Object} gameState - The game state object
  * @param {string} powerupType - The type of powerup to activate
  * @param {string} activationMethod - How the powerup was activated ('walk' or 'shoot')
+ * @param {THREE.Scene} scene - The scene to add objects to
  */
-export const activatePowerup = (gameState, powerupType, activationMethod = 'walk') => {
+export const activatePowerup = (gameState, powerupType, activationMethod = 'walk', scene = null) => {
+logger.debug('powerup', 'Activating powerup', { powerupType, activationMethod });
     if (!gameState || !powerupType) {
         logger.error('powerup', 'Failed to activate powerup - invalid parameters', { 
             hasGameState: !!gameState, 
@@ -585,6 +591,20 @@ export const activatePowerup = (gameState, powerupType, activationMethod = 'walk
             duration: gameState.player.powerupDuration
         });
         
+        // Special handling for explosion powerup - deploy mines immediately
+        if (powerupType === 'explosion' && scene) {
+            logger.info('powerup', 'N: Explosion powerup detected - deploying mines immediately');
+            // Create a dummy direction vector since we're not using it for mine placement
+            const dummyDirection = new THREE.Vector3(0, 0, 1);
+            // Call applyPowerupEffect to create the minefield
+            applyPowerupEffect(
+                gameState,
+                gameState.playerObject.position.clone(),
+                dummyDirection,
+                scene
+            );
+        }
+        
         // Play powerup pickup sound
         playSound('powerupPickup');
     } catch (error) {
@@ -603,7 +623,8 @@ export const applyPowerupEffect = (gameState, position, direction, scene) => {
     if (!gameState || !gameState.player) {
         return;
     }
-    
+    logger.info('powerup', 'L: Applying powerup effect ', { powerupType: gameState.player.activePowerup });
+   
     // Create a bullet directly with the correct parameters
     const createBulletWithDirection = (pos, dir, color = 0xffff00, damage = 25, speed = 1.0) => {
         // Create bullet geometry
@@ -710,59 +731,180 @@ export const applyPowerupEffect = (gameState, position, direction, scene) => {
             break;
             
         case 'explosion':
-            // Create an explosion effect that damages all zombies within range
-            const EXPLOSION_RADIUS = 10;
-            const EXPLOSION_DAMAGE = 100;
+            logger.info('powerup', 'M: Starting explosion powerup minefield deployment');
             
-            // Visual effect - simple flash
-            const explosionLight = new THREE.PointLight(0xff5500, 2, EXPLOSION_RADIUS * 2);
-            explosionLight.position.copy(gameState.player.position);
-            explosionLight.position.y = 1;
-            scene.add(explosionLight);
+            // Create a defensive line of mines in front of the player
+            const MINE_ROWS = 2;
+            const MINES_PER_ROW = 10;
+            const MINE_SPACING = 1.5; // Space between mines
+            const ROW_SPACING = 1.0; // Space between rows
+            const MINE_DISTANCE = -5;
             
-            // Remove light after a short time
-            setTimeout(() => {
-                scene.remove(explosionLight);
-            }, 500);
+            logger.debug('powerup', 'Mine configuration', {
+                rows: MINE_ROWS,
+                minesPerRow: MINES_PER_ROW,
+                spacing: MINE_SPACING,
+                rowSpacing: ROW_SPACING,
+                distance: MINE_DISTANCE
+            });
             
-            // Damage all zombies within range
-            const zombiesToRemove = [];
+            // Calculate starting position (always in +Z direction)
+            const startPosition = new THREE.Vector3(
+                gameState.playerObject.position.x,
+                0.05, // Just above ground
+                gameState.playerObject.position.z + MINE_DISTANCE
+            );
             
-            gameState.zombies.forEach((zombie, index) => {
-                if (!zombie || !zombie.mesh) return;
-                
-                const dx = gameState.player.position.x - zombie.mesh.position.x;
-                const dz = gameState.player.position.z - zombie.mesh.position.z;
-                const distance = Math.sqrt(dx * dx + dz * dz);
-                
-                if (distance <= EXPLOSION_RADIUS) {
-                    // Calculate damage based on distance (more damage closer to center)
-                    const damageMultiplier = 1 - (distance / EXPLOSION_RADIUS);
-                    const damage = Math.floor(EXPLOSION_DAMAGE * damageMultiplier);
-                    
-                    // Apply damage
-                    zombie.health -= damage;
-                    
-                    // Check if zombie is dead
-                    if (zombie.health <= 0) {
-                        zombiesToRemove.push(index);
-                    }
+            logger.debug('powerup', 'Starting position for mines', {
+                x: startPosition.x.toFixed(2),
+                y: startPosition.y.toFixed(2),
+                z: startPosition.z.toFixed(2),
+                playerPos: {
+                    x: gameState.playerObject.position.x.toFixed(2),
+                    z: gameState.playerObject.position.z.toFixed(2)
                 }
             });
             
-            // Remove dead zombies (in reverse order to avoid index issues)
-            for (let i = zombiesToRemove.length - 1; i >= 0; i--) {
-                const index = zombiesToRemove[i];
-                const zombie = gameState.zombies[index];
+            // Always use world X axis for mine rows
+            const perpDirection = new THREE.Vector3(1, 0, 0);
+            
+            // Initialize mine count for logging
+            let minesCreated = 0;
+            
+            // Create mines in two rows
+            for (let row = 0; row < MINE_ROWS; row++) {
+                const rowOffset = perpDirection.clone().multiplyScalar(row * ROW_SPACING);
+                const rowStart = startPosition.clone().add(rowOffset);
                 
-                if (zombie && zombie.mesh) {
-                    scene.remove(zombie.mesh);
+                logger.debug('powerup', `Creating row ${row + 1}`, {
+                    rowStartX: rowStart.x.toFixed(2),
+                    rowStartZ: rowStart.z.toFixed(2)
+                });
+                
+                for (let i = 0; i < MINES_PER_ROW; i++) {
+                    const mineOffset = perpDirection.clone().multiplyScalar((i - MINES_PER_ROW/2) * MINE_SPACING);
+                    const minePosition = rowStart.clone().add(mineOffset);
+                    
+                    logger.debug('powerup', `Creating mine ${i + 1} in row ${row + 1}`, {
+                        x: minePosition.x.toFixed(2),
+                        z: minePosition.z.toFixed(2)
+                    });
+                    
+                    // Create mine mesh
+                    const mineGeometry = new THREE.CylinderGeometry(0.2, 0.2, 0.1, 8);
+                    const mineMaterial = new THREE.MeshStandardMaterial({
+                        color: 0xff0000,
+                        emissive: 0xff0000,
+                        emissiveIntensity: 0.5
+                    });
+                    const mine = new THREE.Mesh(mineGeometry, mineMaterial);
+                    mine.position.copy(minePosition);
+                    
+                    // Add to scene
+                    scene.add(mine);
+                    minesCreated++;
+                    
+                    // Create mine object with properties
+                    const mineObject = {
+                        mesh: mine,
+                        position: minePosition.clone(),
+                        damage: 800,
+                        radius: 3,
+                        isActive: true,
+                        createdAt: Date.now(),
+                        lifetime: 10000 // 10 seconds lifetime
+                    };
+                    
+                    // Add pulsing effect
+                    let pulseScale = 1.0;
+                    const pulseSpeed = 0.1;
+                    const pulseIntensity = 0.2;
+                    
+                    mineObject.update = () => {
+                        if (!mineObject.isActive) return false;
+                        
+                        // Update lifetime
+                        if (Date.now() - mineObject.createdAt > mineObject.lifetime) {
+                            logger.debug('powerup', 'Mine expired', {
+                                position: {
+                                    x: mine.position.x.toFixed(2),
+                                    z: mine.position.z.toFixed(2)
+                                }
+                            });
+                            mineObject.isActive = false;
+                            scene.remove(mine);
+                            mine.geometry.dispose();
+                            mine.material.dispose();
+                            return false;
+                        }
+                        
+                        // Update pulse effect
+                        pulseScale = 1.0 + Math.sin(Date.now() * pulseSpeed) * pulseIntensity;
+                        mine.scale.set(pulseScale, 1, pulseScale);
+                        
+                        // Check for zombie collisions
+                        for (const zombie of gameState.zombies) {
+                            if (!zombie || !zombie.mesh) continue;
+                            
+                            const distance = mine.position.distanceTo(zombie.mesh.position);
+                            if (distance < 1) { // Mine triggered
+                                logger.info('powerup', 'Mine triggered by zombie', {
+                                    minePos: {
+                                        x: mine.position.x.toFixed(2),
+                                        z: mine.position.z.toFixed(2)
+                                    },
+                                    zombiePos: {
+                                        x: zombie.mesh.position.x.toFixed(2),
+                                        z: zombie.mesh.position.z.toFixed(2)
+                                    },
+                                    distance: distance.toFixed(2)
+                                });
+                                
+                                // Create explosion
+                                createExplosion(
+                                    scene,
+                                    mine.position,
+                                    mineObject.radius,
+                                    mineObject.damage,
+                                    gameState.zombies,
+                                    gameState.playerObject,
+                                    gameState,
+                                    'player'
+                                );
+                                
+                                // Remove mine
+                                mineObject.isActive = false;
+                                scene.remove(mine);
+                                mine.geometry.dispose();
+                                mine.material.dispose();
+                                return false;
+                            }
+                        }
+                        
+                        return true;
+                    };
+                    
+                    // Add to gameState for updating
+                    if (!gameState.mines) {
+                        gameState.mines = [];
+                    }
+                    gameState.mines.push(mineObject);
+                    
+                    // Play mine placement sound
+                    playSound('minePlace', minePosition);
                 }
-                
-                gameState.zombies.splice(index, 1);
             }
             
-            logger.debug(`Explosion powerup activated, damaged/killed ${zombiesToRemove.length} zombies`);
+            logger.info('powerup', 'Minefield deployment complete', {
+                totalMines: minesCreated,
+                startPosition: {
+                    x: startPosition.x.toFixed(2),
+                    z: startPosition.z.toFixed(2)
+                }
+            });
+            
+            // Show message to player
+            showMessage('Minefield deployed!', 2000);
             break;
             
         default:

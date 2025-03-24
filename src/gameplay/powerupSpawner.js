@@ -29,9 +29,9 @@ import { activatePowerup } from '../gameplay/physics.js';
 // Constants for powerup spawning
 const POWERUP_MIN_DISTANCE = 10; // Minimum distance from player
 const POWERUP_MAX_DISTANCE = 20; // Maximum distance from player
-const POWERUP_SPAWN_CHANCE_PER_SECOND = 0.05; // 30% chance per second to spawn a powerup
-const POWERUP_TYPES = ['rapidFire', 'shotgunBlast', 'explosion', 'laserShot', 'grenadeLauncher','shotgunBlast'];
-const MIN_TIME_BETWEEN_POWERUPS = 3000; // Minimum time between powerup spawns (10 seconds)
+const POWERUP_SPAWN_CHANCE_PER_SECOND = 0.5; // 30% chance per second to spawn a powerup
+const POWERUP_TYPES = ['rapidFire', 'shotgunBlast', 'explosion', 'laserShot', 'grenadeLauncher'];
+const MIN_TIME_BETWEEN_POWERUPS = 300; // Minimum time between powerup spawns (10 seconds)
 
 // Constants for powerup health
 const DEFAULT_POWERUP_HEALTH = 100; // Default health for powerups
@@ -316,10 +316,10 @@ export const damagePowerup = (powerup, damage, gameState, scene) => {
         // Apply powerup effect immediately when unlocked
         if (gameState && gameState.player) {
             // Activate the powerup
-            logger.info('powerup', `Auto-activating powerup ${powerup.type} on unlock`);
+            logger.info('powerup', `Z: Auto-activating powerup type/unlock/active: ${powerup.type},${powerup.unlocked},${powerup.active}`);
             
             // Activate the powerup
-            activatePowerup(gameState, powerup.type, 'unlock');
+            activatePowerup(gameState, powerup.type, 'unlock', scene);
             
             // Direct property assignment as backup
             gameState.player.activePowerup = powerup.type;
@@ -375,7 +375,7 @@ export const damagePowerup = (powerup, damage, gameState, scene) => {
             animatePulse();
         }
         
-        logger.info('powerup', `Powerup ${powerup.type} unlocked!`);
+        logger.info('powerup', `A: Powerup unlocked ${powerup.type}`);
     }
     
     return unlocked;
@@ -403,9 +403,16 @@ export const spawnPowerupBehindPlayer = (scene, gameState, player) => {
     const firstType = availableTypes[firstTypeIndex];
     availableTypes.splice(firstTypeIndex, 1); // Remove this type from available options
     
-    // Second powerup type
+    // Second powerup type - now guaranteed to be different since we removed the first type
     const secondTypeIndex = Math.floor(Math.random() * availableTypes.length);
     const secondType = availableTypes[secondTypeIndex];
+    
+    // Log the selected types for debugging
+    logger.debug('powerup', 'Selected powerup types', { 
+        firstType, 
+        secondType,
+        availableTypes: availableTypes.length
+    });
     
     // Calculate a single random distance for both powerups to ensure they're on the same Z plane
     const zDistance = POWERUP_MIN_DISTANCE + Math.random() * (POWERUP_MAX_DISTANCE - POWERUP_MIN_DISTANCE);

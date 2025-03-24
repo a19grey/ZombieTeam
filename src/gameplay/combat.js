@@ -169,28 +169,6 @@ const shootBullet = (scene, player, gameState) => {
         grenadeBullet.smokeTrail = [];
         
         gameState.bullets.push(grenadeBullet);
-    } else if (gameState.player.activePowerup === 'explosion') {
-        // Create an explosive bullet
-        const explosiveBullet = createBullet(
-            bulletPosition,
-            direction,
-            gameState.player.damage,
-            1.5
-        );
-        
-        // Use safeCall instead of direct access to avoid null errors
-        safeCall(explosiveBullet, 'mesh.scale.set', [0.15, 0.15, 0.3]);
-        
-        // Add explosive property
-        explosiveBullet.isExplosive = true;
-        
-        if (explosiveBullet.mesh) {
-            // Make it slightly larger and red-tinted
-            explosiveBullet.mesh.material.color.set(0xff6666);
-            scene.add(explosiveBullet.mesh);
-        }
-        
-        gameState.bullets.push(explosiveBullet);
     } else {
         // Standard bullet
         const bullet = createBullet(

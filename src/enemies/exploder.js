@@ -200,7 +200,7 @@ export const createExploder = (position, baseSpeed ) => {
                     const damageMultiplier = 1 - (playerDistance / blastRadius);
                     const actualDamage = blastDamage * damageMultiplier;
                     
-                    logger.info('enemy', `Explosion damaging player: ${actualDamage.toFixed(1)} damage`);
+                    logger.info('explosion', `Explosion damaging player: ${actualDamage.toFixed(1)} damage`);
                     
                     if (gameState) {
                         damagePlayer(gameState, actualDamage);

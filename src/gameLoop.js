@@ -10,8 +10,8 @@ import { updateUI, showMessage, initUI } from './ui/ui.js';
 import { handleCollisions, checkCollision, applyPowerupEffect } from './gameplay/physics.js';
 import { createBullet, updateBullets } from './gameplay/weapons.js';
 import { logger } from './utils/logger.js';
-import { createRapidFirePowerup, createShotgunBlastPowerup, createExplosionPowerup, createLaserShotPowerup, createGrenadeLauncherPowerup, animatePowerup, createSmokeTrail } from './gameplay/powerups2.js';
-import { createTexturedGround, createBuilding, createRock, createDeadTree } from './rendering/environment.js';
+import { animatePowerup } from './gameplay/powerups2.js';
+//import { createTexturedGround, createBuilding, createRock, createDeadTree } from './rendering/environment.js';
 import { setupDismemberment, updateParticleEffects } from './gameplay/dismemberment.js';
 import { shouldSpawnPowerup, spawnPowerupBehindPlayer, cleanupOldPowerups } from './gameplay/powerupSpawner.js';
 import { debugWebGL, fixWebGLContext, monitorRenderingPerformance, createFallbackCanvas } from './debug.js';
@@ -244,6 +244,16 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTi
         
         // Update bullets
         updateBullets(gameState.bullets, delta);
+        
+        // Update mines
+        if (gameState.mines) {
+            for (let i = gameState.mines.length - 1; i >= 0; i--) {
+                const mine = gameState.mines[i];
+                if (!mine.update()) {
+                    gameState.mines.splice(i, 1);
+                }
+            }
+        }
         
         // Handle combat-related collisions (bullet-zombie, etc.)
         handleCombatCollisions(scene, player, gameState, delta);

@@ -61,6 +61,7 @@ const DEFAULT_SECTIONS = [
     ,'audio'
     ,'powerup'
     ,'enemyspawner'
+    ,'explosion'
 ];
 
 // Default configuration
