@@ -19,14 +19,13 @@
 -- Bullets I think 'skip over' some enemies since they update and flu past before collision check -- done 3/25/2025
 -- Bullets trigger that cute rainbow bubble thing again -- doen 3/25/2025
 -- Player should not be damaged by grenade launcher explosion (again) -- done 3/25/2025
+-- world is porcedurlalyt generated and not run out behind player, buildings smaller -- done 3/25/2025
+-- Tune zombie and gun rates and power up rates, camera angle 
 -- Game stutters and then time is weird and laggy 
--- world is porcedurlalyt generated and not run out behind player, buildings smaller
 -- Player is replaced with 3D model 
 -- Music controls actually work... 
 -- Implement more working SFX for gun
-
 -- Adapt the generated world.js to work with our assets and zombies and use it as the procedurally generated world
--- Tune zombie and gun rates and power up rates, camera angle
 -- zombie archer works 
 -- Multiplayer with not websockets but that other thing - Socket.io webrtc UDP 
 -- Experience value and  time of game and game length saved to some tiny DB 

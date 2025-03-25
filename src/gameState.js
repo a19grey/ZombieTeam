@@ -165,17 +165,150 @@ const handleGameOver = () => {
         }
     });
     
-    // Make button bigger on mobile
-    if (window.gameState?.controls?.isMobileDevice || window.gameState?.controls?.isTouchDevice) {
-        Object.assign(restartButton.style, {
-            padding: '20px 40px',
-            fontSize: '24px',
-            marginTop: '30px'
+    // Create "TO VIBEVERSE" button
+    const vibeVerseButton = document.createElement('button');
+    vibeVerseButton.textContent = 'TO VIBEVERSE';
+    vibeVerseButton.id = 'vibeVerseButton';
+    Object.assign(vibeVerseButton.style, {
+        backgroundColor: '#00aa44', // Green color for Vibeverse
+        color: 'white',
+        border: 'none',
+        padding: '15px 30px',
+        borderRadius: '5px',
+        fontSize: '20px',
+        fontWeight: 'bold',
+        cursor: 'pointer',
+        marginTop: '10px',
+        boxShadow: '0 0 10px rgba(0, 0, 0, 0.5)',
+        display: 'block',
+        margin: '20px auto',
+        transition: 'all 0.2s ease',
+        WebkitTapHighlightColor: 'transparent',
+        touchAction: 'manipulation',
+        userSelect: 'none'
+    });
+    
+    // Add hover effects
+    vibeVerseButton.onmouseover = () => {
+        Object.assign(vibeVerseButton.style, {
+            backgroundColor: '#00cc55',
+            transform: 'scale(1.05)'
         });
+    };
+    
+    vibeVerseButton.onmouseout = () => {
+        Object.assign(vibeVerseButton.style, {
+            backgroundColor: '#00aa44',
+            transform: 'scale(1)'
+        });
+    };
+    
+    // Handle click/touch
+    const handleVibeVerseTransport = () => {
+        // Create URL parameters with player state
+        const params = new URLSearchParams({
+            portal: 'true',
+            username: gameState.player.name || 'Fallen Survivor',
+            score: gameState.player.exp.toString(),
+            health: '100', // Reset health for new game
+            color: 'red',
+            speed: gameState.baseSpeed.toString(),
+            ref: window.location.href // URL of our game as referrer
+        });
+        
+        // Redirect to Vibeverse
+        window.location.href = `http://portal.pieter.com/?${params.toString()}`;
+    };
+    
+    vibeVerseButton.addEventListener('click', (e) => {
+        if (e.pointerType !== 'touch') {
+            handleVibeVerseTransport();
+        }
+    });
+    
+    vibeVerseButton.addEventListener('touchend', () => {
+        setTimeout(handleVibeVerseTransport, 100);
+    });
+    
+    // Create "Take me back to last game" button
+    const backButton = document.createElement('button');
+    backButton.textContent = 'TAKE ME BACK TO LAST GAME';
+    backButton.id = 'backButton';
+    Object.assign(backButton.style, {
+        backgroundColor: '#4444ff', // Blue color for back button
+        color: 'white',
+        border: 'none',
+        padding: '15px 30px',
+        borderRadius: '5px',
+        fontSize: '20px',
+        fontWeight: 'bold',
+        cursor: 'pointer',
+        marginTop: '10px',
+        boxShadow: '0 0 10px rgba(0, 0, 0, 0.5)',
+        display: 'block',
+        margin: '20px auto',
+        transition: 'all 0.2s ease',
+        WebkitTapHighlightColor: 'transparent',
+        touchAction: 'manipulation',
+        userSelect: 'none'
+    });
+    
+    // Add hover effects
+    backButton.onmouseover = () => {
+        Object.assign(backButton.style, {
+            backgroundColor: '#5555ff',
+            transform: 'scale(1.05)'
+        });
+    };
+    
+    backButton.onmouseout = () => {
+        Object.assign(backButton.style, {
+            backgroundColor: '#4444ff',
+            transform: 'scale(1)'
+        });
+    };
+    
+    // Check if we have a referrer URL to go back to
+    const urlParams = new URLSearchParams(window.location.search);
+    const referrerUrl = urlParams.get('ref');
+    
+    // Only show the back button if we have a referrer
+    if (referrerUrl) {
+        backButton.addEventListener('click', (e) => {
+            if (e.pointerType !== 'touch') {
+                window.location.href = referrerUrl;
+            }
+        });
+        
+        backButton.addEventListener('touchend', () => {
+            setTimeout(() => {
+                window.location.href = referrerUrl;
+            }, 100);
+        });
+    } else {
+        // If no referrer, hide the button
+        backButton.style.display = 'none';
     }
     
-    // Add button to game over div
+    // Make buttons bigger on mobile
+    if (window.gameState?.controls?.isMobileDevice || window.gameState?.controls?.isTouchDevice) {
+        const styleButtons = (btn) => {
+            Object.assign(btn.style, {
+                padding: '20px 40px',
+                fontSize: '24px',
+                marginTop: '15px'
+            });
+        };
+        
+        styleButtons(restartButton);
+        styleButtons(vibeVerseButton);
+        styleButtons(backButton);
+    }
+    
+    // Add buttons to game over div
     gameOverDiv.appendChild(restartButton);
+    gameOverDiv.appendChild(vibeVerseButton);
+    gameOverDiv.appendChild(backButton);
     document.body.appendChild(gameOverDiv);
     
     // Add event listener for restart via keyboard (keep this for desktop users)
