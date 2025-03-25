@@ -16,10 +16,6 @@ import * as THREE from 'three';
 let lastBulletTime = 0;
 const BULLET_COOLDOWN = 100; // milliseconds - reduced by 50% for faster firing
 
-// Counter for tracer bullets (only show every 2nd bullet)
-let bulletCounter = 0;
-const TRACER_BULLET_INTERVAL = 1;
-
 /**
  * Creates a bullet projectile
  * @param {THREE.Vector3} position - Starting position of the bullet
@@ -42,37 +38,15 @@ export const createBullet = (position, direction, damage = 25, speed = 1.0, colo
             maxDistance: 50,
             damage: damage,
             position: new THREE.Vector3(),
+            previousPosition: new THREE.Vector3(), // Add previous position
             toRemove: true, // Mark for immediate removal
-            isTracer: false,
             userData: { damage: damage }
         };
     }
-
-    // Increment bullet counter
-    bulletCounter = (bulletCounter + 1) % TRACER_BULLET_INTERVAL;
-    
-    // Only create visible bullet for every TRACER_BULLET_INTERVAL shot (tracer)
-    const isTracer = bulletCounter === 0;
     
     // Clone position and direction to avoid accidental modification
     const positionClone = position.clone();
     const directionClone = direction.clone().normalize();
-    
-    // For non-tracer bullets, create the bullet object without visible mesh
-    if (!isTracer) {
-        return {
-            mesh: null, // No visible mesh
-            direction: directionClone,
-            speed: speed,
-            distance: 0,
-            maxDistance: 50,
-            damage: damage,
-            position: positionClone,
-            toRemove: false,
-            isTracer: false,
-            userData: { damage: damage }
-        };
-    }
     
     try {
         // Create elliptical bullet geometry
@@ -108,9 +82,9 @@ export const createBullet = (position, direction, damage = 25, speed = 1.0, colo
             distance: 0,
             maxDistance: 50, // How far the bullet can travel before being removed
             damage: damage,
-            position: positionClone, // Also store position separately for non-mesh bullets
+            position: positionClone,
+            previousPosition: positionClone.clone(), // Store previous position initially as the same
             toRemove: false,
-            isTracer: true,
             userData: { damage: damage }
         };
     } catch (error) {
@@ -125,8 +99,8 @@ export const createBullet = (position, direction, damage = 25, speed = 1.0, colo
             maxDistance: 50,
             damage: damage,
             position: positionClone,
+            previousPosition: positionClone.clone(), // Add previous position
             toRemove: false,
-            isTracer: false,
             userData: { damage: damage }
         };
     }
@@ -142,16 +116,19 @@ export const updateBullets = (bullets, delta = 1/60) => {
         const bullet = bullets[i];
         if (!bullet || bullet.toRemove) continue;
         
+        // Save current position as previous position before moving
+        bullet.previousPosition.copy(bullet.position);
+        
         // Move bullet in its direction (scaled by delta for consistent speed)
         const moveDistance = bullet.speed * delta * 60;
         
-        if (bullet.isTracer && bullet.mesh) {
-            // Update mesh position for tracer bullets
+        // Update mesh position
+        if (bullet.mesh) {
             bullet.mesh.position.addScaledVector(bullet.direction, moveDistance);
-        } else {
-            // Update virtual position for non-tracer bullets
-            bullet.position.addScaledVector(bullet.direction, moveDistance);
         }
+        
+        // Update virtual position
+        bullet.position.addScaledVector(bullet.direction, moveDistance);
         
         // Update distance traveled
         bullet.distance += moveDistance;

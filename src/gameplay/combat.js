@@ -26,6 +26,10 @@ import { safeCall } from '../utils/safeAccess.js';
 import { createSmokeTrail } from './powerups2.js';
 import { logger } from '../utils/logger.js';
 
+// Add THREE.Ray for ray-based collision detection
+const raycaster = new THREE.Raycaster();
+const tempMatrix = new THREE.Matrix4();
+
 /**
  * Shoots a bullet from the player's weapon
  * 
@@ -178,7 +182,6 @@ const shootBullet = (scene, player, gameState) => {
             1.5 // Faster bullet speed
         );
         
-        // Only add mesh to scene if it's a tracer bullet
         if (bullet.mesh) {
             scene.add(bullet.mesh);
         }
@@ -227,6 +230,54 @@ const updateGrenadeTrails = (scene, bullets) => {
 };
 
 /**
+ * Check if a ray intersects a zombie's collision sphere
+ * 
+ * @param {THREE.Vector3} rayOrigin - Start point of ray
+ * @param {THREE.Vector3} rayDirection - Direction of ray
+ * @param {THREE.Vector3} sphereCenter - Center of sphere (zombie position)
+ * @param {number} sphereRadius - Radius of sphere (zombie collision size)
+ * @param {THREE.Vector3} intersectionPoint - Output parameter for storing intersection point
+ * @returns {boolean} True if ray intersects sphere
+ */
+const rayIntersectsSphere = (rayOrigin, rayDirection, sphereCenter, sphereRadius, intersectionPoint) => {
+    // Vector from ray origin to sphere center
+    const L = new THREE.Vector3().subVectors(sphereCenter, rayOrigin);
+    
+    // Project L onto ray direction to get closest point on ray
+    const tca = L.dot(rayDirection);
+    
+    // If negative, sphere is behind ray
+    if (tca < 0) return false;
+    
+    // Distance squared from sphere center to ray
+    const d2 = L.dot(L) - tca * tca;
+    
+    // If greater than radius squared, no intersection
+    const radiusSquared = sphereRadius * sphereRadius;
+    if (d2 > radiusSquared) return false;
+    
+    // Half chord distance squared
+    const thc = Math.sqrt(radiusSquared - d2);
+    
+    // Calculate intersection distances
+    const t0 = tca - thc;
+    const t1 = tca + thc;
+    
+    // Make sure at least one intersection is in positive ray direction
+    if (t0 < 0 && t1 < 0) return false;
+    
+    // Get first positive intersection
+    const t = t0 >= 0 ? t0 : t1;
+    
+    // Calculate intersection point if requested
+    if (intersectionPoint) {
+        intersectionPoint.copy(rayOrigin).addScaledVector(rayDirection, t);
+    }
+    
+    return true;
+};
+
+/**
  * Handles combat-related collisions (bullet-zombie, etc.)
  * 
  * @param {THREE.Scene} scene - The Three.js scene
@@ -245,71 +296,107 @@ const handleCombatCollisions = (scene, player, gameState, delta) => {
         // Skip if bullet is already marked for removal
         if (bullet.toRemove) continue;
         
+        // Create a ray from the previous position to the current position
+        const rayOrigin = bullet.previousPosition;
+        const rayDirection = new THREE.Vector3().subVectors(bullet.position, bullet.previousPosition).normalize();
+        const rayLength = bullet.position.distanceTo(bullet.previousPosition);
+        
+        // For very fast bullets like lasers, implement multiple collision checks along path
+        const steps = Math.max(1, Math.ceil(rayLength / 0.5)); // Check every 0.5 units
+        const stepSize = rayLength / steps;
+        
+        // Variable to store closest intersection
+        let closestIntersection = null;
+        let closestDistance = Infinity;
+        let hitZombieIndex = -1;
+        
+        // Check each zombie for intersection with the ray
         for (let j = gameState.zombies.length - 1; j >= 0; j--) {
             const zombie = gameState.zombies[j];
             
             // Skip if zombie is already dead
             if (zombie.health <= 0) continue;
             
-            // Use bullet.position for both tracer and non-tracer bullets
-            // Increased collision threshold from 1.0 to 1.5 to better detect nearby enemies
-            if (checkCollision(bullet.position, zombie.mesh.position, 1.5)) {
-                // Apply damage to zombie
-                zombie.health -= bullet.damage;
+            // Check collision with ray
+            const intersectionPoint = new THREE.Vector3();
+            const zombieCollisionRadius = 1.5; // Adjust based on zombie size
+            
+            if (rayIntersectsSphere(rayOrigin, rayDirection, zombie.mesh.position, zombieCollisionRadius, intersectionPoint)) {
+                // Calculate distance to intersection
+                const distToIntersection = rayOrigin.distanceTo(intersectionPoint);
                 
-                // Mark bullet for removal
-                bullet.toRemove = true;
-                
-                // Handle explosive bullets
-                if (bullet.isExplosive || bullet.isGrenade) {
-                    createExplosion(
-                        scene, 
-                        bullet.position.clone(), 
-                        3, // radius
-                        50, // damage
-                        gameState.zombies, 
-                        player, 
-                        gameState
-                    );
+                // Make sure intersection is within ray length and is closest
+                if (distToIntersection <= rayLength && distToIntersection < closestDistance) {
+                    closestDistance = distToIntersection;
+                    closestIntersection = intersectionPoint.clone();
+                    hitZombieIndex = j;
                 }
+            }
+        }
+        
+        // If we found an intersection, handle it
+        if (closestIntersection && hitZombieIndex !== -1) {
+            const zombie = gameState.zombies[hitZombieIndex];
+            
+            // Apply damage to zombie
+            zombie.health -= bullet.damage;
+            
+            // Move bullet to the intersection point
+            if (bullet.mesh) {
+                bullet.mesh.position.copy(closestIntersection);
+            }
+            bullet.position.copy(closestIntersection);
+            
+            // Mark bullet for removal
+            bullet.toRemove = true;
+            
+            // Handle explosive bullets
+            if (bullet.isExplosive || bullet.isGrenade) {
+                createExplosion(
+                    scene, 
+                    bullet.position.clone(), 
+                    3, // radius
+                    50, // damage
+                    gameState.zombies, 
+                    player, 
+                    gameState
+                );
+            }
+            
+            // Check if zombie is dead
+            if (zombie.health <= 0) {
+                // Award points based on enemy type
+                let pointsAwarded = 10; // Base points for regular zombie
                 
-                // Check if zombie is dead
-                if (zombie.health <= 0) {
-                    // Award points based on enemy type
-                    let pointsAwarded = 10; // Base points for regular zombie
+                if (zombie.type === 'skeletonArcher') {
+                    pointsAwarded = 20;
+                } else if (zombie.type === 'exploder') {
+                    pointsAwarded = 25;
                     
-                    if (zombie.type === 'skeletonArcher') {
-                        pointsAwarded = 20;
-                    } else if (zombie.type === 'exploder') {
-                        pointsAwarded = 25;
-                        
-                        // Only create explosion if the exploder was already in explosion sequence
-                        // NOT when it's shot and killed directly
-                        if (zombie.mesh.isExploding) {
-                            createExplosion(
-                                scene, 
-                                zombie.mesh.position.clone(), 
-                                3, // radius
-                                50, // damage
-                                gameState.zombies, 
-                                player, 
-                                gameState
-                            );
-                        }
-                    } else if (zombie.type === 'zombieKing') {
-                        pointsAwarded = 200;
+                    // Only create explosion if the exploder was already in explosion sequence
+                    // NOT when it's shot and killed directly
+                    if (zombie.mesh.isExploding) {
+                        createExplosion(
+                            scene, 
+                            zombie.mesh.position.clone(), 
+                            3, // radius
+                            50, // damage
+                            gameState.zombies, 
+                            player, 
+                            gameState
+                        );
                     }
-                    
-                    gameState.score += pointsAwarded;
-                    
-                    // Remove zombie from scene
-                    scene.remove(zombie.mesh);
-                    
-                    // Remove zombie from array
-                    gameState.zombies.splice(j, 1);
+                } else if (zombie.type === 'zombieKing') {
+                    pointsAwarded = 200;
                 }
                 
-                break; // Bullet can only hit one zombie
+                gameState.score += pointsAwarded;
+                
+                // Remove zombie from scene
+                scene.remove(zombie.mesh);
+                
+                // Remove zombie from array
+                gameState.zombies.splice(hitZombieIndex, 1);
             }
         }
     }
