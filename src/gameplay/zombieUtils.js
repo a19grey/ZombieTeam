@@ -199,16 +199,22 @@ export const createExplosion = (scene, position, radius = 3, damage = 100, zombi
                         // Calculate damage based on distance
                         const zombieDamage = damage // Using simpler Math.round(damage * (1 - zombieDistance / radius));
                         logger.debug("Zombie in explosion radius, dealing", zombieDamage, "damage");
-                        zombiesToDamage.push({ zombie, damage: zombieDamage });
+                        zombiesToDamage.push({ zombie, damage: zombieDamage, index: i });
                     }
                 }
             }
         }
         
         // Apply damage to zombies after checking all of them
-        zombiesToDamage.forEach(({ zombie, damage }) => {
+        zombiesToDamage.forEach(({ zombie, damage, index }) => {
             try {
-                damageZombie(zombie, damage, scene);
+                // Apply damage and update the zombie in the original array
+                const updatedZombie = damageZombie(zombie, damage, scene);
+                
+                // Update the zombie in the original array to persist the damage
+                if (zombies[index]) {
+                    zombies[index] = updatedZombie;
+                }
             } catch (zombieDamageError) {
                 console.error("Failed to damage zombie:", zombieDamageError);
             }

@@ -2,6 +2,7 @@
  * Powerup Module - Defines enhanced powerup assets for the game
  */
 import * as THREE from 'three';
+import { logger } from '../utils/logger.js'; // Add logger import at the top
 
 // Helper function to create a halo
 const createHalo = (color, radius = 0.6) => {
@@ -250,6 +251,7 @@ export const createLaserShotPowerup = (position) => {
  * - Effect: Lobs grenades that explode on impact with smoke trails
  */
 export const createGrenadeLauncherPowerup = (position) => {
+    logger.info('grenadelauncher', 'Creating grenade launcher powerup mesh in powerups2.js');
     const powerup = new THREE.Group();
 
     // Launcher body
@@ -321,6 +323,8 @@ export const createGrenadeLauncherPowerup = (position) => {
     powerup.position.set(position.x, 0, position.z);
     powerup.userData.type = 'grenadeLauncher';
     powerup.userData.health = 225*15; // High health value
+    
+    logger.debug('grenadelauncher', 'Completed grenade launcher powerup mesh creation');
     return powerup;
 };
 
@@ -383,164 +387,18 @@ export const createPlayerExplosion = (gameState, position, radius = 4, damage = 
     });
 };
 
-/**
- * Creates a projectile that explodes on impact
- * This function should be called when a player uses the grenade launcher
- * 
- * @param {THREE.Scene} scene - The scene to add the projectile to
- * @param {THREE.Vector3} startPosition - The starting position of the projectile
- * @param {THREE.Vector3} direction - The direction the projectile should travel
- * @param {Object} gameState - The current game state
- * @param {number} speed - The speed of the projectile (default: 0.5)
- * @param {number} gravity - The gravity effect on the projectile (default: 0.01)
- */
-export const createGrenadeProjectile = (scene, startPosition, direction, gameState, speed = 0.5, gravity = 0.01) => {
-    // Create grenade mesh - made even larger and more visible
-    const grenadeGeometry = new THREE.SphereGeometry(0.4, 16, 16); // Much bigger (from 0.25)
-    const grenadeMaterial = new THREE.MeshStandardMaterial({
-        color: 0x555555, // Slightly darker gray
-        emissive: 0x222222, // More emissive
-        emissiveIntensity: 0.5,
-        metalness: 0.7, // More metallic
-        roughness: 0.3 // More shine
-    });
-    const grenade = new THREE.Mesh(grenadeGeometry, grenadeMaterial);
-    grenade.position.copy(startPosition);
-    grenade.castShadow = true;
-    scene.add(grenade);
-    
-    // Add pin detail - made more visible
-    const pinGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.2, 8); // Larger
-    const pinMaterial = new THREE.MeshStandardMaterial({ 
-        color: 0xffff00,
-        emissive: 0xffff00,
-        emissiveIntensity: 0.8 // Brighter
-    });
-    const pin = new THREE.Mesh(pinGeometry, pinMaterial);
-    pin.position.y = 0.3; // Raised more
-    grenade.add(pin);
-    
-    // Add red band for better visibility - made larger
-    const bandGeometry = new THREE.TorusGeometry(0.4, 0.07, 12, 24); // Thicker and more detailed
-    const bandMaterial = new THREE.MeshStandardMaterial({
-        color: 0xff0000,
-        emissive: 0xff0000,
-        emissiveIntensity: 0.7 // Brighter
-    });
-    const band = new THREE.Mesh(bandGeometry, bandMaterial);
-    band.rotation.x = Math.PI / 2;
-    grenade.add(band);
-    
-    // Projectile properties
-    const velocity = direction.clone().normalize().multiplyScalar(speed);
-    let lifetime = 0;
-    const maxLifetime = 100; // Auto-explode after this many frames
-    
-    // Smoke trail particles
-    const smokeParticles = [];
-    
-    // Update function to be called each frame
-    grenade.userData.update = () => {
-        // Update position with velocity
-        grenade.position.add(velocity);
-        
-        // Apply gravity
-        velocity.y -= gravity;
-        
-        // Create smoke particle every few frames
-        if (lifetime % 3 === 0) {
-            const smoke = createSmokeTrail(grenade.position.clone());
-            scene.add(smoke);
-            smokeParticles.push(smoke);
-        }
-        
-        // Update smoke particles
-        for (let i = smokeParticles.length - 1; i >= 0; i--) {
-            const smoke = smokeParticles[i];
-            smoke.material.opacity -= 0.02;
-            smoke.position.y += 0.01;
-            
-            if (smoke.material.opacity <= 0) {
-                scene.remove(smoke);
-                smoke.geometry.dispose();
-                smoke.material.dispose();
-                smokeParticles.splice(i, 1);
-            }
-        }
-        
-        // Check for collisions with ground
-        if (grenade.position.y <= 0.15) {
-            grenade.position.y = 0.15;
-            velocity.y = Math.abs(velocity.y) * 0.5; // Bounce with dampening
-            
-            // If moving very slowly after bounce, explode
-            if (velocity.length() < 0.1) {
-                explodeGrenade();
-                return false; // Stop updating
-            }
-        }
-        
-        // Check for collisions with zombies
-        if (gameState && gameState.zombies) {
-            for (const zombie of gameState.zombies) {
-                if (zombie && zombie.mesh && zombie.mesh.position) {
-                    const distance = grenade.position.distanceTo(zombie.mesh.position);
-                    if (distance < 1) { // Hit a zombie
-                        explodeGrenade();
-                        return false; // Stop updating
-                    }
-                }
-            }
-        }
-        
-        // Auto-explode after maxLifetime
-        lifetime++;
-        if (lifetime >= maxLifetime) {
-            explodeGrenade();
-            return false; // Stop updating
-        }
-        
-        // Rotate grenade as it flies
-        grenade.rotation.x += 0.1;
-        grenade.rotation.z += 0.1;
-        
-        return true; // Continue updating
-    };
-    
-    // Function to handle explosion
-    function explodeGrenade() {
-        // Create explosion effect
-        createPlayerExplosion(gameState, grenade.position.clone());
-        
-        // Clean up grenade and particles
-        scene.remove(grenade);
-        grenade.geometry.dispose();
-        grenade.material.dispose();
-        
-        smokeParticles.forEach(smoke => {
-            scene.remove(smoke);
-            smoke.geometry.dispose();
-            smoke.material.dispose();
-        });
-        smokeParticles.length = 0;
-    }
-    
-    // Add to gameState for updating
-    if (gameState) {
-        if (!gameState.projectiles) {
-            gameState.projectiles = [];
-        }
-        gameState.projectiles.push(grenade);
-    }
-    
-    return grenade;
-};
 
 /**
- * Suggestion: Add this to your projectile system for grenade smoke trails
- * - Call this function each frame for each active grenade projectile
+ * Creates a smoke trail particle for grenades
+ * 
+ * This function is used by combat.js to generate smoke particles for grenade trails.
+ * It is the centralized implementation for smoke trails.
+ * 
+ * @param {THREE.Vector3} grenadePosition - The position to create the smoke particle at
+ * @returns {THREE.Mesh} The smoke particle mesh
  */
 export const createSmokeTrail = (grenadePosition) => {
+    // No need to log every smoke particle creation as it would spam the logs
     const smokeGeometry = new THREE.SphereGeometry(0.05, 4, 4);
     const smokeMaterial = new THREE.MeshBasicMaterial({
         color: 0x888888,
@@ -554,10 +412,6 @@ export const createSmokeTrail = (grenadePosition) => {
         fadeRate: 0.02
     };
     return smokeParticle;
-    // In your render loop:
-    // - Add smokeParticle to scene
-    // - Update: particle.position.y += 0.01; particle.material.opacity -= particle.userData.fadeRate;
-    // - Remove when opacity <= 0 or lifetime expires
 };
 
 

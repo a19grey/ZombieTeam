@@ -257,6 +257,28 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTi
             }
         }
         
+        // Check if there are any projectiles to update (from powerups2.js)
+        if (gameState.projectiles && gameState.projectiles.length > 0) {
+            logger.warn('grenadelauncher', `Found ${gameState.projectiles.length} projectiles from deprecated powerups2.js implementation. Consider migrating to combat.js implementation.`);
+            
+            // Update each projectile
+            for (let i = gameState.projectiles.length - 1; i >= 0; i--) {
+                const projectile = gameState.projectiles[i];
+                if (projectile && projectile.userData && typeof projectile.userData.update === 'function') {
+                    // Run the update function and remove if it returns false
+                    const shouldKeep = projectile.userData.update();
+                    if (!shouldKeep) {
+                        logger.debug('grenadelauncher', 'Removing projectile in gameLoop.js');
+                        gameState.projectiles.splice(i, 1);
+                    }
+                } else {
+                    // If projectile doesn't have an update function, just remove it
+                    logger.warn('grenadelauncher', 'Found invalid projectile without update function');
+                    gameState.projectiles.splice(i, 1);
+                }
+            }
+        }
+        
         // Handle combat-related collisions (bullet-zombie, etc.)
         handleCombatCollisions(scene, player, gameState, delta);
         

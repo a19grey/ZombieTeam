@@ -152,7 +152,19 @@ const shootBullet = (scene, player, gameState) => {
             scene.remove(laserLight);
         }, 100);
     } else if (gameState.player.activePowerup === 'grenadeLauncher') {
-        // Create a grenade (slower moving bullet that explodes on impact)
+        /**
+         * PRIMARY IMPLEMENTATION OF GRENADE LAUNCHER
+         * 
+         * This is the centralized implementation of the grenade launcher powerup.
+         * It creates a grenade projectile that:
+         * - Moves slower than normal bullets
+         * - Has a smoke trail
+         * - Explodes on impact with enemies or environment
+         * - Causes area damage rather than direct hit damage
+         * 
+         * Collision detection is handled in handleCombatCollisions and in physics.js handleCollisions
+         */
+        logger.info('grenadelauncher', 'Creating grenade from combat.js shootBullet');
         const grenadeBullet = createBullet(
             bulletPosition,
             direction,
@@ -163,6 +175,7 @@ const shootBullet = (scene, player, gameState) => {
         
         // Use safeCall instead of direct access to avoid null errors
         safeCall(grenadeBullet, 'mesh.scale.set', [0.2, 0.2, 0.2]);
+        logger.debug('grenadelauncher', 'Applied scale to grenade mesh in combat.js');
         
         if (grenadeBullet.mesh) {
             scene.add(grenadeBullet.mesh);
@@ -171,6 +184,7 @@ const shootBullet = (scene, player, gameState) => {
         // Add grenade properties
         grenadeBullet.isGrenade = true;
         grenadeBullet.smokeTrail = [];
+        logger.debug('grenadelauncher', 'Set isGrenade=true and initialized smokeTrail array in combat.js');
         
         gameState.bullets.push(grenadeBullet);
     } else {
@@ -202,13 +216,19 @@ const shootBullet = (scene, player, gameState) => {
 /**
  * Handles grenade smoke trails and updates them
  * 
+ * This is the primary implementation for grenade smoke trails.
+ * All grenades created with isGrenade=true will have smoke trails managed here.
+ * 
  * @param {THREE.Scene} scene - The scene to add smoke particles to
  * @param {Array} bullets - Array of bullet objects
  */
 const updateGrenadeTrails = (scene, bullets) => {
+    let grenadesWithTrails = 0;
+    
     for (let i = 0; i < bullets.length; i++) {
         const bullet = bullets[i];
         if (bullet.isGrenade && bullet.mesh) {
+            grenadesWithTrails++;
             // Create smoke trail
             const smokeParticle = createSmokeTrail(bullet.mesh.position.clone());
             scene.add(smokeParticle);
@@ -226,6 +246,10 @@ const updateGrenadeTrails = (scene, bullets) => {
                 }
             }
         }
+    }
+    
+    if (grenadesWithTrails > 0) {
+        logger.debug('grenadelauncher', `Updating ${grenadesWithTrails} grenade smoke trails in combat.js`);
     }
 };
 
@@ -301,6 +325,14 @@ const handleCombatCollisions = (scene, player, gameState, delta) => {
         const rayDirection = new THREE.Vector3().subVectors(bullet.position, bullet.previousPosition).normalize();
         const rayLength = bullet.position.distanceTo(bullet.previousPosition);
         
+        // Log if this is a grenade
+        if (bullet.isGrenade) {
+            logger.debug('grenadelauncher', 'Processing grenade bullet collision checks in combat.js', {
+                position: [bullet.position.x.toFixed(2), bullet.position.y.toFixed(2), bullet.position.z.toFixed(2)],
+                hasTrail: Array.isArray(bullet.smokeTrail)
+            });
+        }
+        
         // For very fast bullets like lasers, implement multiple collision checks along path
         const steps = Math.max(1, Math.ceil(rayLength / 0.5)); // Check every 0.5 units
         const stepSize = rayLength / steps;
@@ -352,14 +384,20 @@ const handleCombatCollisions = (scene, player, gameState, delta) => {
             
             // Handle explosive bullets
             if (bullet.isExplosive || bullet.isGrenade) {
+                logger.info('grenadelauncher', 'Grenade impact detected in combat.js - creating explosion');
+                // Keep radius at 3 but prevent player damage
+                const explosionRadius = 3; // Standard radius for grenades
+                const explosionDamage = bullet.isGrenade ? 75 : 50; // More damage for grenades
+                
                 createExplosion(
                     scene, 
                     bullet.position.clone(), 
-                    3, // radius
-                    50, // damage
+                    explosionRadius,
+                    explosionDamage,
                     gameState.zombies, 
                     player, 
-                    gameState
+                    gameState,
+                    'player' // Specify 'player' as source to prevent self-damage
                 );
             }
             
@@ -383,7 +421,8 @@ const handleCombatCollisions = (scene, player, gameState, delta) => {
                             50, // damage
                             gameState.zombies, 
                             player, 
-                            gameState
+                            gameState,
+                            'zombie' // This explosion should damage the player since it's from a zombie
                         );
                     }
                 } else if (zombie.type === 'zombieKing') {
@@ -406,6 +445,7 @@ const handleCombatCollisions = (scene, player, gameState, delta) => {
         if (gameState.bullets[i].toRemove) {
             // Clean up smoke trail if it's a grenade
             if (gameState.bullets[i].isGrenade && gameState.bullets[i].smokeTrail) {
+                logger.debug('grenadelauncher', 'Removing grenade and smoke trail in combat.js');
                 for (const smoke of gameState.bullets[i].smokeTrail) {
                     scene.remove(smoke);
                 }

@@ -487,6 +487,14 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
                 if (!zombie || !zombie.mesh || !zombie.mesh.position) continue;
                 
                 if (checkCollision(bulletPosition, zombie.mesh.position, COLLISION_DISTANCE)) {
+                    // Log grenade collision if this is a grenade
+                    if (bullet.isGrenade) {
+                        logger.info('grenadelauncher', 'Grenade bullet collision with zombie detected in physics.js', {
+                            bulletPos: [bulletPosition.x.toFixed(2), bulletPosition.y.toFixed(2), bulletPosition.z.toFixed(2)],
+                            zombiePos: [zombie.mesh.position.x.toFixed(2), zombie.mesh.position.y.toFixed(2), zombie.mesh.position.z.toFixed(2)]
+                        });
+                    }
+                    
                     // Damage zombie
                     const updatedZombie = damageZombie(zombie, bullet.userData ? bullet.userData.damage : 25, scene);
                     zombies[j] = updatedZombie;
@@ -702,24 +710,14 @@ export const applyPowerupEffect = (gameState, position, direction, scene) => {
             break;
             
         case 'grenadeLauncher':
-            // Create a grenade (slower moving bullet that explodes on impact)
-            const grenadeBullet = createBullet(position, direction, 0, 0.8, 0x228b22);
-            
-            // Make grenade larger and spherical
-            if (grenadeBullet.mesh) {
-                grenadeBullet.mesh.scale.set(0.3, 0.3, 0.3);
-            }
-            
-            // Add grenade properties
-            grenadeBullet.isGrenade = true;
-            grenadeBullet.smokeTrail = [];
-            
-            gameState.bullets.push(grenadeBullet);
-            if (grenadeBullet.mesh) {
-                scene.add(grenadeBullet.mesh);
-            }
-            
-            logger.debug('Grenade launched');
+            // No longer implementing grenade launcher here - this is handled in combat.js
+            logger.info('grenadelauncher', 'Redirecting grenade launcher request to combat.js');
+            // Import the shootBullet function using dynamic import to avoid circular dependencies
+            import('./combat.js').then(({ shootBullet }) => {
+                shootBullet(scene, gameState.playerObject, gameState);
+            }).catch(error => {
+                logger.error('grenadelauncher', 'Failed to import shootBullet:', error);
+            });
             break;
             
         case 'explosion':
