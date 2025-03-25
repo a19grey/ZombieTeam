@@ -13,7 +13,9 @@ import { logger } from './utils/logger.js';
 import { animatePowerup } from './gameplay/powerups2.js';
 //import { createTexturedGround, createBuilding, createRock, createDeadTree } from './rendering/environment.js';
 import { setupDismemberment, updateParticleEffects } from './gameplay/dismemberment.js';
-import { shouldSpawnPowerup, spawnPowerupBehindPlayer, cleanupOldPowerups } from './gameplay/powerupSpawner.js';
+import { shouldSpawnPowerup, spawnPowerupBehindPlayer, cleanupOldPowerups, 
+         shouldSpawnExitPortal, spawnExitPortalBehindPlayer, updatePortals, 
+         checkPortalCollision, cleanupOldPortals } from './gameplay/powerupSpawner.js';
 import { debugWebGL, fixWebGLContext, monitorRenderingPerformance, createFallbackCanvas } from './debug.js';
 import { safeCall } from './utils/safeAccess.js';
 import { spawnEnvironmentObjects, spawnEnemy } from './gameplay/entitySpawners.js';
@@ -483,6 +485,71 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTi
             }
         }
         
+        // Check for collision with return portal
+        if (gameState.returnPortal && gameState.returnPortal.active) {
+            // Use distance-based check for more precise collision detection
+            const portalPosition = gameState.returnPortal.group.position;
+            const dx = player.position.x - portalPosition.x;
+            const dz = player.position.z - portalPosition.z;
+            const distanceToPortal = Math.sqrt(dx * dx + dz * dz);
+            
+            // Portal radius - must match the visual size of the return portal
+            const portalRadius = 1.2; // Adjust based on actual portal size
+            
+            // Check if player is standing within the portal radius
+            if (distanceToPortal < portalRadius) {
+                // If this is the first frame of collision, record entry time
+                if (!gameState.returnPortal.playerEntryTime) {
+                    gameState.returnPortal.playerEntryTime = currentTime;
+                    // Show message when player first steps on portal
+                    showMessage('Stand on portal for 1 second to return...', 2000);
+                    
+                    // Play portal sound
+                    playSound('powerupPickup'); // Using existing sound for now
+                    
+                    logger.debug('portal', `Player entered return portal area, distance: ${distanceToPortal.toFixed(2)}`);
+                }
+                
+                // Calculate how long player has been on the portal
+                const timeOnPortal = currentTime - gameState.returnPortal.playerEntryTime;
+                
+                // Log the precise position and time for debugging
+                if (timeOnPortal % 250 < 50) { // Log roughly every 250ms
+                    logger.debug('portal', `Standing on return portal: ${timeOnPortal}ms, distance: ${distanceToPortal.toFixed(2)}`);
+                }
+                
+                // If player has been on portal for 1+ seconds, redirect immediately
+                if (timeOnPortal >= 1000) {
+                    logger.info('portal', 'Player stood on return portal for 1 second, redirecting to:', gameState.returnPortal.referrerUrl);
+                    
+                    // Redirect to the referrer URL immediately
+                    window.location.href = gameState.returnPortal.referrerUrl;
+                    
+                    // Render one more frame and exit update loop
+                    renderer.render(scene, camera);
+                    return;
+                }
+            } else {
+                // Reset entry time if player leaves the portal
+                if (gameState.returnPortal.playerEntryTime) {
+                    logger.debug('portal', `Player left return portal area, distance: ${distanceToPortal.toFixed(2)}`);
+                    gameState.returnPortal.playerEntryTime = null;
+                }
+            }
+        }
+        
+        // Update portals - animate them
+        if (gameState.portals && gameState.portals.length > 0) {
+            updatePortals(gameState.portals, clock.elapsedTime, scene);
+            
+            // Check for portal collisions
+            if (checkPortalCollision(player.position, player, gameState.portals, gameState)) {
+                // If collision happened, player is already being redirected
+                // No need to continue with the rest of the frame
+                renderer.render(scene, camera);
+                return;
+            }
+        }
         
         // Check if we should spawn a powerup (only check once per second for efficiency)
         if (!gameState.lastPowerupCheckFrameTime || currentTime - gameState.lastPowerupCheckFrameTime >= 1000) {
@@ -490,6 +557,20 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTi
             logger.debug('powerup', 'Checking for powerup spawn time', currentTime);
             if (shouldSpawnPowerup(gameState, currentTime)) {
                 spawnPowerupBehindPlayer(scene, gameState, player);
+            }
+        }
+        
+        // Check if we should spawn an exit portal (only check once every 5 seconds for efficiency)
+        if (!gameState.lastPortalCheckFrameTime || currentTime - gameState.lastPortalCheckFrameTime >= 5000) {
+            gameState.lastPortalCheckFrameTime = currentTime;
+            logger.debug('portal', 'Checking for portal spawn time', currentTime);
+            
+            // Clean up old portals first
+            cleanupOldPortals(gameState, currentTime);
+            
+            // Then check if we should spawn a new one
+            if (shouldSpawnExitPortal(gameState, currentTime)) {
+                spawnExitPortalBehindPlayer(scene, gameState, player);
             }
         }
         

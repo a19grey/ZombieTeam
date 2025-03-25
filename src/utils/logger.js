@@ -62,6 +62,7 @@ const DEFAULT_SECTIONS = [
     ,'powerup'
     ,'enemyspawner'
     ,'explosion'
+    ,'portal'
 ];
 
 // Default configuration
@@ -99,7 +100,7 @@ const parseURLParameters = () => {
     }
     
     // Check for debug sections parameter
-    const debugSections = urlParams.get('debugSection');
+    const debugSections = urlParams.get('debugSection') || urlParams.get('debugsection');
     if (debugSections) {
         const sections = debugSections.split(',').map(s => s.trim());
         if (sections.length > 0) {
