@@ -12,7 +12,7 @@
  */
 
 import * as THREE from 'three';
-import { createScene, createCamera, createRenderer, createLighting, createGround } from './rendering/scene.js';
+import { createScene, createCamera, createRenderer, createLighting } from './rendering/scene.js';
 import { createPlayer, createPlayerWeapon } from './gameplay/player.js';
 import { updateUI, initUI,showMessage, } from './ui/ui.js';
 import { initAudio, loadAudio, loadPositionalAudio, playSound, stopSound, toggleMute, setMasterVolume, debugAudioSystem, getAudioState, setAudioEnabled, loadMusicTracks, playRandomMusicTrack } from './gameplay/audio.js';
@@ -20,6 +20,7 @@ import { createSoundSettingsUI } from './ui/soundSettings.js';
 import { debugWebGL, fixWebGLContext, createFallbackCanvas } from './debug.js';
 import { logger } from './utils/logger.js';
 import { checkAudioFiles, fixAudioPath } from './utils/audioChecker.js';
+import { createGroundTile, manageProceduralGround } from './rendering/environment.js';
 // import { gameState } from './gameState.js'; gamestate is passed in as a parameter
 
 /**
@@ -106,9 +107,8 @@ export function initializeGame(gameState) {
         // Add lighting
         const lights = createLighting(scene);
         
-        // Create ground
-        const ground = createGround();
-        scene.add(ground);
+        // Initialize worldData for procedural terrain
+        gameState.worldData = null;
         
         logger.info('Scene setup completed successfully');
     } catch (setupError) {

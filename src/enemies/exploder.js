@@ -171,72 +171,23 @@ export const createExploder = (position, baseSpeed ) => {
             if (exploder.explosionTimer <= 0) {
                 logger.info('enemy', `Exploder detonating at ${exploder.position.x.toFixed(2)},${exploder.position.z.toFixed(2)}`);
                 
-                // Create explosion effect
-                const explosion = createExplosion(
+                // Create explosion effect using the centralized explosion function in zombieUtils.js
+                createExplosion(
+                    context.scene,
                     new THREE.Vector3(
                         exploder.position.x,
                         0.5, // Height of explosion
                         exploder.position.z
                     ), 
-                    3.5 // Explosion radius
+                    3.5, // Explosion radius
+                    30, // Explosion damage
+                    nearbyZombies, 
+                    context.playerObject || playerPosition,
+                    gameState,
+                    'zombie' // Source is zombie
                 );
                 
-                // Add explosion to scene
-                if (context.scene) {
-                    context.scene.add(explosion);
-                    // Remove explosion after animation (2 seconds)
-                    setTimeout(() => {
-                        context.scene.remove(explosion);
-                    }, 2000);
-                }
-                
-                // Deal damage to player if in blast radius
-                const blastRadius = 5;
-                const blastDamage = 30; // Base explosion damage
-                const playerDistance = direction.length();
-                
-                if (playerDistance < blastRadius) {
-                    // Calculate damage based on distance (less damage farther away)
-                    const damageMultiplier = 1 - (playerDistance / blastRadius);
-                    const actualDamage = blastDamage * damageMultiplier;
-                    
-                    logger.info('explosion', `Explosion damaging player: ${actualDamage.toFixed(1)} damage`);
-                    
-                    if (gameState) {
-                        damagePlayer(gameState, actualDamage);
-                    }
-                }
-                
-                // Handle nearby zombies being damaged by explosion
-                if (nearbyZombies) {
-                    nearbyZombies.forEach(otherZombie => {
-                        if (otherZombie && otherZombie.mesh) {
-                            const zombieDirection = new THREE.Vector3(
-                                otherZombie.mesh.position.x - exploder.position.x,
-                                0,
-                                otherZombie.mesh.position.z - exploder.position.z
-                            );
-                            const zombieDistance = zombieDirection.length();
-                            
-                            // Apply blast force to other zombies
-                            if (zombieDistance < blastRadius) {
-                                const pushForce = 0.5 * (1 - zombieDistance / blastRadius);
-                                const pushVector = zombieDirection.normalize().multiplyScalar(pushForce);
-                                
-                                // Only move zombies if they have a position
-                                if (otherZombie.mesh.position) {
-                                    otherZombie.mesh.position.x += pushVector.x;
-                                    otherZombie.mesh.position.z += pushVector.z;
-                                }
-                                
-                                // Damage other zombies too
-                                if (otherZombie.mesh.health !== undefined) {
-                                    otherZombie.mesh.health -= 20 * (1 - zombieDistance / blastRadius);
-                                }
-                            }
-                        }
-                    });
-                }
+                // All explosion effects, damage calculations, and cleanup are handled by the createExplosion function
                 
                 // Remove this exploder from the scene
                 if (context.scene) {

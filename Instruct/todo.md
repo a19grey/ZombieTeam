@@ -15,11 +15,16 @@
 -- Works on mobile -- done 3/22/2025
 -- turn off all logging in prod version -- done 3/23/2025
 -- Make new enemies look cooler not lame -- done 3/24/2025
--- Player should not be damaged by grenade launcher explosion (again)
+-- Add Portals for VibeVerse -- done 3/24/2025
+-- Bullets I think 'skip over' some enemies since they update and flu past before collision check -- done 3/25/2025
+-- Bullets trigger that cute rainbow bubble thing again -- doen 3/25/2025
+-- Player should not be damaged by grenade launcher explosion (again) -- done 3/25/2025
 -- Game stutters and then time is weird and laggy 
--- Bullets I think 'skip over' some enemies since they update and flu past before collision check 
+-- world is porcedurlalyt generated and not run out behind player, buildings smaller
+-- Player is replaced with 3D model 
 -- Music controls actually work... 
 -- Implement more working SFX for gun
+
 -- Adapt the generated world.js to work with our assets and zombies and use it as the procedurally generated world
 -- Tune zombie and gun rates and power up rates, camera angle
 -- zombie archer works 

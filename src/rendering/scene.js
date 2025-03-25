@@ -193,10 +193,20 @@ export const createLighting = (scene) => {
 
 /**
  * Creates a ground plane for the scene 
+ * @param {boolean} isProcedural - Whether to use procedural ground (default: false)
  * @returns {THREE.Mesh} The created ground mesh
  */
-export const createGround = () => {
+export const createGround = (isProcedural = false) => {
     try {
+        // If using procedural ground system, return a dummy mesh that will be replaced
+        if (isProcedural) {
+            logger.info('Using procedural ground system - initial ground will be created by environment.js');
+            const dummyGround = new THREE.Object3D();
+            dummyGround.userData.isProcedural = true;
+            return dummyGround;
+        }
+        
+        // Otherwise create the standard fixed ground
         const groundGeometry = new THREE.PlaneGeometry(100, 100);
         const groundMaterial = new THREE.MeshStandardMaterial({ 
             color: 0x1a5e1a, // Dark green

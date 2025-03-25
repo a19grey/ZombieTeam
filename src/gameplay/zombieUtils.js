@@ -131,21 +131,26 @@ export const isZombieDead = (zombie) => {
  * @param {THREE.Object3D} player - The player object
  * @param {Object} gameState - The game state
  * @param {string} source - Source of the explosion ('zombie' or 'player')
+ * @returns {THREE.Mesh} The explosion mesh
  */
 export const createExplosion = (scene, position, radius = 3, damage = 100, zombies = [], player, gameState, source = 'zombie') => {
     try {
-        if (gameState.debug.enabled) {
-        console.log("Creating explosion at", position, "with radius", radius, "and damage", damage, "from source:", source);
+        // Safety check for gameState.debug
+        const debugEnabled = gameState && gameState.debug && gameState.debug.enabled;
+        
+        if (debugEnabled) {
+            console.log("Creating explosion at", position, "with radius", radius, "and damage", damage, "from source:", source);
         }
+        
         // Safety check for required parameters
         if (!scene) {
             console.error("Explosion creation failed: scene is undefined");
-            return;
+            return null;
         }
         
         if (!position) {
             console.error("Explosion creation failed: position is undefined");
-            return;
+            return null;
         }
         
         // Create explosion visual effect
@@ -162,7 +167,9 @@ export const createExplosion = (scene, position, radius = 3, damage = 100, zombi
         
         // Play explosion sound at the explosion position
         try {
-            playSound('explosion', position);
+            if (typeof playSound === 'function') {
+                playSound('explosion', position);
+            }
         } catch (soundError) {
             console.warn("Could not play explosion sound:", soundError);
         }
@@ -180,7 +187,9 @@ export const createExplosion = (scene, position, radius = 3, damage = 100, zombi
                 const playerDamage = Math.round(damage * (1 - playerDistance / radius));
                 console.log("Player in explosion radius, dealing", playerDamage, "damage");
                 try {
-                    damagePlayer(gameState, playerDamage);
+                    if (gameState && typeof damagePlayer === 'function') {
+                        damagePlayer(gameState, playerDamage);
+                    }
                 } catch (playerDamageError) {
                     console.error("Failed to damage player:", playerDamageError);
                 }
@@ -198,7 +207,9 @@ export const createExplosion = (scene, position, radius = 3, damage = 100, zombi
                     if (zombieDistance < radius) {
                         // Calculate damage based on distance
                         const zombieDamage = damage // Using simpler Math.round(damage * (1 - zombieDistance / radius));
-                        logger.debug("Zombie in explosion radius, dealing", zombieDamage, "damage");
+                        if (typeof logger !== 'undefined' && logger.debug) {
+                            logger.debug("Zombie in explosion radius, dealing", zombieDamage, "damage");
+                        }
                         zombiesToDamage.push({ zombie, damage: zombieDamage, index: i });
                     }
                 }
@@ -206,19 +217,21 @@ export const createExplosion = (scene, position, radius = 3, damage = 100, zombi
         }
         
         // Apply damage to zombies after checking all of them
-        zombiesToDamage.forEach(({ zombie, damage, index }) => {
-            try {
-                // Apply damage and update the zombie in the original array
-                const updatedZombie = damageZombie(zombie, damage, scene);
-                
-                // Update the zombie in the original array to persist the damage
-                if (zombies[index]) {
-                    zombies[index] = updatedZombie;
+        if (typeof damageZombie === 'function') {
+            zombiesToDamage.forEach(({ zombie, damage, index }) => {
+                try {
+                    // Apply damage and update the zombie in the original array
+                    const updatedZombie = damageZombie(zombie, damage, scene);
+                    
+                    // Update the zombie in the original array to persist the damage
+                    if (zombies[index]) {
+                        zombies[index] = updatedZombie;
+                    }
+                } catch (zombieDamageError) {
+                    console.error("Failed to damage zombie:", zombieDamageError);
                 }
-            } catch (zombieDamageError) {
-                console.error("Failed to damage zombie:", zombieDamageError);
-            }
-        });
+            });
+        }
         
         // Animation variables
         let scale = 0.1;
@@ -262,7 +275,11 @@ export const createExplosion = (scene, position, radius = 3, damage = 100, zombi
             }
         }, 3000);
         
+        // Return the explosion mesh for backwards compatibility
+        return explosion;
+        
     } catch (error) {
         console.error('Error creating explosion:', error);
+        return null;
     }
 }; 

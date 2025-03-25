@@ -11,7 +11,6 @@ import { handleCollisions, checkCollision, applyPowerupEffect } from './gameplay
 import { createBullet, updateBullets } from './gameplay/weapons.js';
 import { logger } from './utils/logger.js';
 import { animatePowerup } from './gameplay/powerups2.js';
-//import { createTexturedGround, createBuilding, createRock, createDeadTree } from './rendering/environment.js';
 import { setupDismemberment, updateParticleEffects } from './gameplay/dismemberment.js';
 import { shouldSpawnPowerup, spawnPowerupBehindPlayer, cleanupOldPowerups, 
          shouldSpawnExitPortal, spawnExitPortalBehindPlayer, updatePortals, 
@@ -21,6 +20,7 @@ import { safeCall } from './utils/safeAccess.js';
 import { spawnEnvironmentObjects, spawnEnemy } from './gameplay/entitySpawners.js';
 import { shootBullet, handleCombatCollisions } from './gameplay/combat.js';
 import { playSound } from './gameplay/audio.js';
+import { manageProceduralGround } from './rendering/environment.js';
 
 /**
  * Controls and plays ambient enemy sounds based on global sound settings
@@ -113,6 +113,9 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTi
         
         // Aim player with mouse
         aimPlayerWithMouse(player, gameState.mouse, camera);
+        
+        // Manage procedural ground generation based on player position
+        gameState.worldData = manageProceduralGround(scene, player.position, gameState.worldData);
         
         // Update health halo based on player health
         if (player.userData.healthHalo) {

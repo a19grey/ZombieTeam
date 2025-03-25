@@ -11,6 +11,7 @@
  */
 
 import * as THREE from 'three';
+import { logger } from '../utils/logger.js';
 
 /**
  * Creates a simple building with windows
@@ -299,4 +300,239 @@ export const createDeadTree = (position) => {
     tree.boundingRadius = 0.8;
     
     return tree;
-}; 
+};
+
+/**
+ * Creates a ground tile with a specified position
+ * @param {Object} position - The position {x, z} to place the ground tile
+ * @param {number} tileSize - Size of the ground tile (default: 100)
+ * @returns {THREE.Mesh} The ground mesh with texture
+ */
+export const createGroundTile = (position, tileSize = 100) => {
+    // Create a repeating texture pattern
+    const textureSize = 10;
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const context = canvas.getContext('2d');
+    
+    // Fill with base color
+    context.fillStyle = '#3a6e3a'; // Dark green base
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Add some texture variation
+    for (let i = 0; i < 1000; i++) {
+        const x = Math.random() * canvas.width;
+        const y = Math.random() * canvas.height;
+        const radius = Math.random() * 3 + 1;
+        const brightness = Math.random() * 20 - 10;
+        
+        // Create a slightly different shade of green
+        const green = Math.floor(110 + brightness);
+        const red = Math.floor(58 + brightness * 0.7);
+        const blue = Math.floor(58 + brightness * 0.5);
+        
+        context.fillStyle = `rgb(${red}, ${green}, ${blue})`;
+        context.beginPath();
+        context.arc(x, y, radius, 0, Math.PI * 2);
+        context.fill();
+    }
+    
+    // Create texture from canvas
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(tileSize / textureSize, tileSize / textureSize);
+    
+    // Create ground with texture
+    const groundGeometry = new THREE.PlaneGeometry(tileSize, tileSize);
+    const groundMaterial = new THREE.MeshStandardMaterial({
+        map: texture,
+        roughness: 0.9,
+        metalness: 0.1
+    });
+    
+    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+    ground.rotation.x = -Math.PI / 2; // Rotate to be horizontal
+    ground.receiveShadow = true;
+    
+    // Position the ground tile
+    ground.position.set(position.x, 0, position.z);
+    
+    // Add a property to identify this as a ground tile
+    ground.isGroundTile = true;
+    ground.tileSize = tileSize;
+    
+    return ground;
+};
+
+/**
+ * Manages procedural ground generation as player moves
+ * @param {THREE.Scene} scene - The Three.js scene
+ * @param {Object} playerPosition - Player's current position {x, z}
+ * @param {Object} worldData - Object containing ground tile tracking data
+ * @returns {Object} Updated worldData object
+ */
+export const manageProceduralGround = (scene, playerPosition, worldData) => {
+    // Initialize worldData if it doesn't exist
+    if (!worldData) {
+        worldData = {
+            groundTiles: [],
+            lastCheckedPosition: { x: 0, z: 0 },
+            tileSize: 100,
+            visibilityRange: 2 // How many tiles ahead/behind to keep visible
+        };
+        
+        // Initialize with a central tile
+        const centralTile = createGroundTile({ x: 0, z: 0 }, worldData.tileSize);
+        scene.add(centralTile);
+        worldData.groundTiles.push({
+            mesh: centralTile,
+            gridPos: { x: 0, z: 0 }
+        });
+        
+        logger.info('terrain', 'Initialized procedural ground system');
+    }
+    
+    // Calculate which grid cell the player is in
+    const gridX = Math.floor(playerPosition.x / worldData.tileSize);
+    const gridZ = Math.floor(playerPosition.z / worldData.tileSize);
+    
+    // If player has moved to a new grid cell or this is first check
+    if (gridX !== worldData.lastCheckedPosition.x || 
+        gridZ !== worldData.lastCheckedPosition.z) {
+        
+        logger.debug('terrain', `Player moved to new grid cell: (${gridX}, ${gridZ})`);
+        
+        // Update the last checked position
+        worldData.lastCheckedPosition = { x: gridX, z: gridZ };
+        
+        // Define the range of grid cells that should be visible
+        const minX = gridX - worldData.visibilityRange;
+        const maxX = gridX + worldData.visibilityRange;
+        const minZ = gridZ - worldData.visibilityRange;
+        const maxZ = gridZ + worldData.visibilityRange;
+        
+        // Generate any missing tiles within the visibility range
+        for (let x = minX; x <= maxX; x++) {
+            for (let z = minZ; z <= maxZ; z++) {
+                // Check if this grid position already has a tile
+                const existingTile = worldData.groundTiles.find(
+                    tile => tile.gridPos.x === x && tile.gridPos.z === z
+                );
+                
+                if (!existingTile) {
+                    // Create a new tile at this grid position
+                    const tilePosition = {
+                        x: x * worldData.tileSize + worldData.tileSize/2,
+                        z: z * worldData.tileSize + worldData.tileSize/2
+                    };
+                    
+                    const newTile = createGroundTile(tilePosition, worldData.tileSize);
+                    scene.add(newTile);
+                    
+                    worldData.groundTiles.push({
+                        mesh: newTile,
+                        gridPos: { x, z }
+                    });
+                    
+                    logger.debug('terrain', `Created new ground tile at grid (${x}, ${z})`);
+                    
+                    // Add random environmental objects to the new tile
+                    addEnvironmentToTile(scene, tilePosition, worldData.tileSize);
+                }
+            }
+        }
+        
+        // Remove tiles that are now too far away
+        for (let i = worldData.groundTiles.length - 1; i >= 0; i--) {
+            const tile = worldData.groundTiles[i];
+            if (tile.gridPos.x < minX - 1 || tile.gridPos.x > maxX + 1 ||
+                tile.gridPos.z < minZ - 1 || tile.gridPos.z > maxZ + 1) {
+                
+                // Remove the tile from the scene
+                scene.remove(tile.mesh);
+                
+                // Dispose of geometries and materials to free memory
+                if (tile.mesh.geometry) tile.mesh.geometry.dispose();
+                if (tile.mesh.material) {
+                    if (Array.isArray(tile.mesh.material)) {
+                        tile.mesh.material.forEach(material => material.dispose());
+                    } else {
+                        tile.mesh.material.dispose();
+                    }
+                }
+                
+                // Remove from the array
+                worldData.groundTiles.splice(i, 1);
+                
+                logger.debug('terrain', `Removed distant ground tile at grid (${tile.gridPos.x}, ${tile.gridPos.z})`);
+            }
+        }
+    }
+    
+    return worldData;
+};
+
+/**
+ * Adds random environmental objects to a newly created ground tile
+ * @param {THREE.Scene} scene - The Three.js scene
+ * @param {Object} tilePosition - Center position of the tile {x, z}
+ * @param {number} tileSize - Size of the ground tile
+ */
+function addEnvironmentToTile(scene, tilePosition, tileSize) {
+    // Define object counts
+    const numBuildings = Math.floor(Math.random() * 3); // 0-2 buildings
+    const numRocks = Math.floor(Math.random() * 6) + 2; // 2-7 rocks
+    const numTrees = Math.floor(Math.random() * 5) + 1; // 1-5 trees
+    
+    // Calculate bounds within the tile (with some margin from edges)
+    const margin = 5;
+    const minX = tilePosition.x - tileSize/2 + margin;
+    const maxX = tilePosition.x + tileSize/2 - margin;
+    const minZ = tilePosition.z - tileSize/2 + margin;
+    const maxZ = tilePosition.z + tileSize/2 - margin;
+    
+    // Add buildings
+    for (let i = 0; i < numBuildings; i++) {
+        const position = {
+            x: minX + Math.random() * (maxX - minX),
+            z: minZ + Math.random() * (maxZ - minZ)
+        };
+        
+        // Vary building size
+        const width = 4 + Math.random() * 4; // 4-8
+        const height = 6 + Math.random() * 6; // 6-12
+        const depth = 4 + Math.random() * 4; // 4-8
+        
+        const building = createBuilding(position, width, height, depth);
+        scene.add(building);
+    }
+    
+    // Add rocks
+    for (let i = 0; i < numRocks; i++) {
+        const position = {
+            x: minX + Math.random() * (maxX - minX),
+            z: minZ + Math.random() * (maxZ - minZ)
+        };
+        
+        // Vary rock size
+        const size = 0.5 + Math.random() * 1.5; // 0.5-2.0
+        
+        const rock = createRock(position, size);
+        scene.add(rock);
+    }
+    
+    // Add trees
+    for (let i = 0; i < numTrees; i++) {
+        const position = {
+            x: minX + Math.random() * (maxX - minX),
+            z: minZ + Math.random() * (maxZ - minZ)
+        };
+        
+        const tree = createDeadTree(position);
+        scene.add(tree);
+    }
+    
+    logger.debug('terrain', `Added environmental objects to tile at (${tilePosition.x}, ${tilePosition.z}): ${numBuildings} buildings, ${numRocks} rocks, ${numTrees} trees`);
+} 
