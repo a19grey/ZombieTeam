@@ -127,11 +127,11 @@ const shootBullet = (scene, player, gameState) => {
             direction,
             gameState.player.damage * 2, // Double damage
             3.0, // Very fast
-            0x00ffff // Cyan color for laser
+            0x00ff00 // Bright green color for laser
         );
         
         // Use safeCall instead of direct access to avoid null errors
-        safeCall(laserBullet, 'mesh.scale.set', [0.05, 0.05, 3.0]);
+        safeCall(laserBullet, 'mesh.scale.set', [.5, .5, 5.0]);
         
         if (laserBullet.mesh) {
             scene.add(laserBullet.mesh);
@@ -154,7 +154,7 @@ const shootBullet = (scene, player, gameState) => {
             direction,
             0, // No direct damage, damage is from explosion
             0.8, // Slower speed
-            0x228b22 // Green color
+            0x9b111e // Ruby red color
         );
         
         // Use safeCall instead of direct access to avoid null errors

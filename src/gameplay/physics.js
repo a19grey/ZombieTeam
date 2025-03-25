@@ -625,45 +625,27 @@ export const applyPowerupEffect = (gameState, position, direction, scene) => {
     }
     logger.info('powerup', 'L: Applying powerup effect ', { powerupType: gameState.player.activePowerup });
    
-    // Create a bullet directly with the correct parameters
-    const createBulletWithDirection = (pos, dir, color = 0xffff00, damage = 25, speed = 1.0) => {
-        // Create bullet geometry
-        const bulletGeometry = new THREE.SphereGeometry(0.2, 8, 8);
-        const bulletMaterial = new THREE.MeshBasicMaterial({ color: color });
-        const bullet = new THREE.Mesh(bulletGeometry, bulletMaterial);
-        
-        // Set initial position
-        bullet.position.copy(pos);
-        
-        // Store direction and other properties
-        bullet.userData = {
-            direction: dir.normalize(),
-            speed: speed,
-            distance: 0,
-            maxDistance: 50,
-            damage: damage
-        };
-        
-        return bullet;
-    };
-    
     // Check if there's an active powerup
     const powerupType = gameState.player.activePowerup;
     
     if (!powerupType) {
         // No active powerup, create a normal bullet
-        const bullet = createBulletWithDirection(position, direction);
+        const bullet = createBullet(position, direction);
         gameState.bullets.push(bullet);
-        scene.add(bullet);
+        if (bullet.mesh) {
+            scene.add(bullet.mesh);
+        }
         return;
     }
     
     switch (powerupType) {
         case 'rapidFire':
             // Create a single faster bullet with standard damage
-            const rapidBullet = createBulletWithDirection(position, direction.clone(), 0xffa500, 25, 1.5);
+            const rapidBullet = createBullet(position, direction, 25, 1.5, 0xffa500);
             gameState.bullets.push(rapidBullet);
-            scene.add(rapidBullet);
+            if (rapidBullet.mesh) {
+                scene.add(rapidBullet.mesh);
+            }
             
             logger.debug('Rapid fire bullet fired');
             break;
@@ -682,9 +664,11 @@ export const applyPowerupEffect = (gameState, position, direction, scene) => {
                 pelletDir.applyAxisAngle(new THREE.Vector3(0, 1, 0), angle);
                 
                 // Create bullet with reduced damage
-                const pellet = createBulletWithDirection(position, pelletDir, 0x4682b4, 15, 1.0);
+                const pellet = createBullet(position, pelletDir, 15, 1.0, 0x4682b4);
                 gameState.bullets.push(pellet);
-                scene.add(pellet);
+                if (pellet.mesh) {
+                    scene.add(pellet.mesh);
+                }
             }
             
             logger.debug('Shotgun blast fired');
@@ -692,13 +676,17 @@ export const applyPowerupEffect = (gameState, position, direction, scene) => {
             
         case 'laserShot':
             // Create a laser beam (long, thin bullet with high damage)
-            const laserBullet = createBulletWithDirection(position, direction.clone(), 0x00ffff, 50, 2.0);
+            const laserBullet = createBullet(position, direction, 50, 2.0, 0x00ffff);
             
             // Make laser longer and thinner
-            laserBullet.scale.set(0.05, 0.05, 3.0);
+            if (laserBullet.mesh) {
+                laserBullet.mesh.scale.set(0.05, 0.05, 3.0);
+            }
             
             gameState.bullets.push(laserBullet);
-            scene.add(laserBullet);
+            if (laserBullet.mesh) {
+                scene.add(laserBullet.mesh);
+            }
             
             // Add laser light effect
             const laserLight = new THREE.PointLight(0x00ffff, 1, 5);
@@ -715,17 +703,21 @@ export const applyPowerupEffect = (gameState, position, direction, scene) => {
             
         case 'grenadeLauncher':
             // Create a grenade (slower moving bullet that explodes on impact)
-            const grenadeBullet = createBulletWithDirection(position, direction.clone(), 0x228b22, 0, 0.8);
+            const grenadeBullet = createBullet(position, direction, 0, 0.8, 0x228b22);
             
             // Make grenade larger and spherical
-            grenadeBullet.scale.set(0.3, 0.3, 0.3);
+            if (grenadeBullet.mesh) {
+                grenadeBullet.mesh.scale.set(0.3, 0.3, 0.3);
+            }
             
             // Add grenade properties
-            grenadeBullet.userData.isGrenade = true;
-            grenadeBullet.userData.smokeTrail = [];
+            grenadeBullet.isGrenade = true;
+            grenadeBullet.smokeTrail = [];
             
             gameState.bullets.push(grenadeBullet);
-            scene.add(grenadeBullet);
+            if (grenadeBullet.mesh) {
+                scene.add(grenadeBullet.mesh);
+            }
             
             logger.debug('Grenade launched');
             break;
@@ -909,9 +901,11 @@ export const applyPowerupEffect = (gameState, position, direction, scene) => {
             
         default:
             // Unknown powerup, create a normal bullet
-            const defaultBullet = createBulletWithDirection(position, direction);
+            const defaultBullet = createBullet(position, direction);
             gameState.bullets.push(defaultBullet);
-            scene.add(defaultBullet);
+            if (defaultBullet.mesh) {
+                scene.add(defaultBullet.mesh);
+            }
             break;
     }
 };
