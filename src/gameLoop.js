@@ -320,6 +320,9 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTi
                     scene.remove(zombie.mesh);
                     gameState.zombies.splice(i, 1);
                     
+                    // Increment kill counter for explosion
+                    gameState.stats.zombiesKilled++;
+                    
                     // Add points for successful explosion
                     gameState.score += 25;
                 }
@@ -679,6 +682,25 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTi
         // Update particles from dismemberment
         if (gameState.dismembermentParticles && gameState.dismembermentParticles.length > 0) {
             updateParticleEffects(gameState.dismembermentParticles, scene, delta);
+        }
+        
+        // Check if there are zombies that are far from the player and should be removed
+        // This helps performance by not tracking zombies that are too far away
+        for (let i = gameState.zombies.length - 1; i >= 0; i--) {
+            const zombie = gameState.zombies[i];
+            if (!zombie) continue;
+            
+            const dist = Math.hypot(
+                player.position.x - zombie.mesh.position.x,
+                player.position.z - zombie.mesh.position.z
+            );
+            
+            // If zombie is very far behind the player (150+ units), remove it
+            if (dist > 150 && zombie.mesh.position.z < player.position.z) {
+                scene.remove(zombie.mesh);
+                gameState.zombies.splice(i, 1);
+                // Note: Not counting as kill since the zombie wasn't actually killed
+            }
         }
         
         // Render scene with error handling

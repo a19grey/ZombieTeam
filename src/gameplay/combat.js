@@ -431,6 +431,9 @@ const handleCombatCollisions = (scene, player, gameState, delta) => {
                 
                 gameState.score += pointsAwarded;
                 
+                // Increment kill counter
+                gameState.stats.zombiesKilled++;
+                
                 // Remove zombie from scene
                 scene.remove(zombie.mesh);
                 

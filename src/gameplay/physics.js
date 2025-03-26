@@ -516,6 +516,9 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
                         // Remove zombie from array
                         zombies.splice(j, 1);
                         
+                        // Increment zombie kill counter
+                        gameState.stats.zombiesKilled++;
+                        
                         // Award EXP to player
                         gameState.player.exp += 10;
                     }

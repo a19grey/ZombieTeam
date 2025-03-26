@@ -135,6 +135,12 @@ export function initializeGame(gameState) {
     // Store player object in gameState for access by other functions
     gameState.playerObject = player;
 
+    // Initialize position tracking for distance calculation
+    if (gameState.initPlayerPositionTracking) {
+        gameState.initPlayerPositionTracking(player.position);
+        logger.info('stats', 'Initialized player position tracking for game statistics');
+    }
+
     // Add weapon to player
     const playerWeapon = createPlayerWeapon();
     player.add(playerWeapon);

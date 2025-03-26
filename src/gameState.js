@@ -45,6 +45,12 @@ const gameState = {
             zombieKing: 0.15         // 15% chance for zombie kings
         },
         maxZombieSoundsPerInterval: 1 // Maximum number of zombie sounds per interval
+    },
+    // Game statistics for end-game summary
+    stats: {
+        startTime: Date.now(),       // When the game started
+        zombiesKilled: 0,            // Total zombies killed
+        distanceTraveled: 0          // Distance traveled by player (calculated at game over)
     }
 };
 
@@ -80,6 +86,20 @@ const handleGameOver = () => {
     
     gameState.gameOver = true;
     
+    // Calculate final stats
+    const timePlayedMs = Date.now() - gameState.stats.startTime;
+    const timePlayedSeconds = Math.floor(timePlayedMs / 1000);
+    const minutes = Math.floor(timePlayedSeconds / 60);
+    const seconds = timePlayedSeconds % 60;
+    const formattedTime = `${minutes}m ${seconds}s`;
+    
+    // Calculate distance traveled as direct distance from origin
+    if (gameState.playerObject) {
+        const pos = gameState.playerObject.position;
+        const distanceFromOrigin = Math.sqrt(pos.x * pos.x + pos.z * pos.z);
+        gameState.stats.distanceTraveled = distanceFromOrigin;
+    }
+    
     // Display game over message
     const gameOverDiv = document.createElement('div');
     gameOverDiv.style.position = 'absolute';
@@ -91,10 +111,21 @@ const handleGameOver = () => {
     gameOverDiv.style.fontWeight = 'bold';
     gameOverDiv.style.textAlign = 'center';
     gameOverDiv.style.textShadow = '2px 2px 4px #000000';
+    gameOverDiv.style.padding = '30px';
+    gameOverDiv.style.borderRadius = '15px';
+    gameOverDiv.style.backgroundColor = 'rgba(50, 50, 50, 0.4)';
+    gameOverDiv.style.boxShadow = '0 0 20px rgba(0, 0, 0, 0.5)';
+    gameOverDiv.style.width = '80%';
+    gameOverDiv.style.maxWidth = '600px';
     gameOverDiv.innerHTML = `
         GAME OVER<br>
         ${gameState.player.name} has fallen!<br>
-        Score: ${gameState.player.exp}<br><br>
+        Score: ${gameState.player.exp}<br>
+        <div style="font-size: 28px; margin-top: 15px; color: #ffffff; line-height: 1.4;">
+            Time Survived: ${formattedTime}<br>
+            Zombies Killed: ${gameState.stats.zombiesKilled}<br>
+            Distance Traveled: ${Math.round(gameState.stats.distanceTraveled)} meters
+        </div><br>
         <span style="font-size: 24px">Press R to restart</span>
     `;
     
@@ -321,5 +352,18 @@ const handleGameOver = () => {
 
 // Assign the handleGameOver function to gameState
 gameState.handleGameOver = handleGameOver;
+
+/**
+ * Initializes player position tracking for distance calculation
+ * @param {Object} position - Object containing x, y, z coordinates
+ */
+const initPlayerPositionTracking = (position) => {
+    // No longer needed with simplified distance calculation
+    // but keeping the empty function to avoid breaking existing code
+    logger.debug('stats', 'Using simplified distance calculation');
+};
+
+// Add the functions to gameState for access
+gameState.initPlayerPositionTracking = initPlayerPositionTracking;
 
 export { gameState, handleGameOver, setGlobalBaseSpeed }; 
