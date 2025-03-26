@@ -60,6 +60,9 @@ const DEBUG_MODE = window.NODE_ENV === 'development';
 logger.verbose('MAIN.JS: NODE_ENV = ', window.NODE_ENV);
 logger.verbose('MAIN.JS: DEBUG_MODE =', DEBUG_MODE);
 
+// Hard-coded flag to control WebGL debugging - must be manually set to true when needed
+const RENDERER_DEBUG_ON = false;
+
 if (DEBUG_MODE) {
     logger.setLevel(logger.levels.DEBUG);
     logger.info('Debug mode enabled - verbose logging active');
@@ -557,9 +560,15 @@ async function startGame() {
        }
    }
 
-   // Run WebGL diagnostics
-   const webglDiagnostics = debugWebGL();
-   logger.info('WebGL diagnostics:', webglDiagnostics);
+   // Run WebGL diagnostics only if explicitly enabled via the hard-coded flag
+   if (RENDERER_DEBUG_ON) {
+       logger.info('Running WebGL diagnostics due to RENDERER_DEBUG_ON flag');
+       const webglDiagnostics = debugWebGL();
+       logger.info('WebGL diagnostics:', webglDiagnostics);
+   } else {
+    renderer.debug.checkShaderErrors = false
+    logger.info('renderer', 'WebGL diagnostics disabled by default');
+   }
 
    // Spawn initial environment objects
    spawnEnvironmentObjects(scene, gameState);

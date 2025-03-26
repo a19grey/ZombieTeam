@@ -30,34 +30,97 @@ export const createPlayer = () => {
     // Create health halo (annulus/ring) above the player's head
     const haloRadius = 0.4; // Size of the halo
     const haloTubeWidth = 0.08; // Thickness of the ring
+    
+    // Pre-create materials for different health levels to avoid repeated material creation
+    const healthMaterials = {
+        critical: new THREE.MeshBasicMaterial({  // 0-20%
+            color: 0xff0000, // Red
+            transparent: true,
+            opacity: 0.8,
+            side: THREE.DoubleSide
+        }),
+        low: new THREE.MeshBasicMaterial({       // 20-40%
+            color: 0xff8800, // Orange
+            transparent: true,
+            opacity: 0.8,
+            side: THREE.DoubleSide
+        }),
+        medium: new THREE.MeshBasicMaterial({    // 40-60%
+            color: 0xffff00, // Yellow
+            transparent: true,
+            opacity: 0.8,
+            side: THREE.DoubleSide
+        }),
+        high: new THREE.MeshBasicMaterial({      // 60-80%
+            color: 0x00ff00, // Green
+            transparent: true,
+            opacity: 0.8,
+            side: THREE.DoubleSide
+        }),
+        full: new THREE.MeshBasicMaterial({      // 80-100%
+            color: 0xffffff, // White
+            transparent: true,
+            opacity: 0.8,
+            side: THREE.DoubleSide
+        })
+    };
+    
+    // Pre-create glow materials with the same colors but lower opacity
+    const glowMaterials = {
+        critical: new THREE.MeshBasicMaterial({
+            color: 0xff0000,
+            transparent: true,
+            opacity: 0.3,
+            side: THREE.DoubleSide
+        }),
+        low: new THREE.MeshBasicMaterial({
+            color: 0xff8800,
+            transparent: true,
+            opacity: 0.3,
+            side: THREE.DoubleSide
+        }),
+        medium: new THREE.MeshBasicMaterial({
+            color: 0xffff00,
+            transparent: true,
+            opacity: 0.3,
+            side: THREE.DoubleSide
+        }),
+        high: new THREE.MeshBasicMaterial({
+            color: 0x00ff00,
+            transparent: true,
+            opacity: 0.3,
+            side: THREE.DoubleSide
+        }),
+        full: new THREE.MeshBasicMaterial({
+            color: 0xffffff,
+            transparent: true,
+            opacity: 0.3,
+            side: THREE.DoubleSide
+        })
+    };
+    
+    // Create full circle geometry for the base state
     const haloGeometry = new THREE.RingGeometry(haloRadius - haloTubeWidth, haloRadius, 32);
-    const haloMaterial = new THREE.MeshBasicMaterial({
-        color: 0xf0f0f0, // Soft white glow
-        transparent: true,
-        opacity: 0.8,
-        side: THREE.DoubleSide
-    });
-    const healthHalo = new THREE.Mesh(haloGeometry, haloMaterial);
+    const healthHalo = new THREE.Mesh(haloGeometry, healthMaterials.full);
     healthHalo.rotation.x = -Math.PI / 2; // Make it horizontal
     healthHalo.position.y = 1.9; // Position above the head
     player.add(healthHalo);
     
     // Add a subtle glow effect to the halo
     const glowGeometry = new THREE.RingGeometry(haloRadius - haloTubeWidth - 0.02, haloRadius + 0.02, 32);
-    const glowMaterial = new THREE.MeshBasicMaterial({
-        color: 0xf0f0f0,
-        transparent: true,
-        opacity: 0.3,
-        side: THREE.DoubleSide
-    });
-    const glowHalo = new THREE.Mesh(glowGeometry, glowMaterial);
+    const glowHalo = new THREE.Mesh(glowGeometry, glowMaterials.full);
     glowHalo.rotation.x = -Math.PI / 2;
     glowHalo.position.y = 1.9;
     player.add(glowHalo);
     
-    // Store reference to the health halo for updating
+    // Store reference to the health halo for updating (including materials)
     player.userData.healthHalo = healthHalo;
     player.userData.glowHalo = glowHalo;
+    player.userData.healthMaterials = healthMaterials;
+    player.userData.glowMaterials = glowMaterials;
+    player.userData.haloRadius = haloRadius;
+    player.userData.haloTubeWidth = haloTubeWidth;
+    player.userData.lastHealthPercent = 1.0; // Store last health percentage to avoid unnecessary updates
     
     // Body (rectangular prism)
     const bodyGeometry = new THREE.BoxGeometry(0.5, 0.75, 0.25);

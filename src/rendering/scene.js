@@ -14,6 +14,9 @@
 import * as THREE from 'three';
 import { logger } from '../utils/logger.js';
 
+// Control flag for renderer debugging - set manually when needed
+export const RENDERER_DEBUG_ON = false;
+
 /**
  * Creates a new Three.js scene
  * @returns {THREE.Scene} The created scene
@@ -76,13 +79,20 @@ export const createRenderer = () => {
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         
+        // Disable shader error checking to improve performance
+        if (renderer.debug) {
+            renderer.debug.checkShaderErrors = RENDERER_DEBUG_ON;
+            logger.info('renderer', 'Renderer debug mode:', RENDERER_DEBUG_ON ? 'ENABLED' : 'DISABLED');
+        }
+        
         // Append to document body
         document.body.appendChild(renderer.domElement);
         
         logger.debug('Renderer created', {
             size: { width: window.innerWidth, height: window.innerHeight },
             shadowMapEnabled: true,
-            shadowMapType: 'PCFSoftShadowMap'
+            shadowMapType: 'PCFSoftShadowMap',
+            checkShaderErrors: RENDERER_DEBUG_ON
         });
         
         return renderer;

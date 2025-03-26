@@ -121,88 +121,74 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTi
         if (player.userData.healthHalo) {
             // Calculate the angle based on health percentage (full circle = 2π radians)
             const healthPercent = Math.max(0, Math.min(100, gameState.player.health)) / 100;
-            const angle = healthPercent * Math.PI * 2;
             
-            // Replace the current halo with an updated one that shows the correct health
-            const haloRadius = 0.4;
-            const haloTubeWidth = 0.08;
-            
-            // Remove the old halo
-            const oldHalo = player.userData.healthHalo;
-            player.remove(oldHalo);
-            
-            // Remove the old glow halo if it exists
-            if (player.userData.glowHalo) {
-                const oldGlow = player.userData.glowHalo;
-                player.remove(oldGlow);
+            // Only update if health percentage has changed from last frame
+            if (healthPercent !== player.userData.lastHealthPercent) {
+                const angle = healthPercent * Math.PI * 2;
+                
+                // Get stored values from player userData
+                const haloRadius = player.userData.haloRadius || 0.4;
+                const haloTubeWidth = player.userData.haloTubeWidth || 0.08;
+                
+                // Determine which material to use based on health percentage
+                let materialKey;
+                if (healthPercent > 0.8) {
+                    materialKey = 'full';
+                } else if (healthPercent > 0.6) {
+                    materialKey = 'high';
+                } else if (healthPercent > 0.4) {
+                    materialKey = 'medium';
+                } else if (healthPercent > 0.2) {
+                    materialKey = 'low';
+                } else {
+                    materialKey = 'critical';
+                }
+                
+                // Get the health halo and glow halo references
+                const healthHalo = player.userData.healthHalo;
+                const glowHalo = player.userData.glowHalo;
+                
+                // Get the materials without recreating them
+                const healthMaterials = player.userData.healthMaterials;
+                const glowMaterials = player.userData.glowMaterials;
+                
+                if (healthMaterials && glowMaterials) {
+                    // Update materials
+                    healthHalo.material = healthMaterials[materialKey];
+                    glowHalo.material = glowMaterials[materialKey];
+                    
+                    // Update geometries (dispose old ones first)
+                    if (healthHalo.geometry) healthHalo.geometry.dispose();
+                    if (glowHalo.geometry) glowHalo.geometry.dispose();
+                    
+                    // Create new geometries with correct arc lengths
+                    healthHalo.geometry = new THREE.RingGeometry(
+                        haloRadius - haloTubeWidth, 
+                        haloRadius, 
+                        32, 
+                        1, 
+                        0, 
+                        angle
+                    );
+                    
+                    glowHalo.geometry = new THREE.RingGeometry(
+                        haloRadius - haloTubeWidth - 0.02, 
+                        haloRadius + 0.02, 
+                        32, 
+                        1, 
+                        0, 
+                        angle
+                    );
+                    
+                    // Store the current health percent for comparison next frame
+                    player.userData.lastHealthPercent = healthPercent;
+                }
             }
-            
-            // Create a new halo with the correct arc length
-            const haloGeometry = new THREE.RingGeometry(
-                haloRadius - haloTubeWidth, 
-                haloRadius, 
-                32, 
-                1, 
-                0, 
-                angle
-            );
-            
-            // Change color based on health - improved gradient
-            let haloColor;
-            if (healthPercent > 0.8) {
-                haloColor = 0xffffff; // White for 80-100%
-            } else if (healthPercent > 0.6) {
-                haloColor = 0x00ff00; // Green for 60-80%
-            } else if (healthPercent > 0.4) {
-                haloColor = 0xffff00; // Yellow for 40-60%
-            } else if (healthPercent > 0.2) {
-                haloColor = 0xff8800; // Orange for 20-40%
-            } else {
-                haloColor = 0xff0000; // Red for 0-20%
-            }
-            
-            const haloMaterial = new THREE.MeshBasicMaterial({
-                color: haloColor,
-                transparent: true,
-                opacity: 0.8,
-                side: THREE.DoubleSide
-            });
-            
-            const newHalo = new THREE.Mesh(haloGeometry, haloMaterial);
-            newHalo.rotation.x = -Math.PI / 2; // Make it horizontal
-            newHalo.position.y = 1.9; // Position above the head
-            player.add(newHalo);
-            
-            // Create a new glow halo with the correct arc length
-            const glowGeometry = new THREE.RingGeometry(
-                haloRadius - haloTubeWidth - 0.02, 
-                haloRadius + 0.02, 
-                32, 
-                1, 
-                0, 
-                angle
-            );
-            
-            const glowMaterial = new THREE.MeshBasicMaterial({
-                color: haloColor,
-                transparent: true,
-                opacity: 0.3,
-                side: THREE.DoubleSide
-            });
-            
-            const newGlow = new THREE.Mesh(glowGeometry, glowMaterial);
-            newGlow.rotation.x = -Math.PI / 2;
-            newGlow.position.y = 1.9;
-            player.add(newGlow);
-            
-            // Update the references
-            player.userData.healthHalo = newHalo;
-            player.userData.glowHalo = newGlow;
             
             // Add a subtle pulsing effect to the glow when health is low
-            if (healthPercent < 0.3) {
+            if (healthPercent < 0.3 && player.userData.glowHalo) {
                 const pulseScale = 1 + 0.1 * Math.sin(currentTime * 0.01);
-                newGlow.scale.set(pulseScale, pulseScale, 1);
+                player.userData.glowHalo.scale.set(pulseScale, pulseScale, 1);
             }
         }
         

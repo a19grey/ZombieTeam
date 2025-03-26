@@ -179,6 +179,16 @@ export function initializeGame(gameState) {
     // Initialize UI
     initUI(gameState);
 
+    // Precompile all materials and shaders
+    try {
+        logger.info('Precompiling scene materials and shaders...');
+        renderer.compile(scene, camera);
+        logger.info('Scene precompilation complete');
+    } catch (compileError) {
+        logger.warn('Scene precompilation failed:', compileError);
+        // Continue even if precompilation fails
+    }
+
     // Add audio debug button in development mode
     if (gameState.debug.enabled) {
         const audioDebugButton = document.createElement('button');
