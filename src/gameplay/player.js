@@ -249,26 +249,25 @@ export const createPlayerWeapon = () => {
  * @param {Object} keys - Object containing the state of keyboard keys
  * @param {number} baseSpeed - Base movement speed
  * @param {Object} mouse - Mouse position for aiming
+ * @param {number} delta - Time delta between frames for frame-rate independent movement
  */
-export const handlePlayerMovement = (player, keys, baseSpeed, mouse) => {
+export const handlePlayerMovement = (player, keys, baseSpeed, mouse, delta = 1/60) => {
     
     // Use the baseSpeed parameter instead of hardcoded values
     // Apply slight modifiers for different directions
     const forwardSpeed = baseSpeed * 1.3;
-    const backwardSpeed = baseSpeed * 3;
+    const backwardSpeed = baseSpeed * 1.03;
     const sideSpeed = (forwardSpeed + backwardSpeed) / 2;
     
-    logger.debug('speed', `A: Player movement speeds - base: ${baseSpeed}, forward: ${forwardSpeed}, backward: ${backwardSpeed}, side: ${sideSpeed}`);
-    console.log(`B: Player movement speeds - base: ${baseSpeed}, forward: ${forwardSpeed}, backward: ${backwardSpeed}, side: ${sideSpeed}`);
-    
+
     // Check if joystick data is available in gameState for mobile devices
     const joystickData = window.gameState?.controls?.leftJoystickData;
     const isMobile = window.gameState?.controls?.isMobileDevice;
     const isTouch = window.gameState?.controls?.isTouchDevice;
-    logger.debug('speed', `Player movement speeds - base: ${baseSpeed}, forward: ${forwardSpeed}, backward: ${backwardSpeed}, side: ${sideSpeed}`);
+    
     // Use joystick input on mobile/touch devices, keyboard input on desktop
     let moveX, moveZ;
-    logger.debug('speed', `Player movement speeds - base: ${baseSpeed}, forward: ${forwardSpeed}, backward: ${backwardSpeed}, side: ${sideSpeed}`);
+    
     if ((isMobile || isTouch) && joystickData) {
         // Use joystick data for movement on mobile
         // Joystick x is side-to-side, y is forward/backward (already inverted in the joystick handler)
@@ -293,7 +292,7 @@ export const handlePlayerMovement = (player, keys, baseSpeed, mouse) => {
     }
     
     
-    logger.debug('speed', `Player movement speeds - base: ${baseSpeed}, forward: ${forwardSpeed}, backward: ${backwardSpeed}, side: ${sideSpeed}`);
+    
     // Log player speed values occasionally to avoid console spam
     // Use a static variable to track last log time
     const currentTime = Date.now();
@@ -310,13 +309,15 @@ export const handlePlayerMovement = (player, keys, baseSpeed, mouse) => {
     
     // Only apply movement if there actually is movement input
     if (moveX !== 0 || moveZ !== 0) {
+        // Apply delta time for consistent movement speeds regardless of frame rate
+        // Multiply by 60 to normalize for 60fps (same as zombie movement)
         if (moveX !== 0 && moveZ !== 0) {
             const normalizer = 1 / Math.sqrt(2);
-            newX += moveX * speedX * normalizer;
-            newZ += moveZ * speedZ * normalizer;
+            newX += moveX * speedX * normalizer * delta * 60;
+            newZ += moveZ * speedZ * normalizer * delta * 60;
         } else {
-            newX += moveX * speedX;
-            newZ += moveZ * speedZ;
+            newX += moveX * speedX * delta * 60;
+            newZ += moveZ * speedZ * delta * 60;
         }
     }
     
@@ -340,7 +341,8 @@ export const handlePlayerMovement = (player, keys, baseSpeed, mouse) => {
                     
                     // Try moving only in X direction
                     if (Math.abs(moveX) > 0) {
-                        const testX = player.position.x + moveX * speedX;
+                        // Apply delta time to test movements as well
+                        const testX = player.position.x + moveX * speedX * delta * 60;
                         const testDx = testX - object.position.x;
                         const testDistanceX = Math.sqrt(testDx * testDx + dz * dz);
                         
@@ -353,7 +355,8 @@ export const handlePlayerMovement = (player, keys, baseSpeed, mouse) => {
                     
                     // Try moving only in Z direction
                     if (!canMove && Math.abs(moveZ) > 0) {
-                        const testZ = player.position.z + moveZ * speedZ;
+                        // Apply delta time to test movements as well
+                        const testZ = player.position.z + moveZ * speedZ * delta * 60;
                         const testDz = testZ - object.position.z;
                         const testDistanceZ = Math.sqrt(dx * dx + testDz * testDz);
                         

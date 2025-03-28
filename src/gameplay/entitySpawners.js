@@ -44,9 +44,9 @@ const spawnEnvironmentObjects = (scene, gameState) => {
         
         if (objectType < 0.4) {
             // Create building with random size
-            const width = 4 + Math.random() * 6;
-            const height = 6 + Math.random() * 10;
-            const depth = 4 + Math.random() * 6;
+            const width = 2 + Math.random() * 3;
+            const height = 3 + Math.random() * 5;
+            const depth = 2 + Math.random() * 3;
             environmentObject = createBuilding(position, width, height, depth);
         } else if (objectType < 0.7) {
             // Create rock with random size
@@ -74,8 +74,7 @@ const enemyRegistry = [
         chance: 45,  // Reduced from 60%
         createFn: createbaseZombie,
         speedVariation: 0.04,  // +/- 0.02 variation
-        playSpawnSfx: false,
-        healthOverride: 50  // Optional override if needed
+        playSpawnSfx: false
     },
     {
         type: 'skeletonArcher',

@@ -110,7 +110,7 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, innerCirc
         }
         
         // Update player position based on input with direction-based speeds
-        handlePlayerMovement(player, gameState.keys, gameState.baseSpeed);
+        handlePlayerMovement(player, gameState.keys, gameState.baseSpeed, gameState.mouse, delta);
         
         // Aim player with mouse
         aimPlayerWithMouse(player, gameState.mouse, camera);
