@@ -4,7 +4,8 @@ import { gameState, handleGameOver } from './gameState.js';
 
 // import { createScene, createCamera, createRenderer, createLighting, createGround } from './rendering/scene.js';
 import { createPlayer, handlePlayerMovement, createPlayerWeapon, aimPlayerWithMouse } from './gameplay/player.js';
-import { updateZombies, createExplosion } from './gameplay/zombie.js';
+import { updateZombies } from './gameplay/zombie.js';
+import { createExplosion } from './gameplay/zombieUtils.js';
 import { createbaseZombie,createExploder,createSkeletonArcher,createZombieKing,createPlagueTitan,createNecrofiend,createRotBehemoth,createSkittercrab } from './enemies/enemyindex.js';
 import { updateUI, showMessage, initUI } from './ui/ui.js';
 import { handleCollisions, checkCollision, applyPowerupEffect } from './gameplay/physics.js';
@@ -18,7 +19,7 @@ import { shouldSpawnPowerup, spawnPowerupBehindPlayer, cleanupOldPowerups,
 import { debugWebGL, fixWebGLContext, monitorRenderingPerformance, createFallbackCanvas } from './debug.js';
 import { safeCall } from './utils/safeAccess.js';
 import { spawnEnvironmentObjects, spawnEnemy } from './gameplay/entitySpawners.js';
-import { shootBullet, handleCombatCollisions } from './gameplay/combat.js';
+import { shootBullet, handleCombatCollisions, initCombatSystem } from './gameplay/combat.js';
 import { playSound } from './gameplay/audio.js';
 import { manageProceduralGround } from './rendering/environment.js';
 
@@ -95,8 +96,8 @@ function updateEnemySounds(zombies, currentTime, gameState) {
 }
 
 // Animation loop with error handling
-function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTimerGeometry, innerCircle, powerupTimerMaterial, innerCircleGeometry, innerCircleMaterial) {
-    requestAnimationFrame(() => animate(scene, camera, renderer, player, clock, powerupTimer, powerupTimerGeometry, innerCircle, powerupTimerMaterial, innerCircleGeometry, innerCircleMaterial));
+function animate(scene, camera, renderer, player, clock, powerupTimer, innerCircle) {
+    requestAnimationFrame(() => animate(scene, camera, renderer, player, clock, powerupTimer, innerCircle));
     
     try {
         const delta = clock.getDelta();
@@ -382,7 +383,7 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTi
                 zombie.mesh.summonCooldown = 10; // 10 seconds between summons
                 
                 // Summon 2-3 regular zombies around the king
-                const numMinions = 2 + Math.floor(Math.random() * 2);
+                const numMinions = 2 + Math.random() * 2;
                 
                 for (let j = 0; j < numMinions; j++) {
                     const angle = Math.random() * Math.PI * 2;
@@ -607,47 +608,43 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTi
                 
                 logger.info('powerup', `Showing powerup timer for ${gameState.player.activePowerup}`);
                 
-                // Set color based on powerup type
-                let timerColor, innerColor;
-                if (gameState.player.activePowerup === 'rapidFire') {
-                    timerColor = 0xffa500; // Orange
-                    innerColor = 0xffcc00; // Light orange
-                } else if (gameState.player.activePowerup === 'shotgunBlast') {
-                    timerColor = 0x4682b4; // Steel blue
-                    innerColor = 0x87ceeb; // Light blue
-                } else if (gameState.player.activePowerup === 'explosion') {
-                    timerColor = 0xff0000; // Red
-                    innerColor = 0xff6666; // Light red
-                } else if (gameState.player.activePowerup === 'laserShot') {
-                    timerColor = 0x00ffff; // Cyan
-                    innerColor = 0x99ffff; // Light cyan
-                } else if (gameState.player.activePowerup === 'grenadeLauncher') {
-                    timerColor = 0x228b22; // Forest green
-                    innerColor = 0x32cd32; // Lime green
-                }
+                // Access predefined materials for this powerup type
+                const powerupType = gameState.player.activePowerup;
                 
-                powerupTimerMaterial.color.set(timerColor);
-                innerCircleMaterial.color.set(innerColor);
+                // Get material for this powerup type or use default if not found
+                const timerMaterial = powerupTimer.userData.materials && 
+                                     powerupTimer.userData.materials[powerupType] ? 
+                                     powerupTimer.userData.materials[powerupType] : 
+                                     powerupTimer.userData.materials.default;
+                
+                const innerMaterial = innerCircle.userData.materials && 
+                                     innerCircle.userData.materials[powerupType] ? 
+                                     innerCircle.userData.materials[powerupType] : 
+                                     innerCircle.userData.materials.default;
+                
+                // Use the predefined materials instead of changing colors
+                powerupTimer.material = timerMaterial;
+                innerCircle.material = innerMaterial;
             }
             
-            // Calculate scale based on remaining duration (starts at 2, shrinks to 0)
-            const scale = gameState.player.powerupDuration / 10 * 2;
+            // Calculate scale based on remaining duration (starts at 1, shrinks to 0)
+            const scaleRatio = gameState.player.powerupDuration / 10;
             
-            // Dispose old geometries
-            powerupTimerGeometry.dispose();
-            innerCircleGeometry.dispose();
-            
-            // Create new geometries with updated sizes
-            powerupTimer.geometry = new THREE.RingGeometry(scale * 0.8, scale, 32);
-            innerCircle.geometry = new THREE.CircleGeometry(scale * 0.7, 32);
+            // Use scale transformation instead of recreating geometries
+            const effectiveScale = scaleRatio;
+            powerupTimer.scale.set(effectiveScale, effectiveScale, 1);
             
             // Add pulsing effect to the inner circle
             const pulseScale = 0.9 + Math.sin(clock.elapsedTime * 5) * 0.1;
-            innerCircle.scale.set(pulseScale, pulseScale, 1);
+            innerCircle.scale.set(effectiveScale * pulseScale, effectiveScale * pulseScale, 1);
             
             // Adjust opacity based on remaining time (fade out as time runs out)
             const remainingTimeRatio = gameState.player.powerupDuration / 10;
-            powerupTimerMaterial.opacity = 0.6 * remainingTimeRatio + 0.2; // Min opacity 0.2
+            
+            // Only update opacity - don't recreate the material
+            if (powerupTimer.material) {
+                powerupTimer.material.opacity = 0.6 * remainingTimeRatio + 0.2; // Min opacity 0.2
+            }
             
             // Clear powerup if duration is up
             if (gameState.player.powerupDuration <= 0) {
@@ -655,11 +652,19 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, powerupTi
                 gameState.player.powerupDuration = 0;
                 powerupTimer.visible = false;
                 innerCircle.visible = false;
+                
+                // Reset to zero scale
+                powerupTimer.scale.set(0, 0, 0);
+                innerCircle.scale.set(0, 0, 0);
             }
         } else if (powerupTimer.visible || innerCircle.visible) {
             // Ensure timer elements are hidden when no powerup is active
             powerupTimer.visible = false;
             innerCircle.visible = false;
+            
+            // Reset to zero scale
+            powerupTimer.scale.set(0, 0, 0);
+            innerCircle.scale.set(0, 0, 0);
         }
         
         // Update UI

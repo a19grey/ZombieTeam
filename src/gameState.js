@@ -26,10 +26,10 @@ const gameState = {
     mouseDown: false, // Track if mouse button is held down
     gameOver: false, debug: DEBUG_MODE, /* Enable debug mode*/ camera: null, // Added for camera reference
     powerups: [], lastShotTime: 0, environmentObjects: [], // Store environment objects
-    enemySpawnRate: 100, // Time between enemy spawns in ms (reduced for more zombies)
-    powerupSpawnRate: 1500, // ms between powerup spawns
-    lastEnemySpawnTime: 0, maxZombies: 1000, // Maximum number of zombies allowed at once
-    initialSpawnCount: 500, // Number of zombies to spawn at start (increased from 30 to 300)
+    enemySpawnRate: 250, // Time between enemy spawns in ms (reduced for more zombies)
+    powerupSpawnRate: 1800, // ms between powerup spawns
+    lastEnemySpawnTime: 0, maxZombies: 500, // Maximum number of zombies allowed at once
+    initialSpawnCount: 40, // Number of zombies to spawn at start (increased from 30 to 300)
     dismembermentParticles: [], // Store colorful particles for dismemberment effects
     lastPowerupSpawnTime: 0, // Track when the last powerup was spawned
     playerObject: null, // Store player object for access by other functions

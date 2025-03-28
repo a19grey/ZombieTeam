@@ -269,5 +269,5 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60, baseSpeed) 
     }
 };
 
-// Export the utility functions from zombieUtils.js
-export { damagePlayer, damageZombie, isZombieDead, createExplosion };
+// Export the functions
+export { damagePlayer, damageZombie, isZombieDead };

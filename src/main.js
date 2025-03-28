@@ -45,6 +45,15 @@ import { checkAudioFiles, suggestAudioFix } from './utils/audioChecker.js';
 import { spawnEnvironmentObjects, spawnEnemy } from './gameplay/entitySpawners.js';
 import { setupEventListeners } from './eventHandlers.js';
 import { isMobileDevice, isTouchDevice, getDeviceInfo } from './utils/deviceDetection.js';
+import { setupDismemberment, updateParticleEffects } from './gameplay/dismemberment.js';
+import { shouldSpawnPowerup, spawnPowerupBehindPlayer, cleanupOldPowerups, 
+         shouldSpawnExitPortal, spawnExitPortalBehindPlayer, updatePortals, 
+         checkPortalCollision, cleanupOldPortals } from './gameplay/powerupSpawner.js';
+import { safeCall } from './utils/safeAccess.js';
+import { shootBullet, handleCombatCollisions, initCombatSystem } from './gameplay/combat.js';
+import { playSound } from './gameplay/audio.js';
+import { manageProceduralGround } from './rendering/environment.js';
+import { initExplosionSystem } from './gameplay/zombieUtils.js';
 
 // Get device information
 const deviceInfo = getDeviceInfo();
@@ -468,8 +477,14 @@ async function startGame() {
    
    // Initialize game
    gameComponents = initializeGame(gameState);
-   const { scene, camera, renderer, player, clock, audioListener, powerupTimer, innerCircle, powerupTimerMaterial, powerupTimerGeometry, innerCircleGeometry, innerCircleMaterial } = gameComponents;
+   const { scene, camera, renderer, player, clock, audioListener, powerupTimer, innerCircle } = gameComponents;
 
+   // Initialize combat system with reusable effects
+   initCombatSystem(scene);
+   
+   // Initialize explosion system with reusable effects
+   initExplosionSystem(scene);
+   
    setupEventListeners(player, scene, camera, renderer);
     
    // Log portal arrival data (moved check to top of file)
@@ -592,7 +607,7 @@ async function startGame() {
    }
 
    // Start animation loop (after user interaction, which helps with AudioContext)
-   animate(scene, camera, renderer, player, clock, powerupTimer, powerupTimerGeometry, innerCircle, powerupTimerMaterial, innerCircleGeometry, innerCircleMaterial);
+   animate(scene, camera, renderer, player, clock, powerupTimer, innerCircle);
 }
 
 /**

@@ -20,7 +20,7 @@
 import * as THREE from 'three';
 import { createBullet } from './weapons.js';
 import { playSound } from './audio.js';
-import { createExplosion } from './zombie.js';
+import { createExplosion } from './zombieUtils.js';
 import { checkCollision } from './physics.js';
 import { safeCall } from '../utils/safeAccess.js';
 import { createSmokeTrail } from './powerups2.js';
@@ -29,6 +29,25 @@ import { logger } from '../utils/logger.js';
 // Add THREE.Ray for ray-based collision detection
 const raycaster = new THREE.Raycaster();
 const tempMatrix = new THREE.Matrix4();
+
+// Pre-create reusable muzzle flash light to avoid shader recompilation
+const muzzleFlashLight = new THREE.PointLight(0xffff00, 1, 3);
+muzzleFlashLight.visible = false;
+let muzzleFlashTimeout = null;
+
+/**
+ * Initializes combat system and adds reusable objects to the scene
+ * 
+ * This function should be called once during game initialization to setup
+ * reusable objects needed for combat effects.
+ * 
+ * @param {THREE.Scene} scene - The Three.js scene
+ */
+const initCombatSystem = (scene) => {
+    // Add pre-created muzzle flash light to scene
+    scene.add(muzzleFlashLight);
+    logger.info('combat', 'Combat system initialized with reusable effects');
+};
 
 /**
  * Shoots a bullet from the player's weapon
@@ -78,14 +97,14 @@ const shootBullet = (scene, player, gameState) => {
         bulletPosition = new THREE.Vector3();
         player.userData.weaponMount.getWorldPosition(bulletPosition);
         
-        // Offset slightly in the direction the player is facing (reduced offset for closer bullets)
-        bulletPosition.add(direction.clone().multiplyScalar(0.2));
+        // Reduced offset for bullets to hit closer enemies
+        bulletPosition.add(direction.clone().multiplyScalar(0.05));
     } else {
-        // Fallback to position in front of player
+        // Fallback to position in front of player with reduced offset
         bulletPosition = new THREE.Vector3(
-            player.position.x + direction.x * 0.2,
+            player.position.x + direction.x * 0.05,
             player.position.y + 0.5, // Bullet height
-            player.position.z + direction.z * 0.2
+            player.position.z + direction.z * 0.05
         );
     }
     
@@ -202,14 +221,19 @@ const shootBullet = (scene, player, gameState) => {
         gameState.bullets.push(bullet);
     }
     
-    // Add muzzle flash effect
-    const muzzleFlash = new THREE.PointLight(0xffff00, 1, 3);
-    muzzleFlash.position.copy(bulletPosition);
-    scene.add(muzzleFlash);
+    // Use the pre-created muzzle flash light
+    muzzleFlashLight.position.copy(bulletPosition);
+    muzzleFlashLight.visible = true;
     
-    // Remove muzzle flash after a short time
-    setTimeout(() => {
-        scene.remove(muzzleFlash);
+    // Clear existing timeout if it exists
+    if (muzzleFlashTimeout !== null) {
+        clearTimeout(muzzleFlashTimeout);
+    }
+    
+    // Set timeout to hide the muzzle flash
+    muzzleFlashTimeout = setTimeout(() => {
+        muzzleFlashLight.visible = false;
+        muzzleFlashTimeout = null;
     }, 50);
 };
 
@@ -463,4 +487,4 @@ const handleCombatCollisions = (scene, player, gameState, delta) => {
     }
 };
 
-export { shootBullet, handleCombatCollisions, updateGrenadeTrails }; 
+export { shootBullet, handleCombatCollisions, updateGrenadeTrails, initCombatSystem }; 

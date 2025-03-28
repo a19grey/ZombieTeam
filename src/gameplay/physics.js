@@ -716,7 +716,12 @@ export const applyPowerupEffect = (gameState, position, direction, scene) => {
             // No longer implementing grenade launcher here - this is handled in combat.js
             logger.info('grenadelauncher', 'Redirecting grenade launcher request to combat.js');
             // Import the shootBullet function using dynamic import to avoid circular dependencies
-            import('./combat.js').then(({ shootBullet }) => {
+            import('./combat.js').then(({ shootBullet, initCombatSystem }) => {
+                // Initialize combat system if needed
+                if (scene && !scene.userData.combatSystemInitialized) {
+                    initCombatSystem(scene);
+                    scene.userData.combatSystemInitialized = true;
+                }
                 shootBullet(scene, gameState.playerObject, gameState);
             }).catch(error => {
                 logger.error('grenadelauncher', 'Failed to import shootBullet:', error);

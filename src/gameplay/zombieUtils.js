@@ -121,6 +121,45 @@ export const isZombieDead = (zombie) => {
     return zombie && zombie.health <= 0;
 };
 
+// Pre-create reusable explosion objects to avoid shader recompilation
+// Use a pool of explosion objects that can be reused
+const explosionPool = [];
+const explosionLightPool = [];
+const MAX_EXPLOSIONS = 20; // Maximum number of simultaneous explosions
+
+// Track active explosions for cleanup and reuse
+const activeExplosions = new Map();
+
+/**
+ * Initializes the explosion system with reusable objects
+ * @param {THREE.Scene} scene - The Three.js scene
+ */
+export const initExplosionSystem = (scene) => {
+    // Create explosion pool with different sizes
+    for (let i = 0; i < MAX_EXPLOSIONS; i++) {
+        // Create explosion mesh with reusable geometry and material
+        const explosionGeometry = new THREE.SphereGeometry(1, 16, 16); // Use standard size, we'll scale it
+        const explosionMaterial = new THREE.MeshBasicMaterial({
+            color: 0xff5500,
+            transparent: true,
+            opacity: 0
+        });
+        const explosion = new THREE.Mesh(explosionGeometry, explosionMaterial);
+        explosion.visible = false;
+        explosion.scale.set(0.1, 0.1, 0.1);
+        scene.add(explosion);
+        explosionPool.push(explosion);
+        
+        // Create light for each explosion
+        const light = new THREE.PointLight(0xff5500, 0, 0); // Start with intensity and distance of 0
+        light.visible = false;
+        scene.add(light);
+        explosionLightPool.push(light);
+    }
+    
+    logger.info('explosion', `Initialized explosion system with ${MAX_EXPLOSIONS} reusable explosions`);
+};
+
 /**
  * Creates an explosion effect at the given position
  * @param {THREE.Scene} scene - The scene to add the explosion to
@@ -153,17 +192,58 @@ export const createExplosion = (scene, position, radius = 3, damage = 100, zombi
             return null;
         }
         
-        // Create explosion visual effect
-        const explosionGeometry = new THREE.SphereGeometry(radius, 16, 16);
-        const explosionMaterial = new THREE.MeshBasicMaterial({
-            color: 0xff5500,
-            transparent: true,
-            opacity: 0.8
-        });
-        const explosion = new THREE.Mesh(explosionGeometry, explosionMaterial);
+        // Initialize explosion system if needed
+        if (explosionPool.length === 0) {
+            initExplosionSystem(scene);
+        }
+        
+        // Find an available explosion and light from the pool
+        let explosion = null;
+        let light = null;
+        
+        // First try to find an unused one
+        for (let i = 0; i < explosionPool.length; i++) {
+            if (!explosionPool[i].visible) {
+                explosion = explosionPool[i];
+                light = explosionLightPool[i];
+                break;
+            }
+        }
+        
+        // If none available, reuse the oldest one
+        if (!explosion) {
+            // Get the explosion that has been active the longest
+            let oldestTime = Infinity;
+            let oldestIndex = 0;
+            
+            for (let i = 0; i < explosionPool.length; i++) {
+                const startTime = activeExplosions.get(explosionPool[i]) || Infinity;
+                if (startTime < oldestTime) {
+                    oldestTime = startTime;
+                    oldestIndex = i;
+                }
+            }
+            
+            explosion = explosionPool[oldestIndex];
+            light = explosionLightPool[oldestIndex];
+            
+            logger.debug('explosion', 'Reusing oldest active explosion');
+        }
+        
+        // Reset explosion properties
         explosion.position.copy(position);
-        explosion.scale.set(0.1, 0.1, 0.1); // Start small
-        scene.add(explosion);
+        explosion.scale.set(0.1, 0.1, 0.1);
+        explosion.material.opacity = 0.8;
+        explosion.visible = true;
+        
+        // Track when this explosion started
+        activeExplosions.set(explosion, Date.now());
+        
+        // Reset light properties
+        light.position.copy(position);
+        light.intensity = 2;
+        light.distance = radius * 2;
+        light.visible = true;
         
         // Play explosion sound at the explosion position
         try {
@@ -173,11 +253,6 @@ export const createExplosion = (scene, position, radius = 3, damage = 100, zombi
         } catch (soundError) {
             console.warn("Could not play explosion sound:", soundError);
         }
-        
-        // Add a point light for glow effect
-        const light = new THREE.PointLight(0xff5500, 2, radius * 2);
-        light.position.copy(position);
-        scene.add(light);
         
         // Check for player in explosion radius - only if source is 'zombie'
         if (source === 'zombie' && player && player.position) {
@@ -238,40 +313,40 @@ export const createExplosion = (scene, position, radius = 3, damage = 100, zombi
         let opacity = 0.8;
         const expandSpeed = 0.15;
         const fadeSpeed = 0.05;
+        const maxScale = radius / 2; // Scale to match the radius
         
-        // Animation function
-        function animate() {
+        // Animation function using requestAnimationFrame for better performance
+        const explosionId = requestAnimationFrame(function animate() {
             // Increase scale
             scale += expandSpeed;
-            explosion.scale.set(scale, scale, scale);
+            const currentScale = Math.min(scale, maxScale);
+            explosion.scale.set(currentScale, currentScale, currentScale);
             
             // Decrease opacity
             opacity -= fadeSpeed;
             explosion.material.opacity = Math.max(0, opacity);
+            
+            // Update light intensity
             light.intensity = Math.max(0, opacity * 2);
             
             // Continue animation until fully faded
             if (opacity > 0) {
                 requestAnimationFrame(animate);
             } else {
-                // Clean up when animation is complete
-                scene.remove(explosion);
-                scene.remove(light);
-                explosion.geometry.dispose();
-                explosion.material.dispose();
+                // When animation is complete, just hide the objects
+                explosion.visible = false;
+                light.visible = false;
+                // Remove from active list
+                activeExplosions.delete(explosion);
             }
-        }
+        });
         
-        // Start animation
-        requestAnimationFrame(animate);
-        
-        // Backup cleanup - force remove after 3 seconds
+        // Backup cleanup - force hide after 3 seconds
         setTimeout(() => {
-            if (explosion.parent) {
-                scene.remove(explosion);
-                scene.remove(light);
-                explosion.geometry.dispose();
-                explosion.material.dispose();
+            if (explosion.visible) {
+                explosion.visible = false;
+                light.visible = false;
+                activeExplosions.delete(explosion);
             }
         }, 3000);
         

@@ -145,33 +145,112 @@ export function initializeGame(gameState) {
     const playerWeapon = createPlayerWeapon();
     player.add(playerWeapon);
 
-    // Create powerup timer indicator (initially invisible)
-    const powerupTimerGeometry = new THREE.RingGeometry(0, 2, 32);
-    const powerupTimerMaterial = new THREE.MeshBasicMaterial({
-        color: 0x00ffff,
-        transparent: true,
-        opacity: 0.6,
-        side: THREE.DoubleSide
-    });
-    const powerupTimer = new THREE.Mesh(powerupTimerGeometry, powerupTimerMaterial);
+    // Create powerup timer indicator with predefined materials for each powerup type
+    // Create a fixed-size geometry that will be scaled rather than recreated
+    const MAX_TIMER_SIZE = 2.0;
+    const powerupTimerGeometry = new THREE.RingGeometry(MAX_TIMER_SIZE * 0.8, MAX_TIMER_SIZE, 32);
+    
+    // Create predefined materials for each powerup type to avoid shader recompilation
+    const powerupMaterials = {
+        rapidFire: new THREE.MeshBasicMaterial({
+            color: 0xffa500, // Orange
+            transparent: true,
+            opacity: 0.6,
+            side: THREE.DoubleSide
+        }),
+        shotgunBlast: new THREE.MeshBasicMaterial({
+            color: 0x4682b4, // Steel blue
+            transparent: true,
+            opacity: 0.6,
+            side: THREE.DoubleSide
+        }),
+        explosion: new THREE.MeshBasicMaterial({
+            color: 0xff0000, // Red
+            transparent: true,
+            opacity: 0.6,
+            side: THREE.DoubleSide
+        }),
+        laserShot: new THREE.MeshBasicMaterial({
+            color: 0x00ffff, // Cyan
+            transparent: true,
+            opacity: 0.6,
+            side: THREE.DoubleSide
+        }),
+        grenadeLauncher: new THREE.MeshBasicMaterial({
+            color: 0x228b22, // Forest green
+            transparent: true,
+            opacity: 0.6,
+            side: THREE.DoubleSide
+        }),
+        default: new THREE.MeshBasicMaterial({
+            color: 0x00ffff, // Default cyan
+            transparent: true,
+            opacity: 0.6,
+            side: THREE.DoubleSide
+        })
+    };
+    
+    // Create inner circle materials matching each powerup type
+    const innerCircleMaterials = {
+        rapidFire: new THREE.MeshBasicMaterial({
+            color: 0xffcc00, // Light orange
+            transparent: true,
+            opacity: 0.3,
+            side: THREE.DoubleSide
+        }),
+        shotgunBlast: new THREE.MeshBasicMaterial({
+            color: 0x87ceeb, // Light blue
+            transparent: true,
+            opacity: 0.3,
+            side: THREE.DoubleSide
+        }),
+        explosion: new THREE.MeshBasicMaterial({
+            color: 0xff6666, // Light red
+            transparent: true,
+            opacity: 0.3,
+            side: THREE.DoubleSide
+        }),
+        laserShot: new THREE.MeshBasicMaterial({
+            color: 0x99ffff, // Light cyan
+            transparent: true,
+            opacity: 0.3,
+            side: THREE.DoubleSide
+        }),
+        grenadeLauncher: new THREE.MeshBasicMaterial({
+            color: 0x32cd32, // Lime green
+            transparent: true,
+            opacity: 0.3,
+            side: THREE.DoubleSide
+        }),
+        default: new THREE.MeshBasicMaterial({
+            color: 0xffffff, // Default white
+            transparent: true,
+            opacity: 0.3,
+            side: THREE.DoubleSide
+        })
+    };
+    
+    // Use the default material for initial creation
+    const powerupTimer = new THREE.Mesh(powerupTimerGeometry, powerupMaterials.default);
     powerupTimer.rotation.x = Math.PI / 2; // Lay flat on ground
     powerupTimer.position.y = 0.05; // Just above ground
     powerupTimer.visible = false; // Initially invisible
+    powerupTimer.scale.set(0, 0, 0); // Start with zero scale
     player.add(powerupTimer);
 
     // Add inner circle for better visual effect
-    const innerCircleGeometry = new THREE.CircleGeometry(0.5, 32);
-    const innerCircleMaterial = new THREE.MeshBasicMaterial({
-        color: 0xffffff,
-        transparent: true,
-        opacity: 0.3,
-        side: THREE.DoubleSide
-    });
-    const innerCircle = new THREE.Mesh(innerCircleGeometry, innerCircleMaterial);
+    const innerCircleGeometry = new THREE.CircleGeometry(MAX_TIMER_SIZE * 0.7, 32);
+    const innerCircle = new THREE.Mesh(innerCircleGeometry, innerCircleMaterials.default);
     innerCircle.rotation.x = Math.PI / 2; // Lay flat on ground
     innerCircle.position.y = 0.04; // Just below the ring
     innerCircle.visible = false; // Initially invisible
+    innerCircle.scale.set(0, 0, 0); // Start with zero scale
     player.add(innerCircle);
+    
+    // Store references to all materials for easy access in gameLoop.js
+    powerupTimer.userData.materials = powerupMaterials;
+    innerCircle.userData.materials = innerCircleMaterials;
+    powerupTimer.userData.maxSize = MAX_TIMER_SIZE;
 
     // Create clock for timing
     const clock = new THREE.Clock();
@@ -317,5 +396,5 @@ export function initializeGame(gameState) {
         }
     })();
 
-    return { scene, camera, renderer, player, clock, audioListener, powerupTimer,innerCircle,powerupTimerMaterial,powerupTimerGeometry,innerCircleGeometry,innerCircleMaterial };
+    return { scene, camera, renderer, player, clock, audioListener, powerupTimer, innerCircle };
 } 

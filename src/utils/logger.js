@@ -55,8 +55,8 @@ const DEFAULT_SECTIONS = [
     'ai',
     'audio',
     'ui',
-    'scene',
-    'speed'
+    'scene'
+    ,'speed'
     ,'enemy'
     ,'audio'
     ,'powerup'

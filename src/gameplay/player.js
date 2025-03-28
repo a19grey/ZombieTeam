@@ -251,14 +251,24 @@ export const createPlayerWeapon = () => {
  * @param {Object} mouse - Mouse position for aiming
  */
 export const handlePlayerMovement = (player, keys, baseSpeed, mouse) => {
+    
+    // Use the baseSpeed parameter instead of hardcoded values
+    // Apply slight modifiers for different directions
+    const forwardSpeed = baseSpeed * 1.3;
+    const backwardSpeed = baseSpeed * 3;
+    const sideSpeed = (forwardSpeed + backwardSpeed) / 2;
+    
+    logger.debug('speed', `A: Player movement speeds - base: ${baseSpeed}, forward: ${forwardSpeed}, backward: ${backwardSpeed}, side: ${sideSpeed}`);
+    console.log(`B: Player movement speeds - base: ${baseSpeed}, forward: ${forwardSpeed}, backward: ${backwardSpeed}, side: ${sideSpeed}`);
+    
     // Check if joystick data is available in gameState for mobile devices
     const joystickData = window.gameState?.controls?.leftJoystickData;
     const isMobile = window.gameState?.controls?.isMobileDevice;
     const isTouch = window.gameState?.controls?.isTouchDevice;
-    
+    logger.debug('speed', `Player movement speeds - base: ${baseSpeed}, forward: ${forwardSpeed}, backward: ${backwardSpeed}, side: ${sideSpeed}`);
     // Use joystick input on mobile/touch devices, keyboard input on desktop
     let moveX, moveZ;
-    
+    logger.debug('speed', `Player movement speeds - base: ${baseSpeed}, forward: ${forwardSpeed}, backward: ${backwardSpeed}, side: ${sideSpeed}`);
     if ((isMobile || isTouch) && joystickData) {
         // Use joystick data for movement on mobile
         // Joystick x is side-to-side, y is forward/backward (already inverted in the joystick handler)
@@ -282,12 +292,8 @@ export const handlePlayerMovement = (player, keys, baseSpeed, mouse) => {
         moveZ = ((keys['w'] || keys['arrowup']) ? -1 : 0) + ((keys['s'] || keys['arrowdown']) ? 1 : 0);
     }
     
-    // Use the baseSpeed parameter instead of hardcoded values
-    // Apply slight modifiers for different directions
-    const forwardSpeed = baseSpeed * 1.3;
-    const backwardSpeed = baseSpeed * 1.97;
-    const sideSpeed = (forwardSpeed + backwardSpeed) / 2;
     
+    logger.debug('speed', `Player movement speeds - base: ${baseSpeed}, forward: ${forwardSpeed}, backward: ${backwardSpeed}, side: ${sideSpeed}`);
     // Log player speed values occasionally to avoid console spam
     // Use a static variable to track last log time
     const currentTime = Date.now();
