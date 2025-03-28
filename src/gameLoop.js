@@ -443,19 +443,23 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, innerCirc
                 animateSummonEffect();
             }
         }
-        
+       
         // Spawn new enemies based on time - much more frequently for a horde
         if (currentTime - gameState.lastEnemySpawnTime > gameState.enemySpawnRate) {
-            // Spawn multiple zombies at once for a horde effect
-            const spawnCount = Math.min(5, gameState.maxZombies - gameState.zombies.length);
-            
-            for (let i = 0; i < spawnCount; i++) {
-                spawnEnemy(player.position, scene, gameState);
+            // Check if we can spawn more zombies
+            if (gameState.zombies.length < gameState.maxZombies) {
+                // Spawn multiple zombies at once for a horde effect
+                const spawnCount = Math.min(5, gameState.maxZombies - gameState.zombies.length);
+                
+                for (let i = 0; i < spawnCount; i++) {
+                    spawnEnemy(player.position, scene, gameState);
+                }
+                
+                gameState.lastEnemySpawnTime = currentTime;
+            } else {
+                logger.debug('spawn', 'Max zombies reached, not spawning more');
             }
-            
-            gameState.lastEnemySpawnTime = currentTime;
         }
-        
         // Update powerups - animate them
         for (const powerup of gameState.powerups) {
             if (powerup.active && powerup.mesh) {
