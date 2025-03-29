@@ -178,26 +178,21 @@ const spawnEnemy = (playerPos, scene, gameState) => {
     // Generate a random angle, biased towards the front of the player
     // Front is considered to be the positive Z direction (top of screen)
     let theta;
+    let acceptanceProb;
     
+
     // Rejection sampling for angle - higher probability in front of player
-    // This will generate angles primarily in the range of π/2 to 3π/2 (top half)
     do {
-        theta = Math.random() * 2 * Math.PI; // Random angle between 0 and 2π
-        
-        // Check if angle is in the rear 120-degree arc (2π/3 radians on each side)
-        const isRearArc = Math.abs(theta - Math.PI) < Math.PI/3;
-        
-        // If in rear arc, only allow 5% chance of acceptance
-        if (isRearArc && Math.random() > 0.05) {
-            continue;
-        }
-        
-        // For all other angles, use cosine-based rejection sampling
-        // This creates a bias towards the front (top of screen)
-    } while (Math.random() > (1 + Math.cos(theta + Math.PI)) / 2);
+        theta = Math.random() * 2 * Math.PI;
+    } while (
+        Math.abs(theta - Math.PI) < (2 * Math.PI / 3) || 
+        Math.random() > (1 + Math.cos(theta + Math.PI)) / 2
+    );
     
+    theta = theta - Math.PI; // Flip the angle to be in the FRONT of the player our game is a bit backwards somehow
+    const spawnjitter = 10 ;
     // Calculate position with guaranteed minimum distance
-    const distance = minDistanceToPlayer + Math.random() * 15; // 15-30 units from player
+    const distance = minDistanceToPlayer + Math.abs(Math.random()) * spawnjitter; // units from player
     position = {
         x: playerPos.x + distance * Math.sin(theta),
         z: playerPos.z + distance * Math.cos(theta)

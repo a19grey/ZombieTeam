@@ -4,6 +4,16 @@
 import * as THREE from 'three';
 import { logger } from '../utils/logger.js'; // Add logger import at the top
 
+// Constants for powerup positioning and dimensions
+const PEDESTAL_HEIGHT = 0.5; // Base height of pedestal
+const PEDESTAL_RADIUS = 0.75; // Base radius of the widest part of pedestal
+const PEDESTAL_BASE_RATIO = 1.1; // How much wider the base is compared to top
+const PEDESTAL_COLUMN_RATIO = 0.8; // How much narrower the column is compared to base
+const PEDESTAL_TOP_RATIO = 0.9; // How much narrower the top is compared to column
+const FLUTE_COUNT = 12; // Number of flutes around pedestal
+const FLUTE_RADIUS_RATIO = 0.05; // Flute radius as percentage of pedestal radius
+const FLUTE_DEPTH_RATIO = 1.5; // Flute depth as multiple of flute radius
+
 // Helper function to create a halo
 const createHalo = (color, radius = 0.6) => {
     const haloGeometry = new THREE.CircleGeometry(radius, 32);
@@ -15,8 +25,94 @@ const createHalo = (color, radius = 0.6) => {
     });
     const halo = new THREE.Mesh(haloGeometry, haloMaterial);
     halo.rotation.x = -Math.PI / 2; // Lay flat
-    halo.position.y = 0.01; // Slightly above ground
+    halo.position.y = 0.01 + PEDESTAL_HEIGHT; // Slightly above pedestal
     return halo;
+};
+
+/**
+ * Creates a fluted pedestal for powerups to sit on
+ * - Grey colored with a wider base
+ * - Used for all powerup types
+ */
+const createPedestal = () => {
+    const pedestal = new THREE.Group();
+    
+    // Add a userData property to identify this as a pedestal for collision detection
+    pedestal.userData = {
+        isPedestal: true,
+        collidable: true,
+        radius: PEDESTAL_RADIUS // Collision radius for the pedestal
+    };
+    
+    // Calculate dimensions based on ratios
+    const baseHeight = 0.08;
+    const topHeight = 0.04;
+    const columnHeight = PEDESTAL_HEIGHT - (baseHeight + topHeight/2);
+    
+    const baseRadius = PEDESTAL_RADIUS;
+    const baseBottomRadius = baseRadius * PEDESTAL_BASE_RATIO;
+    const columnTopRadius = baseRadius * PEDESTAL_COLUMN_RATIO;
+    const columnBottomRadius = baseRadius;
+    const topTopRadius = columnTopRadius * PEDESTAL_TOP_RATIO;
+    const topBottomRadius = columnTopRadius;
+    
+    // Wider base
+    const baseGeometry = new THREE.CylinderGeometry(baseRadius, baseBottomRadius, baseHeight, 16, 1);
+    const baseMaterial = new THREE.MeshStandardMaterial({
+        color: 0x888888, // Grey
+        roughness: 0.6
+    });
+    const base = new THREE.Mesh(baseGeometry, baseMaterial);
+    base.position.y = baseHeight/2; // Half of base height
+    base.castShadow = true;
+    base.receiveShadow = true;
+    pedestal.add(base);
+    
+    // Fluted column
+    const columnGeometry = new THREE.CylinderGeometry(
+        columnTopRadius, 
+        columnBottomRadius, 
+        columnHeight, 
+        16, 
+        3
+    );
+    const columnMaterial = new THREE.MeshStandardMaterial({
+        color: 0x9a9a9a, // Slightly lighter grey
+        roughness: 0.5
+    });
+    const column = new THREE.Mesh(columnGeometry, columnMaterial);
+    column.position.y = baseHeight + columnHeight/2; // Base height + half of column height
+    column.castShadow = true;
+    column.receiveShadow = true;
+    pedestal.add(column);
+    
+    // Create fluting (vertical grooves) using a repeated pattern of small cylinders
+    const fluteRadius = baseRadius * FLUTE_RADIUS_RATIO;
+    const fluteDepth = fluteRadius * FLUTE_DEPTH_RATIO;
+    const fluteHeight = columnHeight - 0.04;
+    const fluteY = baseHeight + columnHeight/2;
+    
+    for (let i = 0; i < FLUTE_COUNT; i++) {
+        const angle = (i / FLUTE_COUNT) * Math.PI * 2;
+        const radiusAtFlutes = columnBottomRadius * 0.9; // Slightly inset from edge
+        const x = Math.cos(angle) * (radiusAtFlutes - fluteDepth/2);
+        const z = Math.sin(angle) * (radiusAtFlutes - fluteDepth/2);
+        
+        const fluteGeometry = new THREE.CylinderGeometry(fluteRadius, fluteRadius, fluteHeight, 8);
+        const flute = new THREE.Mesh(fluteGeometry, columnMaterial);
+        flute.position.set(x, fluteY, z);
+        pedestal.add(flute);
+    }
+    
+    // Top plate
+    const topGeometry = new THREE.CylinderGeometry(topTopRadius, topBottomRadius, topHeight, 16, 1);
+    const top = new THREE.Mesh(topGeometry, baseMaterial);
+    top.position.y = baseHeight + columnHeight + topHeight/2; // Full height minus half of top plate height
+    top.castShadow = true;
+    top.receiveShadow = true;
+    pedestal.add(top);
+    
+    return pedestal;
 };
 
 /**
@@ -25,6 +121,10 @@ const createHalo = (color, radius = 0.6) => {
  */
 export const createRapidFirePowerup = (position) => {
     const powerup = new THREE.Group();
+    
+    // Add pedestal
+    const pedestal = createPedestal();
+    powerup.add(pedestal);
 
     // Machine gun model (simplified, scale down from weapons.js later)
     const gunBodyGeometry = new THREE.BoxGeometry(0.7, 0.2, 0.2); // Increased size
@@ -35,7 +135,7 @@ export const createRapidFirePowerup = (position) => {
         roughness: 0.5
     });
     const gunBody = new THREE.Mesh(gunBodyGeometry, gunMaterial);
-    gunBody.position.y = 0.3; // Raised
+    gunBody.position.y = 0.3 + PEDESTAL_HEIGHT; // Raised above pedestal
     gunBody.castShadow = true;
     powerup.add(gunBody);
 
@@ -43,14 +143,14 @@ export const createRapidFirePowerup = (position) => {
     const barrelGeometry = new THREE.CylinderGeometry(0.07, 0.07, 0.5, 8); // Thicker
     const barrel = new THREE.Mesh(barrelGeometry, gunMaterial);
     barrel.rotation.z = Math.PI / 2;
-    barrel.position.set(0.6, 0.3, 0); // Moved forward
+    barrel.position.set(0.6, 0.3 + PEDESTAL_HEIGHT, 0); // Adjusted for pedestal
     barrel.castShadow = true;
     powerup.add(barrel);
 
     // Handle
     const handleGeometry = new THREE.BoxGeometry(0.15, 0.25, 0.15); // Larger
     const handle = new THREE.Mesh(handleGeometry, gunMaterial);
-    handle.position.set(-0.2, 0.15, 0);
+    handle.position.set(-0.2, 0.15 + PEDESTAL_HEIGHT, 0); // Adjusted for pedestal
     handle.castShadow = true;
     powerup.add(handle);
 
@@ -70,6 +170,10 @@ export const createRapidFirePowerup = (position) => {
  */
 export const createShotgunBlastPowerup = (position) => {
     const powerup = new THREE.Group();
+    
+    // Add pedestal
+    const pedestal = createPedestal();
+    powerup.add(pedestal);
 
     // Shotgun body (more detailed)
     const bodyGeometry = new THREE.BoxGeometry(0.8, 0.25, 0.3); // Larger
@@ -80,7 +184,7 @@ export const createShotgunBlastPowerup = (position) => {
         roughness: 0.5
     });
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.position.y = 0.3; // Raised
+    body.position.y = 0.3 + PEDESTAL_HEIGHT; // Adjusted for pedestal
     body.castShadow = true;
     powerup.add(body);
 
@@ -94,20 +198,20 @@ export const createShotgunBlastPowerup = (position) => {
     });
     const barrel1 = new THREE.Mesh(barrelGeometry, barrelMaterial);
     barrel1.rotation.z = Math.PI / 2;
-    barrel1.position.set(0.7, 0.3, -0.07); // Moved forward
+    barrel1.position.set(0.7, 0.3 + PEDESTAL_HEIGHT, -0.07); // Adjusted for pedestal
     barrel1.castShadow = true;
     powerup.add(barrel1);
 
     const barrel2 = new THREE.Mesh(barrelGeometry, barrelMaterial);
     barrel2.rotation.z = Math.PI / 2;
-    barrel2.position.set(0.7, 0.3, 0.07); // Moved forward
+    barrel2.position.set(0.7, 0.3 + PEDESTAL_HEIGHT, 0.07); // Adjusted for pedestal
     barrel2.castShadow = true;
     powerup.add(barrel2);
 
     // Grip
     const gripGeometry = new THREE.BoxGeometry(0.2, 0.3, 0.2); // Larger
     const grip = new THREE.Mesh(gripGeometry, bodyMaterial);
-    grip.position.set(-0.25, 0.15, 0);
+    grip.position.set(-0.25, 0.15 + PEDESTAL_HEIGHT, 0); // Adjusted for pedestal
     grip.castShadow = true;
     powerup.add(grip);
 
@@ -127,6 +231,10 @@ export const createShotgunBlastPowerup = (position) => {
  */
 export const createExplosionPowerup = (position) => {
     const powerup = new THREE.Group();
+    
+    // Add pedestal
+    const pedestal = createPedestal();
+    powerup.add(pedestal);
 
     // Bomb body (spherical with spikes)
     const bombGeometry = new THREE.SphereGeometry(0.35, 12, 12); // Larger and more detailed
@@ -137,7 +245,7 @@ export const createExplosionPowerup = (position) => {
         roughness: 0.5
     });
     const bomb = new THREE.Mesh(bombGeometry, bombMaterial);
-    bomb.position.y = 0.35; // Raised
+    bomb.position.y = 0.35 + PEDESTAL_HEIGHT; // Adjusted for pedestal
     bomb.castShadow = true;
     powerup.add(bomb);
 
@@ -153,7 +261,7 @@ export const createExplosionPowerup = (position) => {
         const angle = (i / 8) * Math.PI * 2;
         spike.position.set(
             Math.cos(angle) * 0.35,
-            0.35,
+            0.35 + PEDESTAL_HEIGHT,
             Math.sin(angle) * 0.35
         );
         spike.rotation.x = Math.PI / 2;
@@ -168,7 +276,7 @@ export const createExplosionPowerup = (position) => {
         emissive: 0xffff00,
         emissiveIntensity: 0.9 // Brighter
     }));
-    fuse.position.y = 0.65; // Raised
+    fuse.position.y = 0.65 + PEDESTAL_HEIGHT; // Adjusted for pedestal
     fuse.castShadow = true;
     powerup.add(fuse);
 
@@ -188,6 +296,10 @@ export const createExplosionPowerup = (position) => {
  */
 export const createLaserShotPowerup = (position) => {
     const powerup = new THREE.Group();
+    
+    // Add pedestal
+    const pedestal = createPedestal();
+    powerup.add(pedestal);
 
     // Laser emitter (futuristic rod with glowing tip)
     const emitterGeometry = new THREE.CylinderGeometry(0.35, 0.35, 0.7, 12); // Even bigger
@@ -198,7 +310,7 @@ export const createLaserShotPowerup = (position) => {
         roughness: 0.2 // More shine
     });
     const emitter = new THREE.Mesh(emitterGeometry, emitterMaterial);
-    emitter.position.y = 0.35; // Raised more
+    emitter.position.y = 0.35 + PEDESTAL_HEIGHT; // Adjusted for pedestal
     emitter.castShadow = true;
     powerup.add(emitter);
 
@@ -211,7 +323,7 @@ export const createLaserShotPowerup = (position) => {
         roughness: 0.2 // More shine
     });
     const tip = new THREE.Mesh(tipGeometry, tipMaterial);
-    tip.position.y = 0.7; // Raised more
+    tip.position.y = 0.7 + PEDESTAL_HEIGHT; // Adjusted for pedestal
     tip.castShadow = true;
     powerup.add(tip);
 
@@ -225,15 +337,15 @@ export const createLaserShotPowerup = (position) => {
     });
     const ring1 = new THREE.Mesh(ringGeometry, ringMaterial);
     ring1.rotation.x = Math.PI / 2;
-    ring1.position.y = 0.5;
+    ring1.position.y = 0.5 + PEDESTAL_HEIGHT; // Adjusted for pedestal
     powerup.add(ring1);
 
     const ring2 = ring1.clone();
-    ring2.position.y = 0.3;
+    ring2.position.y = 0.3 + PEDESTAL_HEIGHT; // Adjusted for pedestal
     powerup.add(ring2);
 
     const ring3 = ring1.clone(); // Added a third ring
-    ring3.position.y = 0.1;
+    ring3.position.y = 0.1 + PEDESTAL_HEIGHT; // Adjusted for pedestal
     powerup.add(ring3);
 
     // Larger cyan halo
@@ -253,6 +365,10 @@ export const createLaserShotPowerup = (position) => {
 export const createGrenadeLauncherPowerup = (position) => {
     logger.info('grenadelauncher', 'Creating grenade launcher powerup mesh in powerups2.js');
     const powerup = new THREE.Group();
+    
+    // Add pedestal
+    const pedestal = createPedestal();
+    powerup.add(pedestal);
 
     // Launcher body
     const bodyGeometry = new THREE.BoxGeometry(0.8, 0.25, 0.35); // Larger
@@ -263,7 +379,7 @@ export const createGrenadeLauncherPowerup = (position) => {
         roughness: 0.5
     });
     const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.position.y = 0.3; // Raised
+    body.position.y = 0.3 + PEDESTAL_HEIGHT; // Adjusted for pedestal
     body.castShadow = true;
     powerup.add(body);
 
@@ -277,7 +393,7 @@ export const createGrenadeLauncherPowerup = (position) => {
     });
     const barrel = new THREE.Mesh(barrelGeometry, barrelMaterial);
     barrel.rotation.z = Math.PI / 2;
-    barrel.position.set(0.7, 0.3, 0); // Moved forward
+    barrel.position.set(0.7, 0.3 + PEDESTAL_HEIGHT, 0); // Adjusted for pedestal
     barrel.castShadow = true;
     powerup.add(barrel);
 
@@ -290,7 +406,7 @@ export const createGrenadeLauncherPowerup = (position) => {
         roughness: 0.6
     });
     const grenade = new THREE.Mesh(grenadeGeometry, grenadeMaterial);
-    grenade.position.set(0, 0.5, 0); // Raised
+    grenade.position.set(0, 0.5 + PEDESTAL_HEIGHT, 0); // Adjusted for pedestal
     grenade.castShadow = true;
     powerup.add(grenade);
 
@@ -301,7 +417,7 @@ export const createGrenadeLauncherPowerup = (position) => {
         emissive: 0xffff00,
         emissiveIntensity: 0.5
     }));
-    pin.position.set(0, 0.65, 0); // Raised
+    pin.position.set(0, 0.65 + PEDESTAL_HEIGHT, 0); // Adjusted for pedestal
     pin.castShadow = true;
     powerup.add(pin);
 
@@ -332,7 +448,7 @@ export const createGrenadeLauncherPowerup = (position) => {
  * Animate powerups
  */
 export const animatePowerup = (powerup, time) => {
-    powerup.position.y = Math.sin(time * 2) * 0.1 + 0.25;
+    // Rotate the entire powerup (including pedestal)
     powerup.rotation.y += 0.02;
     
     // Pulse halo - more robust detection

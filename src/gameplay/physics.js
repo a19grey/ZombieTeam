@@ -593,7 +593,7 @@ logger.debug('powerup', 'Activating powerup', { powerupType, activationMethod })
         
         // Set the active powerup values
         gameState.player.activePowerup = powerupType;
-        gameState.player.powerupDuration = 10; // 10 seconds duration
+        gameState.player.powerupDuration = 15; // 10 seconds duration
         
         // Log powerup activation
         logger.info('powerup', `Powerup activated successfully`, {

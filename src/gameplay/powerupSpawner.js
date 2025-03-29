@@ -37,9 +37,9 @@ import { activatePowerup } from '../gameplay/physics.js';
 // Constants for powerup spawning
 const POWERUP_MIN_DISTANCE = 10; // Minimum distance from player
 const POWERUP_MAX_DISTANCE = 20; // Maximum distance from player
-const POWERUP_SPAWN_CHANCE_PER_SECOND = 0.5; // 30% chance per second to spawn a powerup
+const POWERUP_SPAWN_CHANCE_PER_SECOND = 0.04; // 30% chance per second to spawn a powerup
 const POWERUP_TYPES = ['rapidFire', 'shotgunBlast', 'explosion', 'laserShot', 'grenadeLauncher'];
-const MIN_TIME_BETWEEN_POWERUPS = 300; // Minimum time between powerup spawns (10 seconds)
+const MIN_TIME_BETWEEN_POWERUPS = 8000; // Minimum time between powerup spawns (10 seconds)
 
 // Constants for powerup health
 const DEFAULT_POWERUP_HEALTH = 100; // Default health for powerups
@@ -338,7 +338,7 @@ export const damagePowerup = (powerup, damage, gameState, scene) => {
             
             // Direct property assignment as backup
             gameState.player.activePowerup = powerup.type;
-            gameState.player.powerupDuration = 10;
+            gameState.player.powerupDuration = 15;
             
             // Play powerup pickup sound
             playSound('powerupPickup');
@@ -788,21 +788,6 @@ export const createExitPortal = (scene, position, gameState) => {
     gradient.addColorStop(0.8, '#0000ff'); // Blue
     gradient.addColorStop(1, '#ff00ff'); // Magenta
     
-    // Remove background fill - we no longer fill the entire background
-    // context.fillStyle = gradient;
-    // context.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Remove the subtle texture pattern that was on the background
-    // context.fillStyle = 'rgba(255, 255, 255, 0.1)';
-    // for (let i = 0; i < 100; i++) {
-    //     const x = Math.random() * canvas.width;
-    //     const y = Math.random() * canvas.height;
-    //     const size = Math.random() * 3 + 1;
-    //     context.beginPath();
-    //     context.arc(x, y, size, 0, Math.PI * 2);
-    //     context.fill();
-    // }
-    
     // Add glow effect to text
     context.textAlign = 'center';
     context.textBaseline = 'middle';
@@ -818,8 +803,6 @@ export const createExitPortal = (scene, position, gameState) => {
     // Draw main text with gradient fill
     context.fillStyle = gradient; // Use the rainbow gradient for the text
     context.fillText(portaltext, canvas.width / 2, canvas.height / 2);
-    
-    
     
     const texture = new THREE.CanvasTexture(canvas);
     const labelGeometry = new THREE.PlaneGeometry(5, 1); // Larger geometry for bigger label
