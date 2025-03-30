@@ -53,10 +53,10 @@ const POWERUP_HEALTH_BY_TYPE = {
 
 // Constants for exit portal spawning
 const PORTAL_SPAWN_CHANCE_PER_SECOND = 0.5; // 1% chance per second (much rarer than powerups)
-const MIN_TIME_BETWEEN_PORTALS = .3; // Minimum time between portal spawns (5 minutes)
-const PORTAL_MIN_DISTANCE = 24; // Minimum distance from player
-const PORTAL_MAX_DISTANCE = 25; // Maximum distance from player
-const PORTAL_LIFETIME = 120000; // Portal lifetime in milliseconds (60 seconds)
+const MIN_TIME_BETWEEN_PORTALS = 20; // Minimum time between portal spawns in seconds
+const PORTAL_MIN_DISTANCE = 20; // Minimum distance from player
+const PORTAL_MAX_DISTANCE = 30; // Maximum distance from player
+const PORTAL_LIFETIME = 15000; // Portal lifetime in milliseconds
 
 /**
  * Determines if a powerup should spawn based on time and probability
@@ -594,23 +594,14 @@ export const cleanupOldPowerups = (scene, gameState, maxAge = 30000) => {
  * @returns {boolean} Whether a portal should spawn
  */
 export const shouldSpawnExitPortal = (gameState, currentTime) => {
-
-    logger.debug('portal', 'Checking if exit portal should spawn', { currentTime });
-    // Initialize portal-related properties if they don't exist
-    if (!gameState.lastPortalSpawnTime) {
-        gameState.lastPortalSpawnTime = currentTime - MIN_TIME_BETWEEN_PORTALS;
-        gameState.lastPortalCheckTime = currentTime;
-        logger.debug('portal', 'Initializing lastPortalSpawnTime', { time: gameState.lastPortalSpawnTime });
-        return false;
-    }
-    
-    // First, clean up any expired portals to allow new ones to spawn
     const activePortalsCount = cleanupOldPortals(gameState, currentTime);
     
-    // Don't spawn if we've spawned recently or if there are too many active portals
-    // Changed to allow up to 2 active portals at once
-    if (currentTime - gameState.lastPortalSpawnTime < MIN_TIME_BETWEEN_PORTALS || 
-        activePortalsCount >= 2) {
+    // Don't spawn if we've spawned recently
+    if (currentTime - gameState.lastPortalSpawnTime < MIN_TIME_BETWEEN_PORTALS) {
+        logger.debug('portal', 'Too soon to check for portal spawn', {
+            timeSinceLastSpawn: currentTime - gameState.lastPortalSpawnTime,
+            minimumTime: MIN_TIME_BETWEEN_PORTALS
+        });
         return false;
     }
     
@@ -627,14 +618,24 @@ export const shouldSpawnExitPortal = (gameState, currentTime) => {
     const spawnProbability = PORTAL_SPAWN_CHANCE_PER_SECOND * timeSinceLastCheck;
     
     // Log check with adjusted probability
-    logger.debug('portal', 'Checking portal spawn probability', { 
-        chance: (spawnProbability * 100).toFixed(2) + '%', 
+    logger.debug('portal', 'Checking portal spawn probability', {
+        chance: (spawnProbability * 100).toFixed(2) + '%',
         timeElapsed: timeSinceLastCheck.toFixed(2) + 's',
         activePortals: activePortalsCount
     });
     
     // Random chance to spawn based on time passed
-    return Math.random() < spawnProbability;
+    const shouldSpawn = Math.random() < spawnProbability;
+    
+    // Only spawn if the random check passed AND there are fewer than the max allowed portals
+    if (shouldSpawn && activePortalsCount < 2) {
+        logger.debug('portal', 'Spawn probability check passed and portal count is low enough.', { activePortals: activePortalsCount });
+        return true;
+    } else if (shouldSpawn) {
+        logger.debug('portal', 'Spawn probability check passed, but too many portals already exist.', { activePortals: activePortalsCount });
+    }
+    
+    return false;
 };
 
 /**

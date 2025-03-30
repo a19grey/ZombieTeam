@@ -255,9 +255,9 @@ export const handlePlayerMovement = (player, keys, baseSpeed, mouse, delta = 1/6
     
     // Use the baseSpeed parameter instead of hardcoded values
     // Apply slight modifiers for different directions
-    const forwardSpeed = baseSpeed * 1.2;
-    const backwardSpeed = baseSpeed * 0.95;
-    const sideSpeed = (forwardSpeed + backwardSpeed) / 2;
+    const forwardSpeed = baseSpeed * 1.3;
+    const backwardSpeed = baseSpeed * 0.93;
+    const sideSpeed = (5*forwardSpeed + 3*backwardSpeed) / 8;
     
 
     // Check if joystick data is available in gameState for mobile devices
