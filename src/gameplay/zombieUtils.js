@@ -73,23 +73,20 @@ export const damagePlayer = (gameState, damageAmount) => {
 export const damageZombie = (zombie, damage, scene) => {
     if (!zombie) return zombie;
     
-    // Create a copy of the zombie with updated health
-    const updatedZombie = {
-        ...zombie,
-        health: zombie.health - damage
-    };
+    // Directly modify the zombie's health instead of creating a copy
+    zombie.health -= damage;
     
     // Debug logging with error handling
     try {
-        logger.debug(`Zombie ${zombie.type} took ${damage.toFixed(1)} damage, health: ${updatedZombie.health.toFixed(1)}/${zombie.dismemberment?.maxHealth || 'unknown'}`);
+        logger.debug(`Zombie ${zombie.type} took ${damage.toFixed(1)} damage, health: ${zombie.health.toFixed(1)}/${zombie.dismemberment?.maxHealth || 'unknown'}`);
     } catch (error) {
-        console.log(`Zombie ${zombie.type} took ${damage.toFixed(1)} damage, health: ${updatedZombie.health.toFixed(1)}`);
+        console.log(`Zombie ${zombie.type} took ${damage.toFixed(1)} damage, health: ${zombie.health.toFixed(1)}`);
     }
     
     // Process dismemberment if we have the scene and the system is set up
     if (scene && zombie.dismemberment) {
         // Process dismemberment based on new damage
-        const particles = processDismemberment(updatedZombie, damage, scene);
+        const particles = processDismemberment(zombie, damage, scene);
         
         // Add particles to game state for animation
         if (particles.length > 0 && zombie.gameState) {
@@ -109,7 +106,7 @@ export const damageZombie = (zombie, damage, scene) => {
         logger.debug(`No scene provided for dismemberment effects`);
     }
     
-    return updatedZombie;
+    return zombie;
 };
 
 /**
@@ -172,7 +169,7 @@ export const initExplosionSystem = (scene) => {
  * @param {string} source - Source of the explosion ('zombie' or 'player')
  * @returns {THREE.Mesh} The explosion mesh
  */
-export const createExplosion = (scene, position, radius = 3, damage = 100, zombies = [], player, gameState, source = 'zombie') => {
+export const createExplosion = (scene, position, radius, damage, zombies = [], player, gameState, source) => {
     try {
         // Safety check for gameState.debug
         const debugEnabled = gameState && gameState.debug && gameState.debug.enabled;
@@ -272,40 +269,24 @@ export const createExplosion = (scene, position, radius = 3, damage = 100, zombi
         }
         
         // Check for zombies in explosion radius and damage them
-        const zombiesToDamage = [];
-        
         if (zombies && zombies.length > 0) {
+            logger.debug("explosion","J: Zombie in explosion");
             for (let i = 0; i < zombies.length; i++) {
                 const zombie = zombies[i];
                 if (zombie && zombie.mesh && zombie.mesh.position) {
                     const zombieDistance = zombie.mesh.position.distanceTo(position);
                     if (zombieDistance < radius) {
                         // Calculate damage based on distance
-                        const zombieDamage = damage // Using simpler Math.round(damage * (1 - zombieDistance / radius));
-                        if (typeof logger !== 'undefined' && logger.debug) {
-                            logger.debug("Zombie in explosion radius, dealing", zombieDamage, "damage");
+                        const zombieDamage = damage; // Using simpler Math.round(damage * (1 - zombieDistance / radius));
+                        logger.debug("explosion","A: Zombie in explosion radius, dealing", zombieDamage, "damage");
+                        try {
+                            damageZombie(zombie, zombieDamage, scene);
+                        } catch (zombieDamageError) {
+                            logger.error("explosion","B: Failed to explosion zombie:", zombieDamageError);
                         }
-                        zombiesToDamage.push({ zombie, damage: zombieDamage, index: i });
                     }
                 }
             }
-        }
-        
-        // Apply damage to zombies after checking all of them
-        if (typeof damageZombie === 'function') {
-            zombiesToDamage.forEach(({ zombie, damage, index }) => {
-                try {
-                    // Apply damage and update the zombie in the original array
-                    const updatedZombie = damageZombie(zombie, damage, scene);
-                    
-                    // Update the zombie in the original array to persist the damage
-                    if (zombies[index]) {
-                        zombies[index] = updatedZombie;
-                    }
-                } catch (zombieDamageError) {
-                    console.error("Failed to damage zombie:", zombieDamageError);
-                }
-            });
         }
         
         // Animation variables

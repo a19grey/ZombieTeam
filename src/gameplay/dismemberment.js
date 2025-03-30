@@ -52,8 +52,6 @@ export const setupDismemberment = (zombie) => {
     
     // Initialize dismemberment tracking
     zombie.dismemberment = {
-        damageTaken: 0,
-        maxHealth: zombie.health, // Store initial health as max health
         lostParts: {
             leftEye: false,
             rightEye: false,
@@ -302,14 +300,9 @@ export const updateParticleEffects = (particles, scene, delta = 1/60) => {
 export const processDismemberment = (zombie, newDamage, scene) => {
     if (!zombie || !zombie.dismemberment || !zombie.mesh) return [];
     
-    // Calculate damage percentage
-    const previousDamage = zombie.dismemberment.damageTaken;
-    zombie.dismemberment.damageTaken += newDamage;
-    const damagePercent = (zombie.dismemberment.damageTaken / zombie.dismemberment.maxHealth) * 100;
-    
-    // Debug logging
-   // logger.debug(`Zombie type: ${zombie.type}, Health: ${zombie.health}, Max Health: ${zombie.dismemberment.maxHealth}, Damage %: ${damagePercent.toFixed(1)}%`);
-    
+    // Calculate damage percentage based on current health vs full health
+    const damagePercent = ((zombie.fullHealth - zombie.health) / zombie.fullHealth) * 100;
+     
     // Track particles created
     const particles = [];
     
@@ -370,8 +363,6 @@ export const processDismemberment = (zombie, newDamage, scene) => {
             const newParticles = createParticleEffect(scene, originalPosition);
             particles.push(...newParticles);
             
-            // Apply gameplay effects based on part lost
-            applyDismembermentEffects(zombie, partName);
             
            // logger.debug(`Zombie lost ${partName} at ${damagePercent.toFixed(1)}% damage`);
         } else {
@@ -382,39 +373,3 @@ export const processDismemberment = (zombie, newDamage, scene) => {
     return particles;
 };
 
-/**
- * Applies gameplay effects based on the dismembered part
- * @param {Object} zombie - The zombie object
- * @param {string} partName - The name of the lost part
- */
-const applyDismembermentEffects = (zombie, partName) => {
-    switch (partName) {
-        case 'leftLeg':
-        case 'rightLeg':
-            // Losing a leg slows the zombie down
-            zombie.speed *= 0.95;
-            zombie.baseSpeed *= 0.95;
-            break;
-            
-        case 'leftArm':
-        case 'rightArm':
-            // Losing an arm reduces damage
-            // This is handled in the damage calculation
-            break;
-            
-        case 'head':
-            // Losing a head makes the zombie move erratically
-            zombie.headless = true;
-            // Headless zombies move more randomly
-            break;
-            
-        case 'leftEye':
-        case 'rightEye':
-            // Losing eyes reduces accuracy (for ranged enemies)
-            // This would affect skeleton archers
-            if (zombie.type === 'skeletonArcher') {
-                zombie.accuracy = (zombie.accuracy || 1.0) * 0.6;
-            }
-            break;
-    }
-}; 

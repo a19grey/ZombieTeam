@@ -1052,7 +1052,7 @@ function displayWelcomeMessage(playerName) {
     const messageContainer = document.createElement('div');
     Object.assign(messageContainer.style, {
         position: 'absolute',
-        top: '10%',
+        bottom: '10%',
         left: '50%',
         transform: 'translateX(-50%)',
         display: 'flex',

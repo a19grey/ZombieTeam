@@ -209,13 +209,14 @@ const spawnEnemy = (playerPos, scene, gameState) => {
     const enemyMesh = selectedEnemy.createFn(position, globalBaseSpeed);
     
     // Add small random variation to speed
-    const variation = selectedEnemy.speedVariation || 0.02;
+    const variation = selectedEnemy.speedVariation;
     const baseSpeed = enemyMesh.speed + (Math.random() * variation - variation/2);
     
     // Create the enemy object with common properties
     const enemyObj = {
         mesh: enemyMesh,
-        health: selectedEnemy.healthOverride || enemyMesh.health,
+        health: enemyMesh.health,
+        fullHealth: enemyMesh.health,
         speed: baseSpeed,
         gameState: gameState,
         baseSpeed: baseSpeed,
