@@ -20,7 +20,7 @@
 import * as THREE from 'three';
 import { createBullet } from './weapons.js';
 import { playSound } from './audio.js';
-import { createExplosion } from './zombieUtils.js';
+import { createExplosion, isZombieDead, handleZombieDeath, damageZombie } from './zombieUtils.js';
 import { checkCollision } from './physics.js';
 import { safeCall } from '../utils/safeAccess.js';
 import { createSmokeTrail } from './powerups2.js';
@@ -102,9 +102,9 @@ const shootBullet = (scene, player, gameState) => {
     } else {
         // Fallback to position in front of player with reduced offset
         bulletPosition = new THREE.Vector3(
-            player.position.x + direction.x * 0.05,
+            player.position.x + direction.x * 0.01,
             player.position.y + 0.5, // Bullet height
-            player.position.z + direction.z * 0.05
+            player.position.z + direction.z * 0.01
         );
     }
     
@@ -116,7 +116,7 @@ const shootBullet = (scene, player, gameState) => {
             bulletPosition,
             direction,
             gameState.player.damage,
-            1.8 // Faster bullet speed for rapid fire
+            0.8*(1+Math.random()*0.15) // Faster bullet speed for rapid fire
         );
         
         if (bullet.mesh) {
@@ -135,7 +135,7 @@ const shootBullet = (scene, player, gameState) => {
                 bulletPosition.clone(),
                 spreadDirection,
                 gameState.player.damage * 0.6, // Less damage per pellet
-                1.5
+                0.5*(1+Math.random()*0.15)
             );
             
             if (spreadBullet.mesh) {
@@ -149,7 +149,7 @@ const shootBullet = (scene, player, gameState) => {
             bulletPosition,
             direction,
             gameState.player.damage * 2, // Double damage
-            3.0, // Very fast
+            1.0*(1+Math.random()*0.15), // Very fast
             0x00ff00 // Bright green color for laser
         );
         
@@ -187,13 +187,13 @@ const shootBullet = (scene, player, gameState) => {
         const grenadeBullet = createBullet(
             bulletPosition,
             direction,
-            0, // No direct damage, damage is from explosion
-            0.8, // Slower speed
+            75, // Set damage equal to explosion damage for powerup interaction
+            0.5*(1+Math.random()*0.15), // Slower speed
             0x9b111e // Ruby red color
         );
         
         // Use safeCall instead of direct access to avoid null errors
-        safeCall(grenadeBullet, 'mesh.scale.set', [0.2, 0.2, 0.2]);
+        safeCall(grenadeBullet, 'mesh.scale.set', [0.5, 0.5, 0.]);
         logger.debug('grenadelauncher', 'Applied scale to grenade mesh in combat.js');
         
         if (grenadeBullet.mesh) {
@@ -212,7 +212,7 @@ const shootBullet = (scene, player, gameState) => {
             bulletPosition,
             direction,
             gameState.player.damage,
-            1.5 // Faster bullet speed
+            0.8*(1+Math.random()*0.15)// Faster bullet speed
         );
         
         if (bullet.mesh) {
@@ -341,41 +341,43 @@ const handleCombatCollisions = (scene, player, gameState, delta) => {
     for (let i = gameState.bullets.length - 1; i >= 0; i--) {
         const bullet = gameState.bullets[i];
         
-        // Skip if bullet is already marked for removal
-        if (bullet.toRemove) continue;
+        // Skip if bullet is already marked for removal or has no mesh
+        if (bullet.toRemove || !bullet.mesh) continue; 
         
         // Create a ray from the previous position to the current position
+        // Ensure previousPosition is valid
+        if (!bullet.previousPosition) {
+            bullet.previousPosition = bullet.mesh.position.clone(); // Initialize if missing
+            logger.warn('combat', 'Bullet previousPosition was missing, initialized.');
+        }
         const rayOrigin = bullet.previousPosition;
-        const rayDirection = new THREE.Vector3().subVectors(bullet.position, bullet.previousPosition).normalize();
-        const rayLength = bullet.position.distanceTo(bullet.previousPosition);
+        const rayDirection = new THREE.Vector3().subVectors(bullet.mesh.position, bullet.previousPosition).normalize();
+        const rayLength = bullet.mesh.position.distanceTo(bullet.previousPosition);
         
         // Log if this is a grenade
         if (bullet.isGrenade) {
             logger.debug('grenadelauncher', 'Processing grenade bullet collision checks in combat.js', {
-                position: [bullet.position.x.toFixed(2), bullet.position.y.toFixed(2), bullet.position.z.toFixed(2)],
+                position: [bullet.mesh.position.x.toFixed(2), bullet.mesh.position.y.toFixed(2), bullet.mesh.position.z.toFixed(2)],
                 hasTrail: Array.isArray(bullet.smokeTrail)
             });
         }
         
-        // For very fast bullets like lasers, implement multiple collision checks along path
-        const steps = Math.max(1, Math.ceil(rayLength / 0.5)); // Check every 0.5 units
-        const stepSize = rayLength / steps;
-        
-        // Variable to store closest intersection
+        // Variable to store closest intersection details
         let closestIntersection = null;
         let closestDistance = Infinity;
         let hitZombieIndex = -1;
+        let hitZombie = null;
         
         // Check each zombie for intersection with the ray
         for (let j = gameState.zombies.length - 1; j >= 0; j--) {
             const zombie = gameState.zombies[j];
             
-            // Skip if zombie is already dead
-            if (zombie.health <= 0) continue;
+            // Skip if zombie is already dead or has no mesh
+            if (!zombie || !zombie.mesh || zombie.health <= 0 || zombie.isDead) continue;
             
             // Check collision with ray
             const intersectionPoint = new THREE.Vector3();
-            const zombieCollisionRadius = 1.5; // Adjust based on zombie size
+            const zombieCollisionRadius = zombie.collisionRadius || 1.0; // Use zombie specific radius or default
             
             if (rayIntersectsSphere(rayOrigin, rayDirection, zombie.mesh.position, zombieCollisionRadius, intersectionPoint)) {
                 // Calculate distance to intersection
@@ -386,101 +388,95 @@ const handleCombatCollisions = (scene, player, gameState, delta) => {
                     closestDistance = distToIntersection;
                     closestIntersection = intersectionPoint.clone();
                     hitZombieIndex = j;
+                    hitZombie = zombie; // Store the hit zombie
                 }
             }
         }
         
         // If we found an intersection, handle it
-        if (closestIntersection && hitZombieIndex !== -1) {
-            const zombie = gameState.zombies[hitZombieIndex];
-            
-            // Apply damage to zombie
-            zombie.health -= bullet.damage;
-            
+        if (closestIntersection && hitZombieIndex !== -1 && hitZombie) {
             // Move bullet to the intersection point
             if (bullet.mesh) {
                 bullet.mesh.position.copy(closestIntersection);
             }
-            bullet.position.copy(closestIntersection);
+            // Update the logical position as well
+            // bullet.position.copy(closestIntersection); // This might be redundant if mesh.position is the source of truth
             
             // Mark bullet for removal
             bullet.toRemove = true;
             
-            // Handle explosive bullets
+            // Apply damage to zombie using the centralized function
+            // This function now also handles dismemberment internally
+            if (!bullet.isGrenade) { // Grenades deal damage via explosion, not direct impact
+                 logger.debug('combat', `Bullet hit zombie ${hitZombieIndex}, dealing ${bullet.damage} damage.`);
+                 damageZombie(hitZombie, bullet.damage, scene); // Pass scene for dismemberment
+            } else {
+                 logger.debug('combat', `Grenade hit zombie ${hitZombieIndex}, triggering explosion.`);
+            }
+
+            // Handle explosive bullets (including grenades now)
             if (bullet.isExplosive || bullet.isGrenade) {
-                logger.info('grenadelauncher', 'Grenade impact detected in combat.js - creating explosion');
-                // Keep radius at 3 but prevent player damage
-                const explosionRadius = 3; // Standard radius for grenades
-                const explosionDamage = bullet.isGrenade ? 75 : 50; // More damage for grenades
+                logger.info('combat', 'Bullet/Grenade impact detected - creating explosion');
+                const explosionRadius = bullet.isGrenade ? 3 : 2; // Grenades have larger radius
+                // Grenades deal damage via explosion, direct damage was set to 0
+                // Use a standard explosion damage, potentially higher for grenades
+                const explosionDamage = bullet.isGrenade ? 75 : 50; 
                 
                 createExplosion(
                     scene, 
-                    bullet.position.clone(), 
+                    closestIntersection, // Explode at impact point
                     explosionRadius,
                     explosionDamage,
                     gameState.zombies, 
                     player, 
                     gameState,
-                    'player' // Specify 'player' as source to prevent self-damage
+                    'player' // Source is player weapon
                 );
+                // Note: createExplosion now handles zombie death checks internally
+                // So, we don't need the isZombieDead check here IF the damage was dealt by explosion.
+                // However, for non-grenade explosive bullets, direct damage IS applied above.
+                // We need to check for death *after* direct damage, before explosion potentially kills others.
+
             }
             
-            // Check if zombie is dead
-            if (zombie.health <= 0) {
-                // Award points based on enemy type
-                let pointsAwarded = 10; // Base points for regular zombie
-                
-                if (zombie.type === 'skeletonArcher') {
-                    pointsAwarded = 20;
-                } else if (zombie.type === 'exploder') {
-                    pointsAwarded = 25;
-                    
-                    // Only create explosion if the exploder was already in explosion sequence
-                    // NOT when it's shot and killed directly
-                    if (zombie.mesh.isExploding) {
-                        createExplosion(
-                            scene, 
-                            zombie.mesh.position.clone(), 
-                            3, // radius
-                            50, // damage
-                            gameState.zombies, 
-                            player, 
-                            gameState,
-                            'zombie' // This explosion should damage the player since it's from a zombie
-                        );
-                    }
-                } else if (zombie.type === 'zombieKing') {
-                    pointsAwarded = 200;
-                }
-                
-                gameState.score += pointsAwarded;
-                
-                // Increment kill counter
-                gameState.stats.zombiesKilled++;
-                
-                // Remove zombie from scene
-                scene.remove(zombie.mesh);
-                
-                // Remove zombie from array
-                gameState.zombies.splice(hitZombieIndex, 1);
-            }
+             // Check if the zombie died from the *direct* hit (if applicable)
+             // This check should happen *after* direct damage is applied, but potentially before the explosion
+             // logic if we want the direct hit kill registered first.
+             // Let's use the centralized check:
+             if (isZombieDead(hitZombie) && !hitZombie.isDead) { // Check isDead flag to prevent double processing
+                  logger.debug('combat', `Zombie ${hitZombieIndex} died from direct bullet hit.`);
+                  // Use the centralized death handler
+                  handleZombieDeath(hitZombie, scene, gameState, gameState.zombies);
+                  
+                  // Remove zombie from the main array *immediately* after handling death
+                  // Since we iterate backwards, this should be safe.
+                  gameState.zombies.splice(hitZombieIndex, 1);
+                  
+                  // Continue to next bullet as this zombie is gone
+                  continue; 
+             }
+            
+            // If the bullet was a grenade or explosive, the explosion handles subsequent damage/death
+            // If it was a normal bullet, the death check above handled it.
         }
     }
     
     // Remove bullets marked for removal
     for (let i = gameState.bullets.length - 1; i >= 0; i--) {
         if (gameState.bullets[i].toRemove) {
+            const bullet = gameState.bullets[i];
             // Clean up smoke trail if it's a grenade
-            if (gameState.bullets[i].isGrenade && gameState.bullets[i].smokeTrail) {
+            if (bullet.isGrenade && bullet.smokeTrail) {
                 logger.debug('grenadelauncher', 'Removing grenade and smoke trail in combat.js');
-                for (const smoke of gameState.bullets[i].smokeTrail) {
-                    scene.remove(smoke);
+                for (const smoke of bullet.smokeTrail) {
+                    if(smoke && smoke.parent) scene.remove(smoke); // Safely remove smoke
                 }
+                 bullet.smokeTrail = []; // Clear the array
             }
             
-            // Only remove mesh from scene if it's a tracer bullet
-            if (gameState.bullets[i].mesh) {
-                scene.remove(gameState.bullets[i].mesh);
+            // Only remove mesh from scene if it exists
+            if (bullet.mesh && bullet.mesh.parent) { // Check parent before removing
+                scene.remove(bullet.mesh);
             }
             gameState.bullets.splice(i, 1);
         }

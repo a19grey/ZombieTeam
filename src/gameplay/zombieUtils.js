@@ -71,11 +71,13 @@ export const damagePlayer = (gameState, damageAmount) => {
  * @returns {Object} Updated zombie object
  */
 export const damageZombie = (zombie, damage, scene) => {
-    if (!zombie) return zombie;
+    logger.debug('zombiedamage','74: zombieUtils',damage);
+    // if (!zombie) return zombie;
     
     // Directly modify the zombie's health instead of creating a copy
+    logger.debug('zombiedamage','78: Zombie health before',zombie.health);
     zombie.health -= damage;
-    
+    logger.debug('zombiedamage','80: Zombie health after',zombie.health);
     // Debug logging with error handling
     try {
         logger.debug(`Zombie ${zombie.type} took ${damage.toFixed(1)} damage, health: ${zombie.health.toFixed(1)}/${zombie.dismemberment?.maxHealth || 'unknown'}`);
@@ -86,6 +88,7 @@ export const damageZombie = (zombie, damage, scene) => {
     // Process dismemberment if we have the scene and the system is set up
     if (scene && zombie.dismemberment) {
         // Process dismemberment based on new damage
+        logger.debug('zombiedamage','91: Processing dismemberment');
         const particles = processDismemberment(zombie, damage, scene);
         
         // Add particles to game state for animation
@@ -101,9 +104,9 @@ export const damageZombie = (zombie, damage, scene) => {
             }
         }
     } else if (!zombie.dismemberment) {
-        logger.debug(`Zombie ${zombie.type} has no dismemberment system set up`);
+        logger.debug('zombiedamage','107: Zombie ${zombie.type} has no dismemberment system set up');
     } else if (!scene) {
-        logger.debug(`No scene provided for dismemberment effects`);
+        logger.debug('zombiedamage','109: No scene provided for dismemberment effects');
     }
     
     return zombie;
@@ -154,7 +157,65 @@ export const initExplosionSystem = (scene) => {
         explosionLightPool.push(light);
     }
     
-    logger.info('explosion', `Initialized explosion system with ${MAX_EXPLOSIONS} reusable explosions`);
+    logger.info('explosion', `158: Initialized explosion system with ${MAX_EXPLOSIONS} reusable explosions`);
+};
+
+/**
+ * Handles the logic when a zombie dies
+ * @param {Object} zombie - The zombie object that died
+ * @param {THREE.Scene} scene - The Three.js scene
+ * @param {Object} gameState - The game state object
+ * @param {Array} zombiesArray - The array from which the zombie should be eventually removed (passed for context, removal happens outside)
+ */
+export const handleZombieDeath = (zombie, scene, gameState, zombiesArray) => {
+    if (!zombie || !scene || !gameState || zombie.isDead) return; // Already processed or invalid
+
+    zombie.isDead = true; // Mark as dead to prevent double processing
+    logger.info('zombiedeath', `Handling death for zombie ${zombie.id || 'unknown'} type ${zombie.type}`);
+
+    // Award points based on the zombie's points property
+    const pointsAwarded = zombie.points || 10; // Use zombie.points, fallback to 10
+    gameState.score += pointsAwarded;
+    logger.debug('zombiedeath', `Awarded ${pointsAwarded} points for killing zombie. Score: ${gameState.score}`);
+
+    // Increment kill counter
+    if (gameState.stats) {
+        gameState.stats.zombiesKilled = (gameState.stats.zombiesKilled || 0) + 1;
+        logger.debug('zombiedeath', `Incremented kill count. Total kills: ${gameState.stats.zombiesKilled}`);
+    } else {
+        logger.warn('zombiedeath', 'gameState.stats is missing, cannot increment kill count.');
+    }
+
+    // Check for exploder specific logic - needs access to createExplosion
+    // This might need adjustment if createExplosion isn't available directly.
+    // Consider passing createExplosion as an argument if needed.
+    if (zombie.type === 'exploder' && zombie.mesh.isExploding !== false) { // isExploding might be undefined initially
+        logger.info('zombiedeath', 'Exploder zombie died, triggering final explosion.');
+        // Re-use createExplosion logic carefully, ensure source is 'zombie'
+        createExplosion(
+            scene,
+            zombie.mesh.position.clone(),
+            3, // radius
+            50, // damage
+            zombiesArray, // Pass the correct zombie array
+            gameState.playerObject, // Pass player object for potential damage
+            gameState,
+            'zombie' // Source is zombie
+        );
+    } else if (zombie.type === 'exploder') {
+         logger.debug('zombiedeath', 'Exploder zombie died but was already exploding or disarmed.');
+    }
+    
+    // Remove zombie mesh from scene
+    if (zombie.mesh) {
+        scene.remove(zombie.mesh);
+        logger.debug('zombiedeath', `Removed zombie mesh ${zombie.mesh.uuid} from scene.`);
+    } else {
+         logger.warn('zombiedeath', `Zombie ${zombie.id || 'unknown'} has no mesh to remove.`);
+    }
+
+    // Note: Removal from the actual zombies array happens outside this function
+    // to avoid modifying arrays during iteration.
 };
 
 /**
@@ -171,27 +232,27 @@ export const initExplosionSystem = (scene) => {
  */
 export const createExplosion = (scene, position, radius, damage, zombies = [], player, gameState, source) => {
     try {
-        // Safety check for gameState.debug
-        const debugEnabled = gameState && gameState.debug && gameState.debug.enabled;
-        
-        if (debugEnabled) {
-            console.log("Creating explosion at", position, "with radius", radius, "and damage", damage, "from source:", source);
-        }
+        logger.debug('explosion', '175: Creating explosion at', position, 'with radius', radius, 'and damage', damage, 'from source:', source);
         
         // Safety check for required parameters
         if (!scene) {
-            console.error("Explosion creation failed: scene is undefined");
+            logger.error('explosion','179: Explosion creation failed: scene is undefined'); // Use logger
             return null;
         }
         
         if (!position) {
-            console.error("Explosion creation failed: position is undefined");
+            logger.error('explosion','183: Explosion creation failed: position is undefined'); // Use logger
             return null;
         }
         
         // Initialize explosion system if needed
         if (explosionPool.length === 0) {
+            logger.warn('explosion','187: Explosion system not initialized, initializing now.'); // Use logger
             initExplosionSystem(scene);
+             if (explosionPool.length === 0) { // Check again after init
+                 logger.error('explosion', '191: Explosion system failed to initialize.');
+                 return null; // Cannot proceed
+             }
         }
         
         // Find an available explosion and light from the pool
@@ -213,24 +274,56 @@ export const createExplosion = (scene, position, radius, damage, zombies = [], p
             let oldestTime = Infinity;
             let oldestIndex = 0;
             
-            for (let i = 0; i < explosionPool.length; i++) {
-                const startTime = activeExplosions.get(explosionPool[i]) || Infinity;
-                if (startTime < oldestTime) {
-                    oldestTime = startTime;
-                    oldestIndex = i;
-                }
-            }
+            // Make sure activeExplosions is initialized
+             if (!(activeExplosions instanceof Map)) {
+                 logger.error('explosion', 'activeExplosions map not initialized correctly.');
+                 // Attempt recovery or return null
+                  return null; 
+             }
+
+            explosionPool.forEach((exp, i) => { // Use forEach for safer iteration
+                 const startTime = activeExplosions.get(exp); // No || Infinity here
+                 if (startTime !== undefined && startTime < oldestTime) {
+                     oldestTime = startTime;
+                     oldestIndex = i;
+                 } else if (startTime === undefined && oldestTime === Infinity) {
+                      // If an explosion was never tracked (shouldn't happen), use it
+                      oldestIndex = i;
+                      oldestTime = -1; // Ensure this one gets picked if others have times
+                 }
+             });
+
+            // Check if we actually found an oldest one to reuse
+             if (oldestTime === Infinity && explosionPool.length > 0) {
+                 // This case means all explosions are potentially new/unused, or the map is broken
+                 // Let's just take the first one as a fallback
+                 oldestIndex = 0; 
+                 logger.warn('explosion', 'Could not determine oldest explosion, reusing index 0.');
+            } else {
+                 logger.debug('explosion', `224: Reusing explosion at index ${oldestIndex}`);
+             }
             
             explosion = explosionPool[oldestIndex];
             light = explosionLightPool[oldestIndex];
             
-            logger.debug('explosion', 'Reusing oldest active explosion');
         }
         
+        // Ensure we actually got an explosion object
+         if (!explosion || !light) {
+             logger.error('explosion', 'Failed to get a reusable explosion/light object from pool.');
+             return null;
+         }
+
         // Reset explosion properties
         explosion.position.copy(position);
         explosion.scale.set(0.1, 0.1, 0.1);
-        explosion.material.opacity = 0.8;
+         // Ensure material exists before accessing opacity
+         if (explosion.material) {
+            explosion.material.opacity = 0.8;
+         } else {
+             logger.error('explosion', `Explosion object at index ${explosionPool.indexOf(explosion)} is missing material.`);
+             // Handle error - maybe skip this explosion? For now, log and continue.
+         }
         explosion.visible = true;
         
         // Track when this explosion started
@@ -248,7 +341,7 @@ export const createExplosion = (scene, position, radius, damage, zombies = [], p
                 playSound('explosion', position);
             }
         } catch (soundError) {
-            console.warn("Could not play explosion sound:", soundError);
+            logger.warn('explosion','248: Could not play explosion sound:', soundError);
         }
         
         // Check for player in explosion radius - only if source is 'zombie'
@@ -257,85 +350,143 @@ export const createExplosion = (scene, position, radius, damage, zombies = [], p
             if (playerDistance < radius) {
                 // Calculate damage based on distance (more damage closer to center)
                 const playerDamage = Math.round(damage * (1 - playerDistance / radius));
-                console.log("Player in explosion radius, dealing", playerDamage, "damage");
+                logger.info('explosion',`257: Player in explosion radius (dist: ${playerDistance.toFixed(2)} < ${radius}), dealing ${playerDamage} damage`);
                 try {
                     if (gameState && typeof damagePlayer === 'function') {
                         damagePlayer(gameState, playerDamage);
                     }
                 } catch (playerDamageError) {
-                    console.error("Failed to damage player:", playerDamageError);
+                    logger.error('explosion','263: Failed to damage player:', playerDamageError);
                 }
             }
         }
+        logger.debug('explosion','267: Checking zombies for explosion damage.');
         
+        const deadZombiesIndices = []; // Keep track of indices to remove later
+
         // Check for zombies in explosion radius and damage them
         if (zombies && zombies.length > 0) {
-            logger.debug("explosion","J: Zombie in explosion");
+             logger.debug('explosion',`270: Checking ${zombies.length} zombies for damage.`);
             for (let i = 0; i < zombies.length; i++) {
                 const zombie = zombies[i];
-                if (zombie && zombie.mesh && zombie.mesh.position) {
+                // Add checks for zombie validity and already dead status
+                if (zombie && zombie.mesh && zombie.mesh.position && zombie.health > 0 && !zombie.isDead) {
                     const zombieDistance = zombie.mesh.position.distanceTo(position);
                     if (zombieDistance < radius) {
-                        // Calculate damage based on distance
-                        const zombieDamage = damage; // Using simpler Math.round(damage * (1 - zombieDistance / radius));
-                        logger.debug("explosion","A: Zombie in explosion radius, dealing", zombieDamage, "damage");
+                        const damageToDeal = Math.round(damage * (1 - zombieDistance / radius)); // Damage falloff
+                        logger.debug('explosion',`278: Zombie ${i} (type ${zombie.type}) in radius (dist: ${zombieDistance.toFixed(2)} < ${radius}), dealing ${damageToDeal} damage`);
                         try {
-                            damageZombie(zombie, zombieDamage, scene);
+                            // Damage the zombie (this modifies health directly)
+                            damageZombie(zombie, damageToDeal, scene); 
+
+                            // Check if the zombie died from this explosion
+                            if (isZombieDead(zombie)) {
+                                logger.debug('explosion', `Zombie ${i} died from explosion.`);
+                                // Call death handler (doesn't remove from array here)
+                                handleZombieDeath(zombie, scene, gameState, zombies); 
+                                deadZombiesIndices.push(i); // Mark index for removal
+                            }
                         } catch (zombieDamageError) {
-                            logger.error("explosion","B: Failed to explosion zombie:", zombieDamageError);
+                            logger.error('explosion',`283: Failed to process zombie ${i} damage/death:`, zombieDamageError);
                         }
                     }
+                } else if (zombie && zombie.isDead) {
+                    logger.debug('explosion', `Skipping already dead zombie ${i}`);
+                } else if (!zombie || !zombie.mesh || !zombie.mesh.position) {
+                     logger.warn('explosion', `Skipping invalid zombie object at index ${i}`);
                 }
             }
+        } else {
+             logger.debug('explosion', 'No zombies provided or array is empty.');
         }
-        
+
+        // Remove dead zombies from the main gameState array AFTER the loop
+        // Iterate backwards to avoid index issues after splicing
+        if (deadZombiesIndices.length > 0 && gameState && gameState.zombies) {
+            logger.debug('explosion', `Removing ${deadZombiesIndices.length} dead zombies from gameState.zombies`);
+            deadZombiesIndices.sort((a, b) => b - a); // Sort indices descending
+            for (const index of deadZombiesIndices) {
+                 // Check if the zombie at this index in the gameState array matches the one we processed
+                 // This assumes 'zombies' passed in IS gameState.zombies
+                 // A safer approach might be to pass IDs and find/remove by ID.
+                 if (index >= 0 && index < gameState.zombies.length && gameState.zombies[index].isDead) {
+                      gameState.zombies.splice(index, 1);
+                 } else {
+                      logger.warn('explosion', `Could not remove zombie at index ${index} - array mismatch or zombie already removed?`);
+                 }
+            }
+             logger.debug('explosion', `Remaining zombies in gameState: ${gameState.zombies.length}`);
+        } else if (deadZombiesIndices.length > 0) {
+             logger.warn('explosion', 'Cannot remove dead zombies - gameState.zombies is not available.');
+        }
+
+
         // Animation variables
         let scale = 0.1;
         let opacity = 0.8;
         const expandSpeed = 0.15;
         const fadeSpeed = 0.05;
         const maxScale = radius / 2; // Scale to match the radius
-        
+        let animationFrameId = null; // Store the request ID
+
         // Animation function using requestAnimationFrame for better performance
-        const explosionId = requestAnimationFrame(function animate() {
+        const animateExplosion = () => { // Renamed for clarity
             // Increase scale
             scale += expandSpeed;
             const currentScale = Math.min(scale, maxScale);
-            explosion.scale.set(currentScale, currentScale, currentScale);
+             if (explosion.scale) { // Check if scale exists
+                explosion.scale.set(currentScale, currentScale, currentScale);
+             }
             
             // Decrease opacity
             opacity -= fadeSpeed;
-            explosion.material.opacity = Math.max(0, opacity);
+             if (explosion.material) { // Check if material exists
+                explosion.material.opacity = Math.max(0, opacity);
+             }
             
             // Update light intensity
-            light.intensity = Math.max(0, opacity * 2);
+             if (light) { // Check if light exists
+                light.intensity = Math.max(0, opacity * 2);
+             }
             
             // Continue animation until fully faded
             if (opacity > 0) {
-                requestAnimationFrame(animate);
+                animationFrameId = requestAnimationFrame(animateExplosion);
             } else {
                 // When animation is complete, just hide the objects
-                explosion.visible = false;
-                light.visible = false;
+                if (explosion) explosion.visible = false;
+                if (light) light.visible = false;
                 // Remove from active list
-                activeExplosions.delete(explosion);
+                 if (explosion) activeExplosions.delete(explosion);
+                 logger.debug('explosion', 'Explosion animation finished, hiding objects.');
             }
-        });
+        };
+        
+        // Start the animation
+        animationFrameId = requestAnimationFrame(animateExplosion);
         
         // Backup cleanup - force hide after 3 seconds
-        setTimeout(() => {
-            if (explosion.visible) {
+        const cleanupTimeoutId = setTimeout(() => {
+            cancelAnimationFrame(animationFrameId); // Stop animation if running
+            if (explosion && explosion.visible) {
                 explosion.visible = false;
-                light.visible = false;
-                activeExplosions.delete(explosion);
+                logger.debug('explosion', 'Forcing explosion hide after timeout.');
             }
+            if (light && light.visible) {
+                light.visible = false;
+                 logger.debug('explosion', 'Forcing explosion light hide after timeout.');
+            }
+            if (explosion) activeExplosions.delete(explosion);
         }, 3000);
         
+        // Store timeout ID for potential cancellation if animation finishes first? (Optional)
+        // explosion.userData.cleanupTimeoutId = cleanupTimeoutId; 
+
         // Return the explosion mesh for backwards compatibility
         return explosion;
         
     } catch (error) {
-        console.error('Error creating explosion:', error);
+        logger.error('explosion', 'Critical error in createExplosion:', error); // Use logger
         return null;
     }
 }; 

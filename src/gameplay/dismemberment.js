@@ -293,11 +293,10 @@ export const updateParticleEffects = (particles, scene, delta = 1/60) => {
 /**
  * Processes dismemberment for a zombie based on damage percentage
  * @param {Object} zombie - The zombie object to process
- * @param {number} newDamage - The new damage amount to apply
  * @param {THREE.Scene} scene - The scene to add effects to
  * @returns {Array} Array of particle effects created
  */
-export const processDismemberment = (zombie, newDamage, scene) => {
+export const processDismemberment = (zombie, scene) => {
     if (!zombie || !zombie.dismemberment || !zombie.mesh) return [];
     
     // Calculate damage percentage based on current health vs full health

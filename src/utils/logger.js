@@ -63,6 +63,7 @@ const DEFAULT_SECTIONS = [
     ,'enemyspawner'
     ,'explosion'
     ,'portal'
+    ,'zombiedamage'
 ];
 
 // Default configuration

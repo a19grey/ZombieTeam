@@ -39,7 +39,7 @@ const POWERUP_MIN_DISTANCE = 10; // Minimum distance from player
 const POWERUP_MAX_DISTANCE = 20; // Maximum distance from player
 const POWERUP_SPAWN_CHANCE_PER_SECOND = 0.04; // 30% chance per second to spawn a powerup
 const POWERUP_TYPES = ['rapidFire', 'shotgunBlast', 'explosion', 'laserShot', 'grenadeLauncher'];
-const MIN_TIME_BETWEEN_POWERUPS = 8000; // Minimum time between powerup spawns (10 seconds)
+const MIN_TIME_BETWEEN_POWERUPS = 800; // Minimum time between powerup spawns (10 seconds)
 
 // Constants for powerup health
 const DEFAULT_POWERUP_HEALTH = 100; // Default health for powerups

@@ -94,6 +94,13 @@ export const createExploder = (position, baseSpeed ) => {
      * @param {Object} context - The update context containing all necessary information
      */
     exploder.update = (context) => {
+        // Explosion configuration parameters
+        const EXPLOSION_RADIUS = 3.5;      // Radius of the explosion effect and damage area
+        const EXPLOSION_DAMAGE = 30;       // Base damage dealt by the explosion
+        const EXPLOSION_HEIGHT = 0.5;      // Height at which the explosion occurs
+        const EXPLOSION_COUNTDOWN = 1.5;   // Time in seconds before detonation
+        const EXPLOSION_TRIGGER_DISTANCE = 3.0; // Distance to player that triggers explosion
+        
         // Debug log update call
         logger.verbose('enemy', `Exploder update method called (at ${exploder.position.x.toFixed(2)},${exploder.position.z.toFixed(2)}), isExploding: ${exploder.isExploding}`);
         
@@ -123,11 +130,11 @@ export const createExploder = (position, baseSpeed ) => {
         logger.verbose('enemy', `Exploder distance to player: ${distance.toFixed(2)}`);
         
         // Exploder specific behavior - start exploding when close to player
-        if (distance < 3 && !exploder.isExploding) {
+        if (distance < EXPLOSION_TRIGGER_DISTANCE && !exploder.isExploding) {
             logger.debug('enemy', `Exploder starting explosion sequence`);
             
             exploder.isExploding = true;
-            exploder.explosionTimer = 1.5; // Time before exploding
+            exploder.explosionTimer = EXPLOSION_COUNTDOWN; // Time before exploding
             
             // Change color to red
             exploder.children.forEach(child => {
@@ -180,11 +187,11 @@ export const createExploder = (position, baseSpeed ) => {
                     context.scene,
                     new THREE.Vector3(
                         exploder.position.x,
-                        0.5, // Height of explosion
+                        EXPLOSION_HEIGHT, // Height of explosion
                         exploder.position.z
-                    ), 
-                    3.5, // Explosion radius
-                    30, // Explosion damage
+                    ),
+                    EXPLOSION_RADIUS, // Explosion radius
+                    EXPLOSION_DAMAGE, // Explosion damage
                     nearbyZombies, 
                     context.playerObject || playerPosition,
                     gameState,

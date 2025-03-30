@@ -3,6 +3,7 @@
  */
 import * as THREE from 'three';
 import { logger } from '../utils/logger.js'; // Add logger import at the top
+import { createExplosion } from './zombieUtils.js';
 
 // Constants for powerup positioning and dimensions
 const PEDESTAL_HEIGHT = 0.5; // Base height of pedestal
@@ -469,40 +470,6 @@ export const animatePowerup = (powerup, time) => {
         }
     }
 };
-
-/**
- * Creates a grenade explosion effect (player-sourced)
- * This function is intended to be called when a player's grenade explodes
- * It creates an explosion that damages zombies but not the player
- * 
- * @param {Object} gameState - The current game state
- * @param {THREE.Vector3} position - The position where the explosion should occur
- * @param {number} radius - The radius of the explosion (default: 4)
- * @param {number} damage - The base damage of the explosion (default: 150)
- */
-export const createPlayerExplosion = (gameState, position, radius = 4, damage = 150) => {
-    if (!gameState || !gameState.scene) {
-        console.error("Cannot create player explosion: gameState or scene is undefined");
-        return;
-    }
-    
-    // Import the explosion function dynamically to avoid circular dependencies
-    import('../gameplay/zombieUtils.js').then(({ createExplosion }) => {
-        createExplosion(
-            gameState.scene,
-            position,
-            radius,
-            damage,
-            gameState.zombies || [],
-            gameState.playerObject,
-            gameState,
-            'player' // Set source as player so it won't damage the player
-        );
-    }).catch(error => {
-        console.error("Failed to import createExplosion:", error);
-    });
-};
-
 
 /**
  * Creates a smoke trail particle for grenades

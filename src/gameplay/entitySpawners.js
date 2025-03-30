@@ -235,7 +235,8 @@ const spawnEnemy = (playerPos, scene, gameState) => {
     enemyObj.mesh.type = enemyObj.type;
     
     // Set up dismemberment system for this zombie
-    setupDismemberment(enemyObj);
+    // setupDismemberment(enemyObj);
+    // Alex krause has turned off dismemberment for now
     
     gameState.zombies.push(enemyObj);
     scene.add(enemyObj.mesh);
