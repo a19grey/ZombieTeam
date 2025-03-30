@@ -34,6 +34,7 @@ const gameState = {
     lastPowerupSpawnTime: 0, // Track when the last powerup was spawned
     playerObject: null, // Store player object for access by other functions
     baseSpeed: 0.07, // Global base speed for player and enemies
+    score: 0, // Initialize score to 0
     // Sound control parameters
     sound: {
         lastZombieSoundTime: 0,     // Last time any zombie made a sound
@@ -240,7 +241,7 @@ const handleGameOver = () => {
         const params = new URLSearchParams({
             portal: 'true',
             username: gameState.player.name || 'Fallen Survivor',
-            score: gameState.player.exp.toString(),
+            score: gameState.score.toString(),
             health: '100', // Reset health for new game
             color: 'red',
             speed: gameState.baseSpeed.toString(),

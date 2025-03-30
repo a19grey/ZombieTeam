@@ -140,6 +140,7 @@ export const createSkittercrab = (position, baseSpeed) => {
     crab.mesh = crab;
     crab.enemyType = 'skittercrab';
     crab.health = 10; // Low health
+    crab.points = crab.health/10; // Base points for regular zombie
     crab.speed = baseSpeed * 1.5; // Very fast
     crab.mass = 0.5; // Very light
     crab.lastDashTime = 0;

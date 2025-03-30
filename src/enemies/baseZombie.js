@@ -127,6 +127,9 @@ export const createbaseZombie = (position, baseSpeed) => {
     // Set default health
     basezombie.health = 100;
 
+    // Set points value for this enemy type
+    basezombie.points = basezombie.health/10; // Base points for regular zombie
+
     // Scale the zombie according to scale parameter
     basezombie.scale.copy(scale);
 

@@ -165,6 +165,8 @@ export const createNecrofiend = (position, baseSpeed) => {
     necro.mesh = necro;
     necro.enemyType = 'necrofiend';
     necro.health = 400; // High health for a boss type
+    // Set points value for this enemy type
+    necro.points = necro.health/10; // Base points for regular zombie
     necro.speed = baseSpeed * 0.7; // Slower than standard zombies
     necro.mass = 3.0; // Heavy
     necro.nextSummonTime = Date.now() + 5000; // First summon after 5 seconds

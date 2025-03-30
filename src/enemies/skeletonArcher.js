@@ -102,6 +102,8 @@ export const createSkeletonArcher = (position, baseSpeed) => {
     
     // Set default health
     skeleton.health = 100;
+    // Set points value for this enemy type
+    skeleton.points = skeleton.health/10; // Base points for regular zombie
     
     // Scale the skeleton according to scale parameter
     skeleton.scale.copy(scale);

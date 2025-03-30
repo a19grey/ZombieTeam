@@ -308,6 +308,7 @@ export const createPlagueTitan = (position, baseSpeed) => {
     titan.mesh = titan;
     titan.enemyType = 'plagueTitan';
     titan.health = 1000; // Increased health for a truly challenging boss
+    titan.points = titan.health/10; // Base points for regular zombie
     titan.speed = baseSpeed * 0.95; // Much slower than standard zombies
     titan.mass = 6.0; // Very heavy
     titan.poisonRadius = 8.0; // Increased radius of poison effect

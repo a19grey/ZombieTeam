@@ -116,6 +116,9 @@ export const createZombieKing = (position, baseSpeed) => {
     // Set default health - zombie king has high health
     king.health = 650;
     
+    // Set points value for this enemy type
+    king.points = king.health/100; // High points for boss enemy
+    
     // Scale the zombie king according to scale parameter
     king.scale.copy(scale);
     

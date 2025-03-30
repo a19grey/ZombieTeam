@@ -1048,13 +1048,24 @@ startGame();
 // The following line displays welcome message for player when they first submit their name
 // This function gets called after the startup screen is dismissed
 function displayWelcomeMessage(playerName) {
-    const welcomeMessage = document.createElement('div');
-    welcomeMessage.textContent = `Welcome to the fight, ${playerName}!`;
-    Object.assign(welcomeMessage.style, {
+    // Create container for all messages
+    const messageContainer = document.createElement('div');
+    Object.assign(messageContainer.style, {
         position: 'absolute',
         top: '10%',
         left: '50%',
         transform: 'translateX(-50%)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        gap: '1rem',
+        zIndex: '100'
+    });
+
+    // Welcome message
+    const welcomeMessage = document.createElement('div');
+    welcomeMessage.textContent = `Welcome to the fight, ${playerName}!`;
+    Object.assign(welcomeMessage.style, {
         color: '#ff3030',
         fontSize: '1.5rem',
         fontWeight: 'bold',
@@ -1062,19 +1073,40 @@ function displayWelcomeMessage(playerName) {
         backgroundColor: 'rgba(0, 0, 0, 0.5)',
         padding: '1rem',
         borderRadius: '5px',
-        zIndex: '100',
         opacity: '1',
         transition: 'opacity 2s ease-in-out'
     });
+
+    // Instructions message
+    const instructionsMessage = document.createElement('div');
+    instructionsMessage.innerHTML = `
+        <div style="margin-bottom: 0.5rem;">Shoot powerups to unlock them!</div>
+        <div>Stand on portals for 1 second to use them</div>
+    `;
+    Object.assign(instructionsMessage.style, {
+        color: '#ffffff',
+        fontSize: '1.2rem',
+        textShadow: '0 0 10px rgba(0, 0, 0, 0.7)',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        padding: '1rem',
+        borderRadius: '5px',
+        opacity: '1',
+        transition: 'opacity 2s ease-in-out',
+        textAlign: 'center'
+    });
+
+    // Add messages to container
+    messageContainer.appendChild(welcomeMessage);
+    messageContainer.appendChild(instructionsMessage);
+    document.body.appendChild(messageContainer);
     
-    document.body.appendChild(welcomeMessage);
-    
-    // Fade out welcome message after 3 seconds
+    // Fade out messages after 5 seconds
     setTimeout(() => {
         welcomeMessage.style.opacity = '0';
+        instructionsMessage.style.opacity = '0';
         // Remove from DOM after fadeout completes
         setTimeout(() => {
-            document.body.removeChild(welcomeMessage);
+            document.body.removeChild(messageContainer);
         }, 2000);
-    }, 3000);
+    }, 5000);
 } 

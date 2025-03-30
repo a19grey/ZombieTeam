@@ -2,7 +2,7 @@
  * UI Module - Handles user interface updates
  * 
  * This module contains functions for updating the UI elements
- * that display player stats like health and EXP.
+ * that display player stats like health and score.
  * 
  * Example usage:
  * import { updateUI, showMessage } from './ui/ui.js';
@@ -33,13 +33,13 @@ export const initUI = (gameState) => {
         // Health is now displayed as a halo above the player's head
         // No need for health display elements in the UI
         
-        // Create EXP display
-        const expElement = document.createElement('div');
-        expElement.id = 'exp';
-        expElement.style.fontSize = '20px';
-        expElement.style.fontWeight = 'bold';
-        expElement.style.marginBottom = '10px';
-        uiContainer.appendChild(expElement);
+        // Create score display
+        const scoreElement = document.createElement('div');
+        scoreElement.id = 'score';
+        scoreElement.style.fontSize = '20px';
+        scoreElement.style.fontWeight = 'bold';
+        scoreElement.style.marginBottom = '10px';
+        uiContainer.appendChild(scoreElement);
         
         // Create zombie count display
         const zombieCountElement = document.createElement('div');
@@ -92,10 +92,10 @@ export const updateUI = (gameState) => {
     // Health is now displayed as a halo above the player's head
     // No need to update health display elements in the UI
     
-    // Update EXP display
-    const expElement = document.getElementById('exp');
-    if (expElement) {
-        expElement.textContent = `EXP: ${player.exp}`;
+    // Update score display
+    const scoreElement = document.getElementById('score');
+    if (scoreElement) {
+        scoreElement.textContent = `Score: ${gameState.score}`;
     }
     
     // Update zombie count
@@ -115,16 +115,6 @@ export const updateUI = (gameState) => {
                 return counts;
             }, {});
             
-            // Add enemy type breakdown
-            let enemyBreakdown = '';
-            if (enemyCounts.zombie) enemyBreakdown += ` Zombies: ${enemyCounts.zombie}`;
-            if (enemyCounts.skeletonArcher) enemyBreakdown += ` Archers: ${enemyCounts.skeletonArcher}`;
-            if (enemyCounts.exploder) enemyBreakdown += ` Exploders: ${enemyCounts.exploder}`;
-            if (enemyCounts.zombieKing) enemyBreakdown += ` Kings: ${enemyCounts.zombieKing}`;
-            
-            if (enemyBreakdown) {
-                zombieCountElement.textContent += ` (${enemyBreakdown.trim()})`;
-            }
         }
     }
     

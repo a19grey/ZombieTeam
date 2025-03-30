@@ -74,13 +74,17 @@ export const createExploder = (position, baseSpeed ) => {
     exploder.explosionTimer = 0;
     
     // Set speed relative to baseSpeed (slightly slower than standard zombie)
-    exploder.speed = baseSpeed * 0.9; // 90% of base speed
+    exploder.speed = baseSpeed * 0.9;
+    
+    
     
     // Set mass for physics calculations - exploder is medium-weight
     exploder.mass = 1.2;
     
     // Set default health
-    exploder.health = 75;
+    exploder.health = 100;
+    // Set points value for this enemy type
+    exploder.points = exploder.health/10; // Points for exploder type
     
     // Scale the exploder according to scale parameter
     exploder.scale.copy(scale);
