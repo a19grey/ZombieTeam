@@ -374,7 +374,7 @@ export const createGrenadeLauncherPowerup = (position) => {
     // Launcher body
     const bodyGeometry = new THREE.BoxGeometry(0.8, 0.25, 0.35); // Larger
     const bodyMaterial = new THREE.MeshStandardMaterial({
-        color: 0x228b22, // Forest green for military vibe
+        color: 0x228b22, // Forest green for military
         emissive: 0x228b22,
         emissiveIntensity: 0.5, // Brighter
         roughness: 0.5

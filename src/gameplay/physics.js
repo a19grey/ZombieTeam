@@ -225,6 +225,7 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
         }
         
         const ZOMBIE_COLLISION_DISTANCE = 1.0; // Also reduced zombie-zombie collision distance
+        const ZOMBIE_POWERUP_COLLISION_DISTANCE = 1.2; // Distance for zombies to avoid powerups
         
         // Check for bullet-powerup collisions
         for (let b = bullets.length - 1; b >= 0; b--) {
@@ -363,6 +364,41 @@ export const handleCollisions = (gameState, scene, delta = 1/60) => {
                         showMessage(`Shoot the ${powerup.type} to unlock it!`, 1500);
                         powerup.lastUnlockMessage = Date.now();
                     }
+                }
+            }
+        }
+        
+        // Make zombies avoid powerups (optimized by checking each powerup against nearby zombies)
+        for (let p = 0; p < powerups.length; p++) {
+            const powerup = powerups[p];
+            
+            // Skip if powerup is not active or has no mesh
+            if (!powerup || !powerup.active || !powerup.mesh || !powerup.mesh.position) {
+                continue;
+            }
+            
+            // Check each zombie for collision with this powerup
+            for (let z = 0; z < zombies.length; z++) {
+                const zombie = zombies[z];
+                
+                // Skip if zombie is not valid
+                if (!zombie || !zombie.mesh || !zombie.mesh.position) {
+                    continue;
+                }
+                
+                // Check if zombie is colliding with powerup
+                if (checkCollision(zombie.mesh.position, powerup.mesh.position, ZOMBIE_POWERUP_COLLISION_DISTANCE)) {
+                    // Push zombie away from powerup
+                    const newZombiePos = pushAway(zombie.mesh.position, powerup.mesh.position, ZOMBIE_POWERUP_COLLISION_DISTANCE);
+                    zombie.mesh.position.x = newZombiePos.x;
+                    zombie.mesh.position.z = newZombiePos.z;
+                    
+                    // Log collision for debugging (uncomment if needed)
+                    // logger.debug('collision', 'Zombie pushed away from powerup', {
+                    //     zombiePos: [zombie.mesh.position.x.toFixed(2), zombie.mesh.position.z.toFixed(2)],
+                    //     powerupPos: [powerup.mesh.position.x.toFixed(2), powerup.mesh.position.z.toFixed(2)],
+                    //     powerupType: powerup.type
+                    // });
                 }
             }
         }

@@ -7,7 +7,6 @@
 
 import * as THREE from 'three';
 import { checkCollision, pushAway } from './physics.js'; // Import physics helpers
-import { setupDismemberment } from './dismemberment.js'; // Import dismemberment system
 import { playSound } from './audio.js'; // Import audio system
 import { logger } from '../utils/logger.js'; // Import logger for debugging
 import { damagePlayer, damageZombie, isZombieDead, createExplosion } from './zombieUtils.js'; // Import zombie utilities
@@ -23,6 +22,12 @@ const isDev = window.NODE_ENV !== 'production';
  * @param {number} baseSpeed - Base movement speed (optional, for runtime speed adjustments)
  */
 export const updateZombies = (zombies, playerPosition, delta = 1/60, baseSpeed) => {
+    // Put game parameters here 
+    // Distance-based speed scaling parameters
+    const DISTANCE_SPEED_MIN = 15;    // Distance at which speed bonus starts applying
+    const DISTANCE_SPEED_MAX = 150;   // Distance at which maximum speed bonus is applied
+    const DISTANCE_SPEED_BONUS = 0.4; // Maximum speed bonus (30% increase)
+    
     if (!zombies || !playerPosition) {
         console.warn("Missing required parameters for updateZombies");
         return;
@@ -185,6 +190,27 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60, baseSpeed) 
         }
         
         try {
+            // Calculate distance to player for speed scaling
+            const distanceToPlayer = zombie.mesh.position.distanceTo(playerPosition);
+            
+            // Calculate speed modifier based on distance
+            let distanceSpeedModifier = 1.0; // Default: no modification
+            if (distanceToPlayer > DISTANCE_SPEED_MIN) {
+                // Linear scaling between min and max distance
+                const distanceFactor = Math.min(1.0, (distanceToPlayer - DISTANCE_SPEED_MIN) / (DISTANCE_SPEED_MAX - DISTANCE_SPEED_MIN));
+                distanceSpeedModifier = 1.0 + (distanceFactor * DISTANCE_SPEED_BONUS);
+                
+                if (isDev && index === updateOrder[0]) {
+                    logger.debug('speed', `Zombie ${index} distance: ${distanceToPlayer.toFixed(2)}, speed mod: ${distanceSpeedModifier.toFixed(2)}`);
+                }
+            }
+            
+            // Store original speed before modification
+            const originalSpeed = zombie.mesh.speed || zombie.speed;
+            
+            // Apply the distance-based speed modifier
+            zombie.mesh.speed = (zombie.mesh.speed || zombie.speed) * distanceSpeedModifier;
+            
             // Get nearby zombies for collision detection
             const nearbyZombies = getNearbyZombies(zombie.mesh.position, index);
             
@@ -258,6 +284,9 @@ export const updateZombies = (zombies, playerPosition, delta = 1/60, baseSpeed) 
                 zombie.mesh.rotation.y = Math.atan2(direction.x, direction.z);
                 updatedCount++;
             }
+            
+            // Reset speed back to original after update
+            zombie.mesh.speed = originalSpeed;
         } catch (error) {
             console.error(`Error updating zombie ${index}:`, error);
         }
