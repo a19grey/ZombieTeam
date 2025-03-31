@@ -36,7 +36,7 @@ export const maxFileLines = {
   create(context) {
     // Get rule options with defaults
     const options = {
-      max:256,
+      max:1200,
       skipBlankLines: true,
       skipComments: true,
       skipImports: true,

@@ -26,10 +26,10 @@ const gameState = {
     mouseDown: false, // Track if mouse button is held down
     gameOver: false, debug: DEBUG_MODE, /* Enable debug mode*/ camera: null, // Added for camera reference
     powerups: [], lastShotTime: 0, environmentObjects: [], // Store environment objects
-    enemySpawnRate: 250, // Time between enemy spawns in ms (reduced for more zombies)
-    powerupSpawnRate: 1200, // ms between powerup spawns
+    enemySpawnRate: 200, // Time between enemy spawns in ms (reduced for more zombies)
+    powerupSpawnRate: 3500, // ms between powerup spawns
     lastEnemySpawnTime: 0, maxZombies: 500, // Maximum number of zombies allowed at once
-    initialSpawnCount: 40, // Number of zombies to spawn at start (increased from 30 to 300)
+    initialSpawnCount: 200, // Number of zombies to spawn at start (increased from 30 to 300)
     dismembermentParticles: [], // Store colorful particles for dismemberment effects
     lastPowerupSpawnTime: 0, // Track when the last powerup was spawned
     playerObject: null, // Store player object for access by other functions
@@ -87,6 +87,11 @@ const handleGameOver = () => {
     
     gameState.gameOver = true;
     
+    // Save player name to localStorage for next session
+    if (gameState.player.name) {
+        localStorage.setItem('playerName', gameState.player.name);
+    }
+    
     // Calculate final stats
     const timePlayedMs = Date.now() - gameState.stats.startTime;
     const timePlayedSeconds = Math.floor(timePlayedMs / 1000);
@@ -121,7 +126,7 @@ const handleGameOver = () => {
     gameOverDiv.innerHTML = `
         GAME OVER<br>
         ${gameState.player.name} has fallen!<br>
-        Score: ${gameState.player.exp}<br>
+        Score: ${gameState.score}<br>
         <div style="font-size: 28px; margin-top: 15px; color: #ffffff; line-height: 1.4;">
             Time Survived: ${formattedTime}<br>
             Zombies Killed: ${gameState.stats.zombiesKilled}<br>

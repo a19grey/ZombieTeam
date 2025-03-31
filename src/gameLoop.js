@@ -109,6 +109,65 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, innerCirc
             return;
         }
         
+        // Handle countdown after first frame is rendered
+        if (gameState.showCountdown && gameState.countdownFunc) {
+            // Set the flag to false to ensure this only runs once
+            gameState.showCountdown = false;
+            
+            // Set up a pre-countdown rendering phase to ensure everything is visible
+            gameState.preCountdownFrames = 5; // Render 5 frames before starting countdown
+            
+            // Log that we're starting the pre-countdown phase
+            logger.info('game', 'Starting pre-countdown rendering to ensure environment is visible');
+        }
+        
+        // Handle pre-countdown frames - render several frames before starting the countdown
+        if (gameState.preCountdownFrames > 0) {
+            // Decrement the frame counter
+            gameState.preCountdownFrames--;
+            
+            // Process a full frame update to ensure environment is rendered
+            handlePlayerMovement(player, gameState.keys, gameState.baseSpeed, gameState.mouse, delta);
+            aimPlayerWithMouse(player, gameState.mouse, camera);
+            gameState.worldData = manageProceduralGround(scene, player.position, gameState.worldData);
+            
+            // Update camera position
+            camera.position.x = player.position.x;
+            camera.position.z = player.position.z + 10;
+            camera.position.y = 10;
+            const targetPoint = new THREE.Vector3(
+                player.position.x,
+                player.position.y - 1,
+                player.position.z - 3
+            );
+            camera.lookAt(targetPoint);
+            
+            // Render the frame
+            renderer.render(scene, camera);
+            
+            // If this was the last pre-countdown frame, start the countdown
+            if (gameState.preCountdownFrames === 0) {
+                // Set a paused flag to stop game updates during countdown
+                gameState.pausedForCountdown = true;
+                
+                // Trigger the countdown
+                setTimeout(async () => {
+                    await gameState.countdownFunc();
+                    // Resume game after countdown completes
+                    gameState.pausedForCountdown = false;
+                    logger.info('game', 'Countdown complete, game started');
+                }, 100); // Small delay to ensure frames are visible
+            }
+            
+            return;
+        }
+        
+        // If the game is paused for countdown, just render the scene without updating
+        if (gameState.pausedForCountdown) {
+            renderer.render(scene, camera);
+            return;
+        }
+        
         // Update player position based on input with direction-based speeds
         handlePlayerMovement(player, gameState.keys, gameState.baseSpeed, gameState.mouse, delta);
         
@@ -269,11 +328,11 @@ function animate(scene, camera, renderer, player, clock, powerupTimer, innerCirc
             }
         }
         
-        // Handle combat-related collisions (bullet-zombie, etc.)
-        handleCombatCollisions(scene, player, gameState, delta);
-        
         // Handle all collisions (player-powerup, bullet-powerup, player-zombie, etc.)
         handleCollisions(gameState, scene, delta);
+
+         // Handle combat-related collisions (bullet-zombie, etc.)
+        handleCombatCollisions(scene, player, gameState, delta);
         
         // Update zombies to chase player
         updateZombies(gameState.zombies, player.position, delta, gameState.baseSpeed);

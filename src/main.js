@@ -470,6 +470,113 @@ function setupJoystickEventHandlers(leftStick, rightStick) {
     });
 }
 
+/**
+ * Displays a countdown before starting the game
+ * @returns {Promise} Resolves when countdown is complete
+ */
+function displayCountdown() {
+    return new Promise((resolve) => {
+        // Create container for countdown
+        const countdownContainer = document.createElement('div');
+        Object.assign(countdownContainer.style, {
+            position: 'absolute',
+            top: '20%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: '1000'
+        });
+        
+        // Create countdown text element
+        const countdownText = document.createElement('div');
+        Object.assign(countdownText.style, {
+            fontSize: '5rem', // Half size (was 10rem)
+            fontWeight: 'bold',
+            fontFamily: '"Press Start 2P", "Courier New", monospace',
+            color: '#b429ff', // Neon purple base color
+            textShadow: '0 0 10px #b429ff, 0 0 20px #b429ff, 0 0 30px #b429ff',
+            opacity: '0',
+            transition: 'opacity 0.2s ease-in-out, transform 0.2s ease-in-out',
+            transform: 'scale(0.8)',
+            textAlign: 'center'
+        });
+        
+        countdownContainer.appendChild(countdownText);
+        document.body.appendChild(countdownContainer);
+        
+        // Animation for number appearance
+        function animateNumber(number) {
+            return new Promise((resolve) => {
+                countdownText.textContent = number;
+                countdownText.style.opacity = '0';
+                countdownText.style.transform = 'scale(0.8)';
+                
+                // Flash effect
+                setTimeout(() => {
+                    countdownText.style.opacity = '1';
+                    countdownText.style.transform = 'scale(1.2)';
+                    
+                    // Pulse animation
+                    let pulseCount = 0;
+                    const pulseInterval = setInterval(() => {
+                        countdownText.style.textShadow = pulseCount % 2 === 0 
+                            ? '0 0 10px #b429ff, 0 0 20px #b429ff, 0 0 30px #b429ff, 0 0 40px #b429ff'
+                            : '0 0 5px #b429ff, 0 0 10px #b429ff, 0 0 20px #b429ff';
+                        
+                        pulseCount++;
+                        if (pulseCount > 2) {
+                            clearInterval(pulseInterval);
+                        }
+                    }, 100);
+                    
+                    setTimeout(() => {
+                        countdownText.style.opacity = '0';
+                        countdownText.style.transform = 'scale(0.8)';
+                        clearInterval(pulseInterval);
+                        
+                        setTimeout(resolve, 100);
+                    }, 600);s
+                }, 100);
+            });
+        }
+        
+        // Animation for final "OK... GO!" message
+        function animateFinalMessage() {
+            return new Promise((resolve) => {
+                countdownText.textContent = "OK... GO!";
+                countdownText.style.fontSize = '3rem'; // Half size (was 6rem)
+                
+                setTimeout(() => {
+                    countdownText.style.opacity = '1';
+                    countdownText.style.transform = 'scale(1.2)';
+                    
+                    setTimeout(() => {
+                        countdownText.style.opacity = '0';
+                        countdownText.style.transform = 'scale(1.5)';
+                        
+                        setTimeout(() => {
+                            document.body.removeChild(countdownContainer);
+                            resolve();
+                        }, 200);
+                    }, 700); // Show "OK... GO!" for 0.7 seconds
+                }, 100);
+            });
+        }
+        
+        // Run countdown sequence
+        (async () => {
+            await animateNumber("3");
+            await animateNumber("2");
+            await animateNumber("1");
+            await animateFinalMessage();
+            resolve();
+        })();
+    });
+}
+
 // Main initialization function
 async function startGame() {
    // Refresh logger URL parameters to ensure correct debug sections are loaded
@@ -527,9 +634,22 @@ async function startGame() {
        // Display welcome message with portal context
        displayWelcomeMessage(`${PORTAL_USERNAME} arrived through a dimensional rift!`);
    } else {
-       // Regular entry - wait for player to enter their name before starting the game
-       logger.info('portal', 'Player joined normal mode');
-       await createStartupScreen();
+       // Check if we have a saved player name from previous session
+       const savedPlayerName = localStorage.getItem('playerName');
+       
+       if (savedPlayerName) {
+           // Use the saved name and skip the startup screen
+           gameState.player.name = savedPlayerName;
+           logger.info('player', `Returning player detected: ${savedPlayerName}`);
+           displayWelcomeMessage(`Welcome back, ${savedPlayerName}!`);
+       } else {
+           // Regular entry - wait for player to enter their name before starting the game
+           logger.info('portal', 'New player joined normal mode');
+           await createStartupScreen();
+           
+           // Save the player name for future sessions
+           localStorage.setItem('playerName', gameState.player.name);
+       }
    }
 
    // Set up mobile controls if on a mobile device
@@ -605,6 +725,10 @@ async function startGame() {
            executeTests(scene, camera, renderer);
        }, 1000);
    }
+
+   // Set up countdown to be triggered after first frame
+   gameState.showCountdown = true;
+   gameState.countdownFunc = displayCountdown;
 
    // Start animation loop (after user interaction, which helps with AudioContext)
    animate(scene, camera, renderer, player, clock, powerupTimer, innerCircle);

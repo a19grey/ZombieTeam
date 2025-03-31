@@ -929,7 +929,11 @@ export const spawnExitPortalBehindPlayer = (scene, gameState, player) => {
         isRightSide
     );
 
-    portalPosition.x = portalPosition.x*1.5 ; 
+    if (isRightSide) {
+        portalPosition.x = portalPosition.x+1.85 ; 
+    } else {
+        portalPosition.x = portalPosition.x-1.85 ; 
+    }
 
     // Create the portal
     createExitPortal(scene, portalPosition, gameState);

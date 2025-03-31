@@ -64,7 +64,7 @@ const shootBullet = (scene, player, gameState) => {
     // Check if enough time has passed since the last shot
     const currentTime = Date.now();
     // Use debug gun fire rate if available
-    const fireRateCooldown = gameState.debug && gameState.debug.gunFireRate ? gameState.debug.gunFireRate : 100;
+    const fireRateCooldown = 100;
     
     // Apply rapid fire powerup effect if active
     let actualFireRate = fireRateCooldown;
@@ -72,7 +72,12 @@ const shootBullet = (scene, player, gameState) => {
         actualFireRate = fireRateCooldown / 3; // 3x faster fire rate
         logger.info('combat', 'Rapid fire powerup active! Fire rate boosted');
     }
-    
+    if (gameState.player.activePowerup === 'grenadeLauncher') {
+        actualFireRate = fireRateCooldown * 3; // 3x faster fire rate
+        logger.info('combat', 'Grenade launcher powerup active! Fire rate boosted');
+    }
+
+
     if (currentTime - gameState.lastShotTime < actualFireRate) {
         return; // Still in cooldown
     }
@@ -188,12 +193,12 @@ const shootBullet = (scene, player, gameState) => {
             bulletPosition,
             direction,
             75, // Set damage equal to explosion damage for powerup interaction
-            0.5*(1+Math.random()*0.15), // Slower speed
+            0.3*(1+Math.random()*0.15), // Slower speed
             0x9b111e // Ruby red color
         );
         
         // Use safeCall instead of direct access to avoid null errors
-        safeCall(grenadeBullet, 'mesh.scale.set', [0.5, 0.5, 0.]);
+        safeCall(grenadeBullet, 'mesh.scale.set', [1.5, 1.5, 1]);
         logger.debug('grenadelauncher', 'Applied scale to grenade mesh in combat.js');
         
         if (grenadeBullet.mesh) {
@@ -405,59 +410,75 @@ const handleCombatCollisions = (scene, player, gameState, delta) => {
             // Mark bullet for removal
             bullet.toRemove = true;
             
-            // Apply damage to zombie using the centralized function
-            // This function now also handles dismemberment internally
-            if (!bullet.isGrenade) { // Grenades deal damage via explosion, not direct impact
-                 logger.debug('combat', `Bullet hit zombie ${hitZombieIndex}, dealing ${bullet.damage} damage.`);
-                 damageZombie(hitZombie, bullet.damage, scene); // Pass scene for dismemberment
-            } else {
-                 logger.debug('combat', `Grenade hit zombie ${hitZombieIndex}, triggering explosion.`);
-            }
-
-            // Handle explosive bullets (including grenades now)
-            if (bullet.isExplosive || bullet.isGrenade) {
-                logger.info('combat', 'Bullet/Grenade impact detected - creating explosion');
-                const explosionRadius = bullet.isGrenade ? 3 : 2; // Grenades have larger radius
-                // Grenades deal damage via explosion, direct damage was set to 0
-                // Use a standard explosion damage, potentially higher for grenades
-                const explosionDamage = bullet.isGrenade ? 75 : 50; 
+            // --- REVISED HIT HANDLING LOGIC ---
+            if (bullet.isGrenade) {
+                // Grenade Hit: Trigger explosion only. Explosion handles damage and death.
+                logger.debug('grenadelauncher', `Grenade hit zombie ${hitZombieIndex}, triggering explosion.`);
+                logger.info('grenadelauncher', 'Grenade impact detected - creating explosion');
+                const explosionRadiusGrenade = 4; // Grenades have larger radius
+                const explosionDamageGrenade = 200; // Standard grenade explosion damage
                 
                 createExplosion(
                     scene, 
                     closestIntersection, // Explode at impact point
-                    explosionRadius,
-                    explosionDamage,
+                    explosionRadiusGrenade,
+                    explosionDamageGrenade,
                     gameState.zombies, 
                     player, 
                     gameState,
                     'player' // Source is player weapon
                 );
-                // Note: createExplosion now handles zombie death checks internally
-                // So, we don't need the isZombieDead check here IF the damage was dealt by explosion.
-                // However, for non-grenade explosive bullets, direct damage IS applied above.
-                // We need to check for death *after* direct damage, before explosion potentially kills others.
+                // No separate damageZombie call or isZombieDead check needed here for grenades.
+                // createExplosion handles everything within its radius.
+                
+            } else {
+                // Non-Grenade Hit (Standard or other Explosive)
+                
+                // 1. Apply direct damage first
+                logger.debug('combat', `Bullet hit zombie ${hitZombieIndex}, dealing ${bullet.damage} damage.`);
+                damageZombie(hitZombie, bullet.damage, scene); // Pass scene for dismemberment
 
+                // 2. Check if the zombie died from the direct hit
+                // Use the centralized check:
+                if (isZombieDead(hitZombie) && !hitZombie.isDead) { // Check isDead flag to prevent double processing
+                    logger.debug('combat', `Zombie ${hitZombieIndex} died from direct bullet hit.`);
+                    // Use the centralized death handler
+                    handleZombieDeath(hitZombie, scene, gameState, gameState.zombies);
+                    
+                    // Remove zombie from the main array *immediately* after handling death
+                    // Since we iterate backwards, this should be safe.
+                    // Check if the zombie still exists in the array before splicing
+                    const currentZombieIndex = gameState.zombies.indexOf(hitZombie);
+                    if (currentZombieIndex !== -1) {
+                         gameState.zombies.splice(currentZombieIndex, 1);
+                         logger.debug('combat', `Spliced zombie at index ${currentZombieIndex} after direct hit death.`);
+                    } else {
+                         logger.warn('combat', `Zombie ${hitZombieIndex} was already removed before splicing attempt.`);
+                    }
+                    
+                    // Continue to next bullet as this zombie is gone
+                    continue; 
+                } else if (bullet.isExplosive && !bullet.isGrenade) {
+                     // 3. If it's an explosive bullet (and didn't die from direct hit), trigger explosion
+                     logger.info('combat', 'Explosive bullet impact detected - creating explosion');
+                     const explosionRadius = 2; 
+                     const explosionDamage = 50; 
+                     
+                     createExplosion(
+                         scene, 
+                         closestIntersection, // Explode at impact point
+                         explosionRadius,
+                         explosionDamage,
+                         gameState.zombies, 
+                         player, 
+                         gameState,
+                         'player' // Source is player weapon
+                     );
+                     // createExplosion handles potential deaths from the blast
+                }
+                // If it was just a standard bullet, direct damage and the death check above handled it.
             }
-            
-             // Check if the zombie died from the *direct* hit (if applicable)
-             // This check should happen *after* direct damage is applied, but potentially before the explosion
-             // logic if we want the direct hit kill registered first.
-             // Let's use the centralized check:
-             if (isZombieDead(hitZombie) && !hitZombie.isDead) { // Check isDead flag to prevent double processing
-                  logger.debug('combat', `Zombie ${hitZombieIndex} died from direct bullet hit.`);
-                  // Use the centralized death handler
-                  handleZombieDeath(hitZombie, scene, gameState, gameState.zombies);
-                  
-                  // Remove zombie from the main array *immediately* after handling death
-                  // Since we iterate backwards, this should be safe.
-                  gameState.zombies.splice(hitZombieIndex, 1);
-                  
-                  // Continue to next bullet as this zombie is gone
-                  continue; 
-             }
-            
-            // If the bullet was a grenade or explosive, the explosion handles subsequent damage/death
-            // If it was a normal bullet, the death check above handled it.
+            // --- END REVISED HIT HANDLING LOGIC ---
         }
     }
     

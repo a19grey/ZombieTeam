@@ -373,7 +373,7 @@ export const createExplosion = (scene, position, radius, damage, zombies = [], p
                 if (zombie && zombie.mesh && zombie.mesh.position && zombie.health > 0 && !zombie.isDead) {
                     const zombieDistance = zombie.mesh.position.distanceTo(position);
                     if (zombieDistance < radius) {
-                        const damageToDeal = Math.round(damage * (1 - zombieDistance / radius)); // Damage falloff
+                        const damageToDeal = Math.round(damage * Math.pow((1-zombieDistance / radius), 3)); // Damage falloff proportional to volume
                         logger.debug('explosion',`278: Zombie ${i} (type ${zombie.type}) in radius (dist: ${zombieDistance.toFixed(2)} < ${radius}), dealing ${damageToDeal} damage`);
                         try {
                             // Damage the zombie (this modifies health directly)
