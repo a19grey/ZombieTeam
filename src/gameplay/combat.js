@@ -21,7 +21,6 @@ import * as THREE from 'three';
 import { createBullet } from './weapons.js';
 import { playSound } from './audio.js';
 import { createExplosion, isZombieDead, handleZombieDeath, damageZombie } from './zombieUtils.js';
-import { checkCollision } from './physics.js';
 import { safeCall } from '../utils/safeAccess.js';
 import { createSmokeTrail } from './powerups2.js';
 import { logger } from '../utils/logger.js';
@@ -153,7 +152,7 @@ const shootBullet = (scene, player, gameState) => {
         const laserBullet = createBullet(
             bulletPosition,
             direction,
-            gameState.player.damage * 2, // Double damage
+            gameState.player.damage * 2.75, // Double damage
             1.0*(1+Math.random()*0.15), // Very fast
             0x00ff00 // Bright green color for laser
         );

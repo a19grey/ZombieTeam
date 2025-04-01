@@ -24,9 +24,9 @@ const isDev = window.NODE_ENV !== 'production';
 export const updateZombies = (zombies, playerPosition, delta = 1/60, baseSpeed) => {
     // Put game parameters here 
     // Distance-based speed scaling parameters
-    const DISTANCE_SPEED_MIN = 15;    // Distance at which speed bonus starts applying
+    const DISTANCE_SPEED_MIN = 5;    // Distance at which speed bonus starts applying
     const DISTANCE_SPEED_MAX = 150;   // Distance at which maximum speed bonus is applied
-    const DISTANCE_SPEED_BONUS = 0.4; // Maximum speed bonus (30% increase)
+    const DISTANCE_SPEED_BONUS = 0.6; // Maximum speed bonus add as percent increase
     
     if (!zombies || !playerPosition) {
         console.warn("Missing required parameters for updateZombies");

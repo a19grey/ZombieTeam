@@ -503,8 +503,25 @@ function displayCountdown() {
             transform: 'scale(0.8)',
             textAlign: 'center'
         });
+
+        // Create powerup message element
+        const powerupMessage = document.createElement('div');
+        Object.assign(powerupMessage.style, {
+            fontSize: '1.5rem',
+            fontWeight: 'bold',
+            fontFamily: '"Press Start 2P", "Courier New", monospace',
+            color: '#00ffff', // Neon blue base color
+            textShadow: '0 0 10px #00ffff, 0 0 20px #00ffff, 0 0 30px #00ffff',
+            opacity: '1', // Set initial opacity to 1
+            transition: 'opacity 0.2s ease-in-out, transform 0.2s ease-in-out',
+            transform: 'scale(1)', // Set initial scale to 1
+            textAlign: 'center',
+            marginTop: '1rem'
+        });
+        powerupMessage.textContent = 'SHOOT POWERUPS TO UNLOCK!';
         
         countdownContainer.appendChild(countdownText);
+        countdownContainer.appendChild(powerupMessage);
         document.body.appendChild(countdownContainer);
         
         // Animation for number appearance
@@ -538,7 +555,7 @@ function displayCountdown() {
                         clearInterval(pulseInterval);
                         
                         setTimeout(resolve, 100);
-                    }, 600);s
+                    }, 600);
                 }, 100);
             });
         }
@@ -556,6 +573,7 @@ function displayCountdown() {
                     setTimeout(() => {
                         countdownText.style.opacity = '0';
                         countdownText.style.transform = 'scale(1.5)';
+                        powerupMessage.style.opacity = '0'; // Fade out powerup message
                         
                         setTimeout(() => {
                             document.body.removeChild(countdownContainer);

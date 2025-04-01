@@ -25,7 +25,7 @@ const BULLET_COOLDOWN = 100; // milliseconds - reduced by 50% for faster firing
  * @param {number} color - Color of the bullet (default: yellow)
  * @returns {Object} The bullet object
  */
-export const createBullet = (position, direction, damage = 25, speed = 1.0, color = 0xffff00) => {
+export const createBullet = (position, direction, damage, speed, color = 0xffff00) => {
     // Ensure position and direction are valid objects
     if (!position || !direction) {
         console.error('Invalid position or direction provided to createBullet');
