@@ -17,16 +17,269 @@
 
 import * as THREE from 'three';
 import { logger } from '../utils/logger.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 // Add 'enemy' to logger sections if not already included
 logger.addSection('enemy');
 
 export const createNecrofiend = (position, baseSpeed) => {
     // Configuration parameters
-    const scale = new THREE.Vector3(1.4, 0.9, 1.4); // Slightly taller
+   
+    const scale = new THREE.Vector3(1, 1, 1); // Slightly taller
+    const necroScale = 3; // Scale for the 3D model
     
     const necro = new THREE.Group();
+    
+    // Try to load the necrofiend 3D model first
+    const loader = new GLTFLoader();
+    
+    // Promise-based loading to handle fallback
+    const loadNecrofiendModel = () => {
+        return new Promise((resolve, reject) => {
+            // Attempt to load from audio directory
+            loader.load('./necrofiend_3D.glb', 
+                (gltf) => {
+                    logger.info('enemy', 'Successfully loaded necrofiend_3D.glb model');
+                    
+                    // Add the loaded model to the necrofiend group
+                    const model = gltf.scene;
+                    model.scale.set(necroScale, necroScale, necroScale); // Scale appropriately
+                    model.position.y = necroScale; // Position at ground level
+                    
+                    // Brighten up the model by traversing all meshes and adjusting their materials
+                    model.traverse((node) => {
+                        if (node.isMesh && node.material) {
+                            // Handle both single material and material array
+                            const materials = Array.isArray(node.material) ? node.material : [node.material];
+                            
+                            materials.forEach((material) => {
+                                // Add emissive properties to brighten the model
+                                material.emissive = material.color.clone().multiplyScalar(0.3);
+                                material.emissiveIntensity = 0.0;
+                                
+                                // Increase base color brightness
+                                material.color.multiplyScalar(1.9);
+                                
+                                // Reduce metalness and increase roughness for better visibility
+                                if (material.metalness !== undefined) {
+                                    material.metalness = Math.max(0, material.metalness - 0.3);
+                                }
+                                
+                                if (material.roughness !== undefined) {
+                                    material.roughness = Math.min(1, material.roughness + 0.2);
+                                }
+                                
+                                // Ensure materials receive shadows properly
+                                material.needsUpdate = true;
+                            });
+                            
+                            // Make sure model casts and receives shadows
+                            node.castShadow = true;
+                            node.receiveShadow = true;
+                        }
+                    });
+                    
+                    necro.add(model);
+                    
+                    // Store model loaded status in userData for other functions to reference
+                    necro.userData.necrofiendModelLoaded = true;
+                    resolve(true);
+                },
+                (xhr) => {
+                    logger.debug('enemy', `Necrofiend model loading: ${(xhr.loaded / xhr.total * 100).toFixed(2)}%`);
+                },
+                (error) => {
+                    logger.warn('enemy', 'Failed to load necrofiend_3D.glb model', { error: error.message });
+                    reject(error);
+                }
+            );
+        });
+    };
 
+    // Position the necrofiend
+    necro.position.set(position.x, 0, position.z);
+    
+    // Log the creation
+    logger.info('enemyspawner', `Creating necrofiend at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
+    
+    // Set properties
+    necro.mesh = necro;
+    necro.enemyType = 'necrofiend';
+    necro.health = 400; // High health for a boss type
+    // Set points value for this enemy type
+    necro.points = necro.health/10; // Base points for regular zombie
+    necro.speed = baseSpeed * 0.7; // Slower than standard zombies
+    necro.mass = 3.0; // Heavy
+    necro.nextSummonTime = Date.now() + 5000; // First summon after 5 seconds
+    necro.animationTime = 0; // For limb animations
+
+    // Try to load the 3D model first, then fall back to original geometry if it fails
+    loadNecrofiendModel().catch(() => {
+        logger.info('enemy', 'Falling back to default geometry necrofiend model');
+        createDefaultNecrofiendGeometry(necro);
+    });
+    
+    // Scale the necrofiend according to scale parameter
+    // Only scale the default geometry version, as the 3D model is already scaled
+    if (!necro.userData.necrofiendModelLoaded) {
+        necro.scale.copy(scale);
+    }
+    
+    // Update method
+    necro.update = (context) => {
+        logger.verbose('enemy', `Necrofiend update at ${necro.position.x.toFixed(2)},${necro.position.z.toFixed(2)}`);
+        
+        const { 
+            playerPosition, 
+            delta, 
+            collisionSettings,
+            environmentObjects,
+            nearbyZombies,
+            gameState,
+            checkCollision,
+            pushAway,
+            damagePlayer,
+            summonZombie
+        } = context;
+        
+        // Only animate parts if we're using the default geometry model
+        if (!necro.userData.necrofiendModelLoaded && necro.limbs) {
+            // Animate ethereal limbs
+            necro.animationTime += delta * 2;
+            
+            // Animate eye glow
+            if (necro.eyes) {
+                const glowPulse = (Math.sin(necro.animationTime * 1.5) * 0.5 + 1.5) * necro.eyes.left.userData.baseIntensity;
+                necro.eyes.material.emissiveIntensity = glowPulse;
+            }
+            
+            // Gentle floating motion for arms
+            necro.limbs.leftArm.rotation.z = Math.PI / 6 + Math.sin(necro.animationTime) * 0.1;
+            necro.limbs.rightArm.rotation.z = -Math.PI / 6 + Math.sin(necro.animationTime) * 0.1;
+            
+            // Subtle leg movement
+            necro.limbs.leftLeg.rotation.x = Math.sin(necro.animationTime) * 0.05;
+            necro.limbs.rightLeg.rotation.x = Math.sin(necro.animationTime + Math.PI) * 0.05;
+        } else {
+            // Basic animation for 3D model
+            necro.animationTime += delta * 2;
+            // Any animation for the 3D model would go here
+        }
+        
+        // Calculate direction to player
+        const direction = new THREE.Vector3(
+            playerPosition.x - necro.position.x,
+            0,
+            playerPosition.z - necro.position.z
+        );
+        
+        const distance = direction.length();
+        const finalDirection = direction.clone().normalize();
+        
+        // Add slight randomness to movement
+        const randomFactor = Math.min(0.1, distance * 0.005);
+        const randomAngle = (Math.random() - 0.5) * Math.PI * randomFactor;
+        finalDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), randomAngle);
+        
+        // Calculate intended position
+        const moveDistance = necro.speed * delta * 60;
+        const intendedPosition = new THREE.Vector3()
+            .copy(necro.position)
+            .addScaledVector(finalDirection, moveDistance);
+        
+        // Debug log position change
+        logger.verbose('enemy', `Necrofiend moving from ${necro.position.x.toFixed(2)},${necro.position.z.toFixed(2)} to ${intendedPosition.x.toFixed(2)},${intendedPosition.z.toFixed(2)}`);
+        
+        // Handle collisions if collision settings are available
+        if (collisionSettings) {
+            const { COLLISION_DISTANCE, DAMAGE_DISTANCE, DAMAGE_PER_SECOND, ZOMBIE_COLLISION_DISTANCE } = collisionSettings;
+            
+            if (checkCollision && pushAway) {
+                if (checkCollision(intendedPosition, playerPosition, COLLISION_DISTANCE)) {
+                    const newPosition = pushAway(intendedPosition, playerPosition, COLLISION_DISTANCE);
+                    intendedPosition.x = newPosition.x;
+                    intendedPosition.z = newPosition.z;
+                    
+                    if (checkCollision(intendedPosition, playerPosition, DAMAGE_DISTANCE)) {
+                        const damageAmount = DAMAGE_PER_SECOND * delta;
+                        if (gameState) damagePlayer(gameState, damageAmount);
+                    }
+                }
+            }
+            
+            // Zombie collisions
+            if (nearbyZombies && checkCollision && pushAway) {
+                for (let i = 0; i < nearbyZombies.length; i++) {
+                    const otherZombie = nearbyZombies[i];
+                    if (!otherZombie || !otherZombie.mesh || otherZombie.mesh.isExploding) continue;
+                    
+                    if (checkCollision(intendedPosition, otherZombie.mesh.position, ZOMBIE_COLLISION_DISTANCE)) {
+                        // Calculate avoidance position for collision resolution
+                        const avoidancePosition = pushAway(
+                            intendedPosition, 
+                            otherZombie.mesh.position, 
+                            ZOMBIE_COLLISION_DISTANCE
+                        );
+                        intendedPosition.x = (intendedPosition.x + avoidancePosition.x) * 0.5;
+                        intendedPosition.z = (intendedPosition.z + avoidancePosition.z) * 0.5;
+                    }
+                }
+            }
+        }
+        
+        // Environment collisions
+        if (environmentObjects) {
+            for (const object of environmentObjects) {
+                if (object && object.isObstacle) {
+                    const dx = intendedPosition.x - object.position.x;
+                    const dz = intendedPosition.z - object.position.z;
+                    const distance = Math.sqrt(dx * dx + dz * dz);
+                    if (distance < (object.boundingRadius || 2.5)) {
+                        const pushDirection = new THREE.Vector3(dx, 0, dz).normalize();
+                        const pushDistance = (object.boundingRadius || 2.5) - distance + 0.1;
+                        intendedPosition.x += pushDirection.x * pushDistance;
+                        intendedPosition.z += pushDirection.z * pushDistance;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // Apply final position and rotation
+        necro.position.copy(intendedPosition);
+        necro.rotation.y = Math.atan2(finalDirection.x, finalDirection.z);
+        
+        // Summon minions periodically
+        const now = Date.now();
+        if (now > necro.nextSummonTime) {
+            logger.info('enemy', `Necrofiend summoning minions`);
+            necro.nextSummonTime = now + 15000; // Next summon in 15 seconds
+            
+            // Summon logic would go here, e.g.:
+            if (summonZombie) {
+                // Random slight offset positions for summoned zombies
+                const summonOffset = 2.0;
+                for (let i = 0; i < 3; i++) {
+                    const offsetX = (Math.random() - 0.5) * summonOffset;
+                    const offsetZ = (Math.random() - 0.5) * summonOffset;
+                    const summonPos = {
+                        x: necro.position.x + offsetX,
+                        z: necro.position.z + offsetZ
+                    };
+                    summonZombie(summonPos, 1); // Summon 1 zombie at this position
+                }
+            }
+        }
+    };
+    
+    return necro;
+};
+
+/**
+ * Creates the default necrofiend geometry using primitives (original implementation)
+ * @param {THREE.Group} necro - The necrofiend group to add geometry to
+ */
+function createDefaultNecrofiendGeometry(necro) {
     // Main body - taller and more slender
     const bodyGeometry = new THREE.BoxGeometry(0.7, 3.5, 0.5);
     const bodyMaterial = new THREE.MeshStandardMaterial({
@@ -154,26 +407,6 @@ export const createNecrofiend = (position, baseSpeed) => {
     necro.add(rightArm);
     necro.add(leftLeg);
     necro.add(rightLeg);
-
-    // Position the necrofiend
-    necro.position.set(position.x, 0, position.z);
-    
-    // Log the creation
-    logger.info('enemyspawner', `Creating necrofiend at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
-    
-    // Set properties
-    necro.mesh = necro;
-    necro.enemyType = 'necrofiend';
-    necro.health = 400; // High health for a boss type
-    // Set points value for this enemy type
-    necro.points = necro.health/10; // Base points for regular zombie
-    necro.speed = baseSpeed * 0.7; // Slower than standard zombies
-    necro.mass = 3.0; // Heavy
-    necro.nextSummonTime = Date.now() + 5000; // First summon after 5 seconds
-    necro.animationTime = 0; // For limb animations
-    
-    // Scale the necrofiend according to scale parameter
-    necro.scale.copy(scale);
     
     // Store limb references for animation
     necro.limbs = {
@@ -182,147 +415,5 @@ export const createNecrofiend = (position, baseSpeed) => {
         leftLeg,
         rightLeg
     };
-    
-    // Update method
-    necro.update = (context) => {
-        logger.verbose('enemy', `Necrofiend update at ${necro.position.x.toFixed(2)},${necro.position.z.toFixed(2)}`);
-        
-        const { 
-            playerPosition, 
-            delta, 
-            collisionSettings,
-            environmentObjects,
-            nearbyZombies,
-            gameState,
-            checkCollision,
-            pushAway,
-            damagePlayer,
-            summonZombie
-        } = context;
-        
-        // Animate ethereal limbs
-        necro.animationTime += delta * 2;
-        
-        // Animate eye glow
-        const glowPulse = (Math.sin(necro.animationTime * 1.5) * 0.5 + 1.5) * necro.eyes.left.userData.baseIntensity;
-        necro.eyes.material.emissiveIntensity = glowPulse;
-        
-        // Gentle floating motion for arms
-        necro.limbs.leftArm.rotation.z = Math.PI / 6 + Math.sin(necro.animationTime) * 0.1;
-        necro.limbs.rightArm.rotation.z = -Math.PI / 6 + Math.sin(necro.animationTime) * 0.1;
-        
-        // Subtle leg movement
-        necro.limbs.leftLeg.rotation.x = Math.sin(necro.animationTime) * 0.05;
-        necro.limbs.rightLeg.rotation.x = Math.sin(necro.animationTime + Math.PI) * 0.05;
-        
-        // Calculate direction to player
-        const direction = new THREE.Vector3(
-            playerPosition.x - necro.position.x,
-            0,
-            playerPosition.z - necro.position.z
-        );
-        
-        const distance = direction.length();
-        const finalDirection = direction.clone().normalize();
-        
-        // Add slight randomness to movement
-        const randomFactor = Math.min(0.1, distance * 0.005);
-        const randomAngle = (Math.random() - 0.5) * Math.PI * randomFactor;
-        finalDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), randomAngle);
-        
-        // Calculate intended position
-        const moveDistance = necro.speed * delta * 60;
-        const intendedPosition = new THREE.Vector3()
-            .copy(necro.position)
-            .addScaledVector(finalDirection, moveDistance);
-        
-        // Debug log position change
-        logger.verbose('enemy', `Necrofiend moving from ${necro.position.x.toFixed(2)},${necro.position.z.toFixed(2)} to ${intendedPosition.x.toFixed(2)},${intendedPosition.z.toFixed(2)}`);
-        
-        // Handle collisions if collision settings are available
-        if (collisionSettings) {
-            const { COLLISION_DISTANCE, DAMAGE_DISTANCE, DAMAGE_PER_SECOND, ZOMBIE_COLLISION_DISTANCE } = collisionSettings;
-            
-            if (checkCollision && pushAway) {
-                if (checkCollision(intendedPosition, playerPosition, COLLISION_DISTANCE)) {
-                    const newPosition = pushAway(intendedPosition, playerPosition, COLLISION_DISTANCE);
-                    intendedPosition.x = newPosition.x;
-                    intendedPosition.z = newPosition.z;
-                    
-                    if (checkCollision(intendedPosition, playerPosition, DAMAGE_DISTANCE)) {
-                        const damageAmount = DAMAGE_PER_SECOND * delta;
-                        if (gameState) damagePlayer(gameState, damageAmount);
-                    }
-                }
-            }
-            
-            // Zombie collisions
-            if (nearbyZombies && checkCollision && pushAway) {
-                for (let i = 0; i < nearbyZombies.length; i++) {
-                    const otherZombie = nearbyZombies[i];
-                    if (!otherZombie || !otherZombie.mesh || otherZombie.mesh.isExploding) continue;
-                    
-                    if (checkCollision(intendedPosition, otherZombie.mesh.position, ZOMBIE_COLLISION_DISTANCE)) {
-                        const thisSize = necro.mass;
-                        const otherSize = otherZombie.mesh.mass;
-                        
-                        const avoidancePosition = pushAway(
-                            intendedPosition, 
-                            otherZombie.mesh.position, 
-                            ZOMBIE_COLLISION_DISTANCE
-                        );
-                        intendedPosition.x = (intendedPosition.x + avoidancePosition.x) * 0.5;
-                        intendedPosition.z = (intendedPosition.z + avoidancePosition.z) * 0.5;
-                    }
-                }
-            }
-        }
-        
-        // Environment collisions
-        if (environmentObjects) {
-            for (const object of environmentObjects) {
-                if (object && object.isObstacle) {
-                    const dx = intendedPosition.x - object.position.x;
-                    const dz = intendedPosition.z - object.position.z;
-                    const distance = Math.sqrt(dx * dx + dz * dz);
-                    if (distance < (object.boundingRadius || 2.5)) {
-                        const pushDirection = new THREE.Vector3(dx, 0, dz).normalize();
-                        const pushDistance = (object.boundingRadius || 2.5) - distance + 0.1;
-                        intendedPosition.x += pushDirection.x * pushDistance;
-                        intendedPosition.z += pushDirection.z * pushDistance;
-                        break;
-                    }
-                }
-            }
-        }
-        
-        // Apply final position and rotation
-        necro.position.copy(intendedPosition);
-        necro.rotation.y = Math.atan2(finalDirection.x, finalDirection.z);
-        
-        // Summon minions periodically
-        const now = Date.now();
-        if (now > necro.nextSummonTime) {
-            logger.info('enemy', `Necrofiend summoning minions`);
-            necro.nextSummonTime = now + 15000; // Next summon in 15 seconds
-            
-            // Summon logic would go here, e.g.:
-            if (summonZombie) {
-                // Random slight offset positions for summoned zombies
-                const summonOffset = 2.0;
-                for (let i = 0; i < 3; i++) {
-                    const offsetX = (Math.random() - 0.5) * summonOffset;
-                    const offsetZ = (Math.random() - 0.5) * summonOffset;
-                    const summonPos = {
-                        x: necro.position.x + offsetX,
-                        z: necro.position.z + offsetZ
-                    };
-                    summonZombie(summonPos, 1); // Summon 1 zombie at this position
-                }
-            }
-        }
-    };
-    
-    return necro;
-};
+}
 

@@ -7,6 +7,7 @@
 
 import * as THREE from 'three';
 import { logger } from '../utils/logger.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 /**
  * Creates a Minecraft-style low-poly player character
@@ -15,22 +16,77 @@ import { logger } from '../utils/logger.js';
 export const createPlayer = () => {
     const player = new THREE.Group();
 
-    // Head (cube)
-    const headGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
-    const headMaterial = new THREE.MeshStandardMaterial({
-        color: 0xf9c9b6, // Skin tone
-        metalness: 0,
-        roughness: 0.8
-    });
-    const head = new THREE.Mesh(headGeometry, headMaterial);
-    head.position.y = 1.5; // Top of character at y=2
-    head.castShadow = true;
-    player.add(head);
-
+    // Try to load hero.glb model first
+    const loader = new GLTFLoader();
+    const heroScale = 1.2;
+    // Promise-based loading to handle fallback
+    const loadHeroModel = () => {
+        return new Promise((resolve, reject) => {
+            // Attempt to load from audio directory
+            loader.load('./hero.glb', 
+                (gltf) => {
+                    logger.info('player', 'Successfully loaded hero.glb model');
+                    
+                    // Add the loaded model to the player group
+                    const model = gltf.scene;
+                    model.scale.set(heroScale, heroScale, heroScale); // Scale appropriately
+                    model.position.y = heroScale; // Position at ground level
+                    
+                    // Brighten up the model by traversing all meshes and adjusting their materials
+                    model.traverse((node) => {
+                        if (node.isMesh && node.material) {
+                            // Handle both single material and material array
+                            const materials = Array.isArray(node.material) ? node.material : [node.material];
+                            
+                            materials.forEach((material) => {
+                                // Add emissive properties to brighten the model
+                                material.emissive = material.color.clone().multiplyScalar(0.3);
+                                material.emissiveIntensity = 0.0;
+                                
+                                // Increase base color brightness
+                                material.color.multiplyScalar(1.5);
+                                
+                                // Reduce metalness and increase roughness for better visibility
+                                if (material.metalness !== undefined) {
+                                    material.metalness = Math.max(0, material.metalness - 0.3);
+                                }
+                                
+                                if (material.roughness !== undefined) {
+                                    material.roughness = Math.min(1, material.roughness + 0.2);
+                                }
+                                
+                                // Ensure materials receive shadows properly
+                                material.needsUpdate = true;
+                            });
+                            
+                            // Make sure model casts and receives shadows
+                            node.castShadow = false;
+                            node.receiveShadow = false;
+                        }
+                    });
+                    
+                    player.add(model);
+                    
+                    // Store model loaded status in userData for other functions to reference
+                    player.userData.heroModelLoaded = true;
+                    resolve(true);
+                },
+                (xhr) => {
+                    logger.debug('player', `Hero model loading: ${(xhr.loaded / xhr.total * 100).toFixed(2)}%`);
+                },
+                (error) => {
+                    logger.warn('player', 'Failed to load hero.glb model', { error: error.message });
+                    reject(error);
+                }
+            );
+        });
+    };
+   
     // Create health halo (annulus/ring) above the player's head
     const haloRadius = 0.4; // Size of the halo
     const haloTubeWidth = 0.08; // Thickness of the ring
-    
+    const haloOffset = 1.9 + 0.2; // Offset of the halo from the head
+
     // Pre-create materials for different health levels to avoid repeated material creation
     const healthMaterials = {
         critical: new THREE.MeshBasicMaterial({  // 0-20%
@@ -103,14 +159,14 @@ export const createPlayer = () => {
     const haloGeometry = new THREE.RingGeometry(haloRadius - haloTubeWidth, haloRadius, 32);
     const healthHalo = new THREE.Mesh(haloGeometry, healthMaterials.full);
     healthHalo.rotation.x = -Math.PI / 2; // Make it horizontal
-    healthHalo.position.y = 1.9; // Position above the head
+    healthHalo.position.y = haloOffset*heroScale; // Position above the head
     player.add(healthHalo);
     
     // Add a subtle glow effect to the halo
     const glowGeometry = new THREE.RingGeometry(haloRadius - haloTubeWidth - 0.02, haloRadius + 0.02, 32);
     const glowHalo = new THREE.Mesh(glowGeometry, glowMaterials.full);
     glowHalo.rotation.x = -Math.PI / 2;
-    glowHalo.position.y = 1.9;
+    glowHalo.position.y = haloOffset*heroScale;
     player.add(glowHalo);
     
     // Store reference to the health halo for updating (including materials)
@@ -121,6 +177,38 @@ export const createPlayer = () => {
     player.userData.haloRadius = haloRadius;
     player.userData.haloTubeWidth = haloTubeWidth;
     player.userData.lastHealthPercent = 1.0; // Store last health percentage to avoid unnecessary updates
+
+    // Try to load the hero model first, then fall back to original geometry if it fails
+    loadHeroModel().catch(() => {
+        logger.info('player', 'Falling back to default geometry player model');
+        createDefaultPlayerGeometry(player);
+    });
+        
+    // Weapon attachment point (at end of right hand)
+    const weaponMount = new THREE.Object3D();
+    weaponMount.position.set(0.375, 0.375, 0.125); // End of right arm (y lowered to hand level, positive Z for forward direction)
+    player.add(weaponMount);
+    player.userData.weaponMount = weaponMount; // Accessible for weapon attachment
+    
+    return player;
+};
+
+/**
+ * Creates the default player geometry using cubes (original implementation)
+ * @param {THREE.Group} player - The player group to add geometry to
+ */
+function createDefaultPlayerGeometry(player) {
+    // Head (cube)
+    const headGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+    const headMaterial = new THREE.MeshStandardMaterial({
+        color: 0xf9c9b6, // Skin tone
+        metalness: 0,
+        roughness: 0.8
+    });
+    const head = new THREE.Mesh(headGeometry, headMaterial);
+    head.position.y = 1.5; // Top of character at y=2
+    head.castShadow = true;
+    player.add(head);
     
     // Body (rectangular prism)
     const bodyGeometry = new THREE.BoxGeometry(0.5, 0.75, 0.25);
@@ -169,18 +257,7 @@ export const createPlayer = () => {
     rightLeg.position.set(0.125, 0.25, 0); // Bottom right
     rightLeg.castShadow = true;
     player.add(rightLeg);
-
-    // Weapon attachment point (at end of right hand)
-    const weaponMount = new THREE.Object3D();
-    weaponMount.position.set(0.375, 0.375, 0.125); // End of right arm (y lowered to hand level, positive Z for forward direction)
-    player.add(weaponMount);
-    player.userData.weaponMount = weaponMount; // Accessible for weapon attachment
-    
-    // No need to rotate the player 180 degrees - we'll handle direction in the aiming function
-    // player.rotation.y = Math.PI;
-
-    return player;
-};
+}
 
 /**
  * Creates a weapon for the player

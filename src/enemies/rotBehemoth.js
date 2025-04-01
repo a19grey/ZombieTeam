@@ -14,9 +14,9 @@
  *   scene.add(behemoth);
  */
 
-// src/enemies/zombie.js
 import * as THREE from 'three';
 import { logger } from '../utils/logger.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 // Add 'enemy' to logger sections if not already included
 logger.addSection('enemy');
@@ -24,10 +24,235 @@ logger.addSection('enemyspawner');
 
 export const createRotBehemoth = (position, baseSpeed) => {
     // Configuration parameters
-    const scale = new THREE.Vector3(1.5, 1.5, 1.5); // Increased scale for truly massive presence
+    const scale = new THREE.Vector3(1, 1, 1); // Increased scale for truly massive presence
+    const behemothScale = 4.0; // Scale for the 3D model
     
     const behemoth = new THREE.Group();
     
+    // Try to load the behemoth 3D model first
+    const loader = new GLTFLoader();
+    
+    // Promise-based loading to handle fallback
+    const loadBehemothModel = () => {
+        return new Promise((resolve, reject) => {
+            // Attempt to load from audio directory
+            loader.load('./rot_behemoth.glb', 
+                (gltf) => {
+                    logger.info('enemy', 'Successfully loaded rot_behemoth.glb model');
+                    
+                    // Add the loaded model to the behemoth group
+                    const model = gltf.scene;
+                    model.scale.set(behemothScale, behemothScale, behemothScale); // Scale appropriately
+                    model.position.y = behemothScale; // Position at ground level
+                    
+                    // Brighten up the model by traversing all meshes and adjusting their materials
+                    model.traverse((node) => {
+                        if (node.isMesh && node.material) {
+                            // Handle both single material and material array
+                            const materials = Array.isArray(node.material) ? node.material : [node.material];
+                            
+                            materials.forEach((material) => {
+                                // Add emissive properties to brighten the model (starting with 0 as requested)
+                                material.emissive = material.color.clone().multiplyScalar(0.3);
+                                material.emissiveIntensity = 0.0;
+                                
+                                // Increase base color brightness
+                                material.color.multiplyScalar(3);
+                                
+                                // Reduce metalness and increase roughness for better visibility
+                                if (material.metalness !== undefined) {
+                                    material.metalness = Math.max(0, material.metalness - 0.3);
+                                }
+                                
+                                if (material.roughness !== undefined) {
+                                    material.roughness = Math.min(1, material.roughness + 0.2);
+                                }
+                                
+                                // Ensure materials receive shadows properly
+                                material.needsUpdate = true;
+                            });
+                            
+                            // Make sure model casts and receives shadows
+                            node.castShadow = true;
+                            node.receiveShadow = true;
+                        }
+                    });
+                    
+                    behemoth.add(model);
+                    
+                    // Store model loaded status in userData for other functions to reference
+                    behemoth.userData.behemothModelLoaded = true;
+                    resolve(true);
+                },
+                (xhr) => {
+                    logger.debug('enemy', `Behemoth model loading: ${(xhr.loaded / xhr.total * 100).toFixed(2)}%`);
+                },
+                (error) => {
+                    logger.warn('enemy', 'Failed to load rot_behemoth.glb model', { error: error.message });
+                    reject(error);
+                }
+            );
+        });
+    };
+
+    // Position the behemoth
+    behemoth.position.set(position.x, 0, position.z);
+
+    // Log the creation
+    logger.info('enemyspawner', `Creating rot behemoth at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
+
+    // Set properties
+    behemoth.mesh = behemoth;
+    behemoth.enemyType = 'rotBehemoth';
+    behemoth.health = 800; // Extremely high health
+    behemoth.points = behemoth.health/10; // Base points for regular zombie
+    behemoth.speed = baseSpeed * 0.9; // Extremely slow
+    behemoth.mass = 5.0; // Extremely heavy
+    behemoth.damageMultiplier = 3.0; // Deals 3x normal damage
+    
+    // Try to load the 3D model first, then fall back to original geometry if it fails
+    loadBehemothModel().catch(() => {
+        logger.info('enemy', 'Falling back to default geometry behemoth model');
+        createDefaultBehemothGeometry(behemoth);
+    });
+    
+    // Scale the rot behemoth according to scale parameter
+    // Only scale the default geometry version, as the 3D model is already scaled
+    if (!behemoth.userData.behemothModelLoaded) {
+        behemoth.scale.copy(scale);
+    }
+
+    // Update method
+    behemoth.update = (context) => {
+        logger.verbose('enemy', `Rot behemoth update at ${behemoth.position.x.toFixed(2)},${behemoth.position.z.toFixed(2)}`);
+        
+        const { 
+            playerPosition, 
+            delta, 
+            collisionSettings,
+            environmentObjects,
+            nearbyZombies,
+            gameState,
+            checkCollision,
+            pushAway,
+            damagePlayer
+        } = context;
+        
+        // Calculate direction to player
+        const direction = new THREE.Vector3(
+            playerPosition.x - behemoth.position.x,
+            0,
+            playerPosition.z - behemoth.position.z
+        );
+        
+        const distance = direction.length();
+        const finalDirection = direction.clone().normalize();
+        
+        // Add slight randomness to movement (less than normal due to massive size)
+        const randomFactor = Math.min(0.05, distance * 0.002);
+        const randomAngle = (Math.random() - 0.5) * Math.PI * randomFactor;
+        finalDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), randomAngle);
+        
+        // Calculate intended position
+        const moveDistance = behemoth.speed * delta * 60;
+        const intendedPosition = new THREE.Vector3()
+            .copy(behemoth.position)
+            .addScaledVector(finalDirection, moveDistance);
+        
+        // Debug log position change
+        logger.verbose('enemy', `Rot behemoth moving from ${behemoth.position.x.toFixed(2)},${behemoth.position.z.toFixed(2)} to ${intendedPosition.x.toFixed(2)},${intendedPosition.z.toFixed(2)}`);
+        
+        // Handle collisions if collision settings are available
+        if (collisionSettings) {
+            const { COLLISION_DISTANCE, DAMAGE_DISTANCE, DAMAGE_PER_SECOND, ZOMBIE_COLLISION_DISTANCE } = collisionSettings;
+            
+            if (checkCollision && pushAway) {
+                if (checkCollision(intendedPosition, playerPosition, COLLISION_DISTANCE)) {
+                    const newPosition = pushAway(intendedPosition, playerPosition, COLLISION_DISTANCE);
+                    intendedPosition.x = newPosition.x;
+                    intendedPosition.z = newPosition.z;
+                    
+                    if (checkCollision(intendedPosition, playerPosition, DAMAGE_DISTANCE)) {
+                        // Use regular damage when not close enough for heavy attack
+                        const damageAmount = DAMAGE_PER_SECOND * delta;
+                        if (gameState) damagePlayer(gameState, damageAmount);
+                    }
+                }
+            }
+            
+            // Zombie collisions
+            if (nearbyZombies && checkCollision && pushAway) {
+                for (let i = 0; i < nearbyZombies.length; i++) {
+                    const otherZombie = nearbyZombies[i];
+                    if (!otherZombie || !otherZombie.mesh || otherZombie.mesh.isExploding) continue;
+                    
+                    if (checkCollision(intendedPosition, otherZombie.mesh.position, ZOMBIE_COLLISION_DISTANCE)) {
+                        const thisSize = behemoth.mass || 1.0;
+                        const otherSize = otherZombie.mesh.mass || 1.0;
+                        
+                        // Behemoth pushes other zombies away more due to mass
+                        const massRatio = thisSize / (thisSize + otherSize);
+                        const avoidancePosition = pushAway(
+                            intendedPosition, 
+                            otherZombie.mesh.position, 
+                            ZOMBIE_COLLISION_DISTANCE
+                        );
+                        
+                        // Apply less avoidance due to behemoth's size
+                        intendedPosition.x = intendedPosition.x * massRatio + avoidancePosition.x * (1 - massRatio);
+                        intendedPosition.z = intendedPosition.z * massRatio + avoidancePosition.z * (1 - massRatio);
+                    }
+                }
+            }
+        }
+        
+        // Environment collisions
+        if (environmentObjects) {
+            for (const object of environmentObjects) {
+                if (object && object.isObstacle) {
+                    const dx = intendedPosition.x - object.position.x;
+                    const dz = intendedPosition.z - object.position.z;
+                    const distance = Math.sqrt(dx * dx + dz * dz);
+                    if (distance < (object.boundingRadius || 2.5)) {
+                        const pushDirection = new THREE.Vector3(dx, 0, dz).normalize();
+                        const pushDistance = (object.boundingRadius || 2.5) - distance + 0.1;
+                        intendedPosition.x += pushDirection.x * pushDistance;
+                        intendedPosition.z += pushDirection.z * pushDistance;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // Apply final position and rotation
+        behemoth.position.copy(intendedPosition);
+        behemoth.rotation.y = Math.atan2(finalDirection.x, finalDirection.z);
+        
+        // Heavy attack effect
+        const distanceToPlayer = new THREE.Vector3(
+            playerPosition.x - behemoth.position.x,
+            0,
+            playerPosition.z - behemoth.position.z
+        ).length();
+        
+        // Devastating melee attack if very close
+        if (distanceToPlayer < 2.0) {
+            const attackDamage = 30 * delta; // Base damage is very high
+            if (gameState) {
+                logger.info('enemy', `Rot behemoth attacking player for ${attackDamage.toFixed(2)} damage`);
+                damagePlayer(gameState, attackDamage);
+            }
+        }
+    };
+    
+    return behemoth;
+};
+
+/**
+ * Creates the default behemoth geometry using primitives (original implementation)
+ * @param {THREE.Group} behemoth - The behemoth group to add geometry to
+ */
+function createDefaultBehemothGeometry(behemoth) {
     // Main body container
     const bodyGroup = new THREE.Group();
     behemoth.add(bodyGroup);
@@ -204,147 +429,4 @@ export const createRotBehemoth = (position, baseSpeed) => {
         bone.scale.set(1.0 + Math.random() * 0.5, 1.0 + Math.random() * 1.0, 1.0 + Math.random() * 0.5);
         bodyGroup.add(bone);
     }
-
-    // Position the behemoth
-    behemoth.position.set(position.x, 0, position.z);
-
-    // Log the creation
-    logger.info('enemyspawner', `Creating rot behemoth at ${position.x.toFixed(2)},${position.z.toFixed(2)}`);
-
-    // Set properties
-    behemoth.mesh = behemoth;
-    behemoth.enemyType = 'rotBehemoth';
-    behemoth.health = 800; // Extremely high health
-    behemoth.points = behemoth.health/10; // Base points for regular zombie
-    behemoth.speed = baseSpeed * 0.9; // Extremely slow
-    behemoth.mass = 5.0; // Extremely heavy
-    behemoth.damageMultiplier = 3.0; // Deals 3x normal damage
-    
-    // Scale the rot behemoth according to scale parameter
-    behemoth.scale.copy(scale);
-
-    // Update method
-    behemoth.update = (context) => {
-        logger.verbose('enemy', `Rot behemoth update at ${behemoth.position.x.toFixed(2)},${behemoth.position.z.toFixed(2)}`);
-        
-        const { 
-            playerPosition, 
-            delta, 
-            collisionSettings,
-            environmentObjects,
-            nearbyZombies,
-            gameState,
-            checkCollision,
-            pushAway,
-            damagePlayer
-        } = context;
-        
-        // Calculate direction to player
-        const direction = new THREE.Vector3(
-            playerPosition.x - behemoth.position.x,
-            0,
-            playerPosition.z - behemoth.position.z
-        );
-        
-        const distance = direction.length();
-        const finalDirection = direction.clone().normalize();
-        
-        // Add slight randomness to movement (less than normal due to massive size)
-        const randomFactor = Math.min(0.05, distance * 0.002);
-        const randomAngle = (Math.random() - 0.5) * Math.PI * randomFactor;
-        finalDirection.applyAxisAngle(new THREE.Vector3(0, 1, 0), randomAngle);
-        
-        // Calculate intended position
-        const moveDistance = behemoth.speed * delta * 60;
-        const intendedPosition = new THREE.Vector3()
-            .copy(behemoth.position)
-            .addScaledVector(finalDirection, moveDistance);
-        
-        // Debug log position change
-        logger.verbose('enemy', `Rot behemoth moving from ${behemoth.position.x.toFixed(2)},${behemoth.position.z.toFixed(2)} to ${intendedPosition.x.toFixed(2)},${intendedPosition.z.toFixed(2)}`);
-        
-        // Handle collisions if collision settings are available
-        if (collisionSettings) {
-            const { COLLISION_DISTANCE, DAMAGE_DISTANCE, DAMAGE_PER_SECOND, ZOMBIE_COLLISION_DISTANCE } = collisionSettings;
-            
-            if (checkCollision && pushAway) {
-                if (checkCollision(intendedPosition, playerPosition, COLLISION_DISTANCE)) {
-                    const newPosition = pushAway(intendedPosition, playerPosition, COLLISION_DISTANCE);
-                    intendedPosition.x = newPosition.x;
-                    intendedPosition.z = newPosition.z;
-                    
-                    if (checkCollision(intendedPosition, playerPosition, DAMAGE_DISTANCE)) {
-                        // Use regular damage when not close enough for heavy attack
-                        const damageAmount = DAMAGE_PER_SECOND * delta;
-                        if (gameState) damagePlayer(gameState, damageAmount);
-                    }
-                }
-            }
-            
-            // Zombie collisions
-            if (nearbyZombies && checkCollision && pushAway) {
-                for (let i = 0; i < nearbyZombies.length; i++) {
-                    const otherZombie = nearbyZombies[i];
-                    if (!otherZombie || !otherZombie.mesh || otherZombie.mesh.isExploding) continue;
-                    
-                    if (checkCollision(intendedPosition, otherZombie.mesh.position, ZOMBIE_COLLISION_DISTANCE)) {
-                        const thisSize = behemoth.mass || 1.0;
-                        const otherSize = otherZombie.mesh.mass || 1.0;
-                        
-                        // Behemoth pushes other zombies away more due to mass
-                        const massRatio = thisSize / (thisSize + otherSize);
-                        const avoidancePosition = pushAway(
-                            intendedPosition, 
-                            otherZombie.mesh.position, 
-                            ZOMBIE_COLLISION_DISTANCE
-                        );
-                        
-                        // Apply less avoidance due to behemoth's size
-                        intendedPosition.x = intendedPosition.x * massRatio + avoidancePosition.x * (1 - massRatio);
-                        intendedPosition.z = intendedPosition.z * massRatio + avoidancePosition.z * (1 - massRatio);
-                    }
-                }
-            }
-        }
-        
-        // Environment collisions
-        if (environmentObjects) {
-            for (const object of environmentObjects) {
-                if (object && object.isObstacle) {
-                    const dx = intendedPosition.x - object.position.x;
-                    const dz = intendedPosition.z - object.position.z;
-                    const distance = Math.sqrt(dx * dx + dz * dz);
-                    if (distance < (object.boundingRadius || 2.5)) {
-                        const pushDirection = new THREE.Vector3(dx, 0, dz).normalize();
-                        const pushDistance = (object.boundingRadius || 2.5) - distance + 0.1;
-                        intendedPosition.x += pushDirection.x * pushDistance;
-                        intendedPosition.z += pushDirection.z * pushDistance;
-                        break;
-                    }
-                }
-            }
-        }
-        
-        // Apply final position and rotation
-        behemoth.position.copy(intendedPosition);
-        behemoth.rotation.y = Math.atan2(finalDirection.x, finalDirection.z);
-        
-        // Heavy attack effect
-        const distanceToPlayer = new THREE.Vector3(
-            playerPosition.x - behemoth.position.x,
-            0,
-            playerPosition.z - behemoth.position.z
-        ).length();
-        
-        // Devastating melee attack if very close
-        if (distanceToPlayer < 2.0) {
-            const attackDamage = 30 * delta; // Base damage is very high
-            if (gameState) {
-                logger.info('enemy', `Rot behemoth attacking player for ${attackDamage.toFixed(2)} damage`);
-                damagePlayer(gameState, attackDamage);
-            }
-        }
-    };
-    
-    return behemoth;
-};
+}

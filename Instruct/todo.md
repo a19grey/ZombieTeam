@@ -20,10 +20,13 @@
 -- Bullets trigger that cute rainbow bubble thing again -- doen 3/25/2025
 -- Player should not be damaged by grenade launcher explosion (again) -- done 3/25/2025
 -- world is porcedurlalyt generated and not run out behind player, buildings smaller -- done 3/25/2025
--- Game stutters and then time is weird and laggy -- time is fixed player/zombie movement time based -- done 
+-- Game stutters and then time is weird and laggy -- done
 -- Tune zombie and gun rates and power up rates - done like... OK
--- bullets have knocback and user starts with shotgun like weapon
+-- add 3 secon countdown if user first game -- done
+-- fix generation bug where it's late to the party on right side 
+-- improve surface generated with that asset on twitter 
 -- Start in first person view then zoom out 
+-- bullets have knockback and user starts with shotgun like weapon
 -- tune cameraangle
 -- Player is replaced with 3D model 
 -- Multiplayer with not websockets but that other thing - Socket.io webrtc UDP 

@@ -179,15 +179,16 @@ const spawnEnemy = (playerPos, scene, gameState) => {
     // Front is considered to be the positive Z direction (top of screen)
     let theta;
     let acceptanceProb;
-    
 
     // Rejection sampling for angle - higher probability in front of player
     do {
         theta = Math.random() * 2 * Math.PI;
     } while (
-        Math.abs(theta - Math.PI) < (2 * Math.PI / 3) || 
-        Math.random() > (1 + Math.cos(theta + Math.PI)) / 2
+        Math.abs(theta - Math.PI) < (1.5 * Math.PI / 3) || // never spawn in back of player
+        Math.pow(Math.random(), 9) > (1 + Math.cos(theta + Math.PI)) / 2 // cosine dependent probability of spawning in front of player
     );
+
+    
     
     theta = theta - Math.PI; // Flip the angle to be in the FRONT of the player our game is a bit backwards somehow
     const spawnjitter = 10 ;

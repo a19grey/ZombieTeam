@@ -17,50 +17,86 @@
 import * as THREE from 'three';
 import { createExplosion } from '../gameplay/zombieUtils.js'; // Import explosion utility
 import { logger } from '../utils/logger.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 // Add 'enemy' to logger sections if not already included
 logger.addSection('enemy');
+logger.addSection('enemyspawner');
 
 export const createExploder = (position, baseSpeed ) => {
     // Configuration parameters
     const scale = new THREE.Vector3(1.0, 1.0, 1.0); // Scale vector for easy adjustment
+    const exploderScale = 1.0; // Scale for the 3D model
     
     const exploder = new THREE.Group();
+    
+    // Try to load the exploder 3D model first
+    const loader = new GLTFLoader();
+    
+    // Promise-based loading to handle fallback
+    const loadExploderModel = () => {
+        return new Promise((resolve, reject) => {
+            // Attempt to load the model
+            loader.load('./exploder.glb', 
+                (gltf) => {
+                    logger.info('enemy', 'Successfully loaded exploder.glb model');
+                    
+                    // Add the loaded model to the exploder group
+                    const model = gltf.scene;
+                    model.scale.set(exploderScale, exploderScale*1.5, exploderScale); // Scale appropriately
+                    model.position.y = exploderScale; // Position at ground level
+                    
+                    // Brighten up the model by traversing all meshes and adjusting their materials
+                    model.traverse((node) => {
+                        if (node.isMesh && node.material) {
+                            // Handle both single material and material array
+                            const materials = Array.isArray(node.material) ? node.material : [node.material];
+                            
+                            materials.forEach((material) => {
+                                // Add emissive properties to brighten the model
+                                material.emissive = material.color.clone().multiplyScalar(0.3);
+                                material.emissiveIntensity = 0.0;
+                                
+                                // Increase base color brightness
+                                material.color.multiplyScalar(1.7);
+                                
+                                // Reduce metalness and increase roughness for better visibility
+                                if (material.metalness !== undefined) {
+                                    material.metalness = Math.max(0, material.metalness - 0.3);
+                                }
+                                
+                                if (material.roughness !== undefined) {
+                                    material.roughness = Math.min(1, material.roughness + 0.2);
+                                }
+                                
+                                // Ensure materials receive shadows properly
+                                material.needsUpdate = true;
+                            });
+                            
+                            // Make sure model casts and receives shadows
+                            node.castShadow = true;
+                            node.receiveShadow = true;
+                        }
+                    });
+                    
+                    exploder.add(model);
+                    
+                    // Store model loaded status in userData for other functions to reference
+                    exploder.userData.exploderModelLoaded = true;
+                    resolve(true);
+                },
+                (xhr) => {
+                    logger.debug('enemy', `Exploder model loading: ${(xhr.loaded / xhr.total * 100).toFixed(2)}%`);
+                },
+                (error) => {
+                    logger.warn('enemy', 'Failed to load exploder.glb model', { error: error.message });
+                    reject(error);
+                }
+            );
+        });
+    };
 
-    // Blocky head/body combo
-    const bodyGeometry = new THREE.BoxGeometry(0.6, 1.2, 0.6);
-    const bodyMaterial = new THREE.MeshStandardMaterial({
-        color: 0x00cc00, // Bright green
-        roughness: 0.9
-    });
-    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.position.y = 0.6;
-    body.castShadow = true;
-    exploder.add(body);
-
-    // Face (black eyes and mouth)
-    const featureGeometry = new THREE.BoxGeometry(0.15, 0.15, 0.1);
-    const featureMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
-    const leftEye = new THREE.Mesh(featureGeometry, featureMaterial);
-    leftEye.position.set(-0.15, 0.9, 0.31);
-    exploder.add(leftEye);
-    const rightEye = new THREE.Mesh(featureGeometry, featureMaterial);
-    rightEye.position.set(0.15, 0.9, 0.31);
-    exploder.add(rightEye);
-    const mouth = new THREE.Mesh(featureGeometry, featureMaterial);
-    mouth.scale.set(1, 2, 1);
-    mouth.position.set(0, 0.6, 0.31);
-    exploder.add(mouth);
-
-    // Stubby legs
-    const legGeometry = new THREE.BoxGeometry(0.25, 0.4, 0.25);
-    const leftLeg = new THREE.Mesh(legGeometry, bodyMaterial);
-    leftLeg.position.set(-0.15, 0.2, 0);
-    exploder.add(leftLeg);
-    const rightLeg = new THREE.Mesh(legGeometry, bodyMaterial);
-    rightLeg.position.set(0.15, 0.2, 0);
-    exploder.add(rightLeg);
-
+    // Position the exploder
     exploder.position.set(position.x, 0, position.z);
     
     // Debug log for exploder creation
@@ -76,8 +112,6 @@ export const createExploder = (position, baseSpeed ) => {
     // Set speed relative to baseSpeed (slightly slower than standard zombie)
     exploder.speed = baseSpeed * 0.9;
     
-    
-    
     // Set mass for physics calculations - exploder is medium-weight
     exploder.mass = 1.2;
     
@@ -86,8 +120,17 @@ export const createExploder = (position, baseSpeed ) => {
     // Set points value for this enemy type
     exploder.points = exploder.health/10; // Points for exploder type
     
+    // Try to load the 3D model first, then fall back to original geometry if it fails
+    loadExploderModel().catch(() => {
+        logger.info('enemy', 'Falling back to default geometry exploder model');
+        createDefaultExploderGeometry(exploder);
+    });
+    
     // Scale the exploder according to scale parameter
-    exploder.scale.copy(scale);
+    // Only scale the default geometry version, as the 3D model is already scaled
+    if (!exploder.userData.exploderModelLoaded) {
+        exploder.scale.copy(scale);
+    }
     
     /**
      * Updates the exploder's position and behavior
@@ -110,11 +153,9 @@ export const createExploder = (position, baseSpeed ) => {
             collisionSettings,
             environmentObjects,
             nearbyZombies,
-            zombieSizes,
             gameState,
             checkCollision,
-            pushAway,
-            damagePlayer
+            pushAway
         } = context;
         
         // Special exploder behavior - explodes when close to player
@@ -136,16 +177,34 @@ export const createExploder = (position, baseSpeed ) => {
             exploder.isExploding = true;
             exploder.explosionTimer = EXPLOSION_COUNTDOWN; // Time before exploding
             
-            // Change color to red
-            exploder.children.forEach(child => {
-                if (child.material && child.material.color) {
-                    child.material.color.set(0xff0000);
-                    if (child.material.emissive) {
-                        child.material.emissive.set(0xff0000);
-                        child.material.emissiveIntensity = 0.5;
+            // Change color to red - handle differently based on model type
+            if (exploder.userData.exploderModelLoaded) {
+                // For 3D model - traverse the model to change all materials
+                exploder.traverse(child => {
+                    if (child.isMesh && child.material) {
+                        const materials = Array.isArray(child.material) ? child.material : [child.material];
+                        
+                        materials.forEach(material => {
+                            material.color.set(0xff0000);
+                            if (material.emissive) {
+                                material.emissive.set(0xff0000);
+                                material.emissiveIntensity = 0.5;
+                            }
+                        });
                     }
-                }
-            });
+                });
+            } else {
+                // For geometric model - access children directly
+                exploder.children.forEach(child => {
+                    if (child.material && child.material.color) {
+                        child.material.color.set(0xff0000);
+                        if (child.material.emissive) {
+                            child.material.emissive.set(0xff0000);
+                            child.material.emissiveIntensity = 0.5;
+                        }
+                    }
+                });
+            }
             
             return; // Don't move once exploding starts
         } else if (exploder.isExploding) {
@@ -158,20 +217,43 @@ export const createExploder = (position, baseSpeed ) => {
             const flashIntensity = Math.sin(Date.now() * 0.01 / flashSpeed) * 0.5 + 0.5;
             
             // Make it flash red/yellow as countdown progresses
-            exploder.children.forEach(child => {
-                if (child.material && child.material.color) {
-                    // Flash between red and yellow
-                    const r = 1.0;
-                    const g = flashIntensity * 0.8;
-                    const b = 0;
-                    child.material.color.setRGB(r, g, b);
-                    
-                    if (child.material.emissive) {
-                        child.material.emissive.setRGB(r * 0.5, g * 0.5, 0);
-                        child.material.emissiveIntensity = 0.5 + flashIntensity * 0.5;
+            if (exploder.userData.exploderModelLoaded) {
+                // For 3D model
+                exploder.traverse(child => {
+                    if (child.isMesh && child.material) {
+                        const materials = Array.isArray(child.material) ? child.material : [child.material];
+                        
+                        materials.forEach(material => {
+                            // Flash between red and yellow
+                            const r = 1.0;
+                            const g = flashIntensity * 0.8;
+                            const b = 0;
+                            material.color.setRGB(r, g, b);
+                            
+                            if (material.emissive) {
+                                material.emissive.setRGB(r * 0.5, g * 0.5, 0);
+                                material.emissiveIntensity = 0.5 + flashIntensity * 0.5;
+                            }
+                        });
                     }
-                }
-            });
+                });
+            } else {
+                // For geometric model
+                exploder.children.forEach(child => {
+                    if (child.material && child.material.color) {
+                        // Flash between red and yellow
+                        const r = 1.0;
+                        const g = flashIntensity * 0.8;
+                        const b = 0;
+                        child.material.color.setRGB(r, g, b);
+                        
+                        if (child.material.emissive) {
+                            child.material.emissive.setRGB(r * 0.5, g * 0.5, 0);
+                            child.material.emissiveIntensity = 0.5 + flashIntensity * 0.5;
+                        }
+                    }
+                });
+            }
             
             // Wobble/shake the exploder as it's about to explode
             const wobbleIntensity = Math.min(0.05, (1.5 - exploder.explosionTimer) * 0.1);
@@ -230,7 +312,7 @@ export const createExploder = (position, baseSpeed ) => {
             .addScaledVector(finalDirection, moveDistance);
         
         // Player collision
-        const { COLLISION_DISTANCE, DAMAGE_DISTANCE, DAMAGE_PER_SECOND, ZOMBIE_COLLISION_DISTANCE } = collisionSettings;
+        const { COLLISION_DISTANCE, ZOMBIE_COLLISION_DISTANCE } = collisionSettings;
         
         if (checkCollision(intendedPosition, playerPosition, COLLISION_DISTANCE)) {
             const newPosition = pushAway(intendedPosition, playerPosition, COLLISION_DISTANCE);
@@ -278,4 +360,44 @@ export const createExploder = (position, baseSpeed ) => {
     };
 
     return exploder;
+}
+
+/**
+ * Creates the default exploder geometry using primitives (original implementation)
+ * @param {THREE.Group} exploder - The exploder group to add geometry to
+ */
+function createDefaultExploderGeometry(exploder) {
+    // Blocky head/body combo
+    const bodyGeometry = new THREE.BoxGeometry(0.6, 1.2, 0.6);
+    const bodyMaterial = new THREE.MeshStandardMaterial({
+        color: 0x00cc00, // Bright green
+        roughness: 0.9
+    });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.position.y = 0.6;
+    body.castShadow = true;
+    exploder.add(body);
+
+    // Face (black eyes and mouth)
+    const featureGeometry = new THREE.BoxGeometry(0.15, 0.15, 0.1);
+    const featureMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
+    const leftEye = new THREE.Mesh(featureGeometry, featureMaterial);
+    leftEye.position.set(-0.15, 0.9, 0.31);
+    exploder.add(leftEye);
+    const rightEye = new THREE.Mesh(featureGeometry, featureMaterial);
+    rightEye.position.set(0.15, 0.9, 0.31);
+    exploder.add(rightEye);
+    const mouth = new THREE.Mesh(featureGeometry, featureMaterial);
+    mouth.scale.set(1, 2, 1);
+    mouth.position.set(0, 0.6, 0.31);
+    exploder.add(mouth);
+
+    // Stubby legs
+    const legGeometry = new THREE.BoxGeometry(0.25, 0.4, 0.25);
+    const leftLeg = new THREE.Mesh(legGeometry, bodyMaterial);
+    leftLeg.position.set(-0.15, 0.2, 0);
+    exploder.add(leftLeg);
+    const rightLeg = new THREE.Mesh(legGeometry, bodyMaterial);
+    rightLeg.position.set(0.15, 0.2, 0);
+    exploder.add(rightLeg);
 }

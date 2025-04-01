@@ -24,82 +24,86 @@
 // src/enemies/zombie.js
 import * as THREE from 'three';
 import { logger } from '../utils/logger.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 // Add 'enemy' to logger sections if not already included
 logger.addSection('enemy');
+logger.addSection('enemyspawner');
 
 export const createZombieKing = (position, baseSpeed) => {
     // Configuration parameters
-    const scale = new THREE.Vector3(1.75, 1.75, 1.75); // Scale vector for easy adjustment
+    const scale = new THREE.Vector3(1,1,1); // Scale vector for easy adjustment
+    const kingScale = 1.65; // Scale for the 3D model
     
     const king = new THREE.Group();
+    
+    // Try to load the zombie king 3D model first
+    const loader = new GLTFLoader();
+    
+    // Promise-based loading to handle fallback
+    const loadZombieKingModel = () => {
+        return new Promise((resolve, reject) => {
+            // Attempt to load the model
+            loader.load('./zombieking.glb', 
+                (gltf) => {
+                    logger.info('enemy', 'Successfully loaded zombieking.glb model');
+                    
+                    // Add the loaded model to the king group
+                    const model = gltf.scene;
+                    model.scale.set(kingScale, kingScale, kingScale); // Scale appropriately
+                    model.position.y = kingScale; // Position at ground level
+                    
+                    // Brighten up the model by traversing all meshes and adjusting their materials
+                    model.traverse((node) => {
+                        if (node.isMesh && node.material) {
+                            // Handle both single material and material array
+                            const materials = Array.isArray(node.material) ? node.material : [node.material];
+                            
+                            materials.forEach((material) => {
+                                // Add emissive properties to brighten the model
+                                material.emissive = material.color.clone().multiplyScalar(0.3);
+                                material.emissiveIntensity = 0.0;
+                                
+                                // Increase base color brightness
+                                material.color.multiplyScalar(1.9);
+                                
+                                // Reduce metalness and increase roughness for better visibility
+                                if (material.metalness !== undefined) {
+                                    material.metalness = Math.max(0, material.metalness - 0.3);
+                                }
+                                
+                                if (material.roughness !== undefined) {
+                                    material.roughness = Math.min(1, material.roughness + 0.2);
+                                }
+                                
+                                // Ensure materials receive shadows properly
+                                material.needsUpdate = true;
+                            });
+                            
+                            // Make sure model casts and receives shadows
+                            node.castShadow = true;
+                            node.receiveShadow = true;
+                        }
+                    });
+                    
+                    king.add(model);
+                    
+                    // Store model loaded status in userData for other functions to reference
+                    king.userData.kingModelLoaded = true;
+                    resolve(true);
+                },
+                (xhr) => {
+                    logger.debug('enemy', `Zombie King model loading: ${(xhr.loaded / xhr.total * 100).toFixed(2)}%`);
+                },
+                (error) => {
+                    logger.warn('enemy', 'Failed to load zombieking.glb model', { error: error.message });
+                    reject(error);
+                }
+            );
+        });
+    };
 
-    // Larger head with crown
-    const headGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
-    const headMaterial = new THREE.MeshStandardMaterial({
-        color: 0x2e8b57,
-        roughness: 0.9
-    });
-    const head = new THREE.Mesh(headGeometry, headMaterial);
-    head.position.y = 2.2;
-    head.castShadow = true;
-    king.add(head);
-
-    // Crown
-    const crownGeometry = new THREE.BoxGeometry(0.8, 0.2, 0.8);
-    const crownMaterial = new THREE.MeshStandardMaterial({
-        color: 0xffd700,
-        metalness: 0.8
-    });
-    const crown = new THREE.Mesh(crownGeometry, crownMaterial);
-    crown.position.y = 2.55;
-    king.add(crown);
-
-    // Glowing purple eyes
-    const eyeGeometry = new THREE.BoxGeometry(0.15, 0.15, 0.15);
-    const eyeMaterial = new THREE.MeshStandardMaterial({
-        color: 0x800080,
-        emissive: 0x800080,
-        emissiveIntensity: 0.8
-    });
-    const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-    leftEye.position.set(-0.2, 2.25, 0.36);
-    king.add(leftEye);
-    const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-    rightEye.position.set(0.2, 2.25, 0.36);
-    king.add(rightEye);
-
-    // Larger body
-    const bodyGeometry = new THREE.BoxGeometry(0.8, 1.7, 0.4);
-    const bodyMaterial = new THREE.MeshStandardMaterial({
-        color: 0x1a3c34,
-        roughness: 0.9
-    });
-    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
-    body.position.y = 1.35;
-    body.castShadow = true;
-    king.add(body);
-
-    // Beefy arms
-    const armGeometry = new THREE.BoxGeometry(0.4, 1.0, 0.4);
-    const leftArm = new THREE.Mesh(armGeometry, headMaterial);
-    leftArm.position.set(-0.6, 1.0, 0.2);
-    leftArm.rotation.x = Math.PI / 4;
-    king.add(leftArm);
-    const rightArm = new THREE.Mesh(armGeometry, headMaterial);
-    rightArm.position.set(0.6, 1.0, 0.2);
-    rightArm.rotation.x = Math.PI / 4;
-    king.add(rightArm);
-
-    // Strong legs
-    const legGeometry = new THREE.BoxGeometry(0.35, 0.7, 0.35);
-    const leftLeg = new THREE.Mesh(legGeometry, bodyMaterial);
-    leftLeg.position.set(-0.2, 0.35, 0);
-    king.add(leftLeg);
-    const rightLeg = new THREE.Mesh(legGeometry, bodyMaterial);
-    rightLeg.position.set(0.2, 0.35, 0);
-    king.add(rightLeg);
-
+    // Position the king
     king.position.set(position.x, 0, position.z);
     king.mesh = king;
     
@@ -119,8 +123,17 @@ export const createZombieKing = (position, baseSpeed) => {
     // Set points value for this enemy type
     king.points = king.health/100; // High points for boss enemy
     
+    // Try to load the 3D model first, then fall back to original geometry if it fails
+    loadZombieKingModel().catch(() => {
+        logger.info('enemy', 'Falling back to default geometry zombie king model');
+        createDefaultZombieKingGeometry(king);
+    });
+    
     // Scale the zombie king according to scale parameter
-    king.scale.copy(scale);
+    // Only scale the default geometry version, as the 3D model is already scaled
+    if (!king.userData.kingModelLoaded) {
+        king.scale.copy(scale);
+    }
     
     /**
      * Updates the zombie king's position and behavior
@@ -133,7 +146,6 @@ export const createZombieKing = (position, baseSpeed) => {
             collisionSettings,
             environmentObjects,
             nearbyZombies,
-            zombieSizes,
             gameState,
             checkCollision,
             pushAway,
@@ -248,3 +260,75 @@ export const createZombieKing = (position, baseSpeed) => {
     
     return king;
 };
+
+/**
+ * Creates the default zombie king geometry using primitives (original implementation)
+ * @param {THREE.Group} king - The zombie king group to add geometry to
+ */
+function createDefaultZombieKingGeometry(king) {
+    // Larger head with crown
+    const headGeometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+    const headMaterial = new THREE.MeshStandardMaterial({
+        color: 0x2e8b57,
+        roughness: 0.9
+    });
+    const head = new THREE.Mesh(headGeometry, headMaterial);
+    head.position.y = 2.2;
+    head.castShadow = true;
+    king.add(head);
+
+    // Crown
+    const crownGeometry = new THREE.BoxGeometry(0.8, 0.2, 0.8);
+    const crownMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffd700,
+        metalness: 0.8
+    });
+    const crown = new THREE.Mesh(crownGeometry, crownMaterial);
+    crown.position.y = 2.55;
+    king.add(crown);
+
+    // Glowing purple eyes
+    const eyeGeometry = new THREE.BoxGeometry(0.15, 0.15, 0.15);
+    const eyeMaterial = new THREE.MeshStandardMaterial({
+        color: 0x800080,
+        emissive: 0x800080,
+        emissiveIntensity: 0.8
+    });
+    const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+    leftEye.position.set(-0.2, 2.25, 0.36);
+    king.add(leftEye);
+    const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+    rightEye.position.set(0.2, 2.25, 0.36);
+    king.add(rightEye);
+
+    // Larger body
+    const bodyGeometry = new THREE.BoxGeometry(0.8, 1.7, 0.4);
+    const bodyMaterial = new THREE.MeshStandardMaterial({
+        color: 0x1a3c34,
+        roughness: 0.9
+    });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.position.y = 1.35;
+    body.castShadow = true;
+    king.add(body);
+
+    // Beefy arms
+    const armGeometry = new THREE.BoxGeometry(0.4, 1.0, 0.4);
+    const leftArm = new THREE.Mesh(armGeometry, headMaterial);
+    leftArm.position.set(-0.6, 1.0, 0.2);
+    leftArm.rotation.x = Math.PI / 4;
+    king.add(leftArm);
+    const rightArm = new THREE.Mesh(armGeometry, headMaterial);
+    rightArm.position.set(0.6, 1.0, 0.2);
+    rightArm.rotation.x = Math.PI / 4;
+    king.add(rightArm);
+
+    // Strong legs
+    const legGeometry = new THREE.BoxGeometry(0.35, 0.7, 0.35);
+    const leftLeg = new THREE.Mesh(legGeometry, bodyMaterial);
+    leftLeg.position.set(-0.2, 0.35, 0);
+    king.add(leftLeg);
+    const rightLeg = new THREE.Mesh(legGeometry, bodyMaterial);
+    rightLeg.position.set(0.2, 0.35, 0);
+    king.add(rightLeg);
+}
