@@ -22,8 +22,7 @@ The game world includes various environmental elements:
 
 ### Game Mechanics
 
-- **Wave-Based Progression**: Enemies come in waves, with difficulty increasing over time.
-- **Boss Waves**: Every 5th wave features a Zombie King boss.
+- **Enemy Progression**: Endless Hoardes of enemies spawn in front of you 
 - **Scoring System**: Different points awarded for different enemy types.
 - **Health System**: Player must manage health to survive.
 - **Powerups**: Various powerups can be collected to enhance combat abilities.
